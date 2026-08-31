@@ -1,0 +1,197 @@
+<!DOCTYPE html><html class="dark" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>VOITSFEST 2026 - Admin Dashboard BPC Database</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-bright": "#363a3b",
+                        "secondary": "#b0c6ff",
+                        "on-primary-fixed": "#151a31",
+                        "outline-variant": "#46464d",
+                        "secondary-fixed": "#d9e2ff",
+                        "tertiary-fixed": "#ffdcc0",
+                        "on-background": "#e0e3e5",
+                        "surface-container-low": "#191c1e",
+                        "primary-fixed": "#dde1ff",
+                        "on-secondary": "#012d6d",
+                        "inverse-surface": "#e0e3e5",
+                        "on-secondary-fixed-variant": "#234485",
+                        "on-primary-container": "#777c97",
+                        "tertiary": "#e6bfa0",
+                        "on-tertiary-fixed-variant": "#5c4129",
+                        "on-primary-fixed-variant": "#41455e",
+                        "surface-container-highest": "#323537",
+                        "inverse-on-surface": "#2d3133",
+                        "background": "#101415",
+                        "error": "#ffb4ab",
+                        "error-container": "#93000a",
+                        "surface-container": "#1d2022",
+                        "surface-container-lowest": "#0b0f10",
+                        "on-tertiary": "#432b15",
+                        "surface-container-high": "#272a2c",
+                        "surface": "#101415",
+                        "surface-variant": "#323537",
+                        "secondary-container": "#234485",
+                        "surface-tint": "#c1c5e3",
+                        "secondary-fixed-dim": "#b0c6ff",
+                        "on-primary": "#2a2f47",
+                        "on-tertiary-container": "#97775b",
+                        "on-tertiary-fixed": "#2b1704",
+                        "on-secondary-container": "#96b4fc",
+                        "tertiary-fixed-dim": "#e6bfa0",
+                        "surface-dim": "#101415",
+                        "on-secondary-fixed": "#001944",
+                        "primary-container": "#0b1026",
+                        "primary": "#c1c5e3",
+                        "on-error": "#690005",
+                        "on-surface": "#e0e3e5",
+                        "outline": "#919097",
+                        "inverse-primary": "#585d77",
+                        "on-surface-variant": "#c7c5ce",
+                        "tertiary-container": "#1f0d00",
+                        "on-error-container": "#ffdad6",
+                        "primary-fixed-dim": "#c1c5e3"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "24px",
+                        "sm": "12px",
+                        "xl": "80px",
+                        "lg": "48px",
+                        "container-max": "1280px",
+                        "margin-mobile": "16px",
+                        "md": "24px",
+                        "xs": "4px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Space Grotesk"],
+                        "display-lg-mobile": ["Space Grotesk"],
+                        "headline-lg": ["Space Grotesk"],
+                        "headline-sm": ["Space Grotesk"],
+                        "body-md": ["Plus Jakarta Sans"],
+                        "display-lg": ["Space Grotesk"],
+                        "body-lg": ["Plus Jakarta Sans"],
+                        "label-md": ["Space Grotesk"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "display-lg-mobile": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "headline-lg": ["48px", { "lineHeight": "56px", "fontWeight": "600" }],
+                        "headline-sm": ["24px", { "lineHeight": "32px", "fontWeight": "500" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "display-lg": ["72px", { "lineHeight": "80px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #0b1026; /* Midnight Navy */
+            color: #e0e3e5;
+            background-image: radial-gradient(circle at 50% 0%, rgba(46, 78, 143, 0.15) 0%, rgba(11, 16, 38, 1) 70%);
+            background-attachment: fixed;
+        }
+        .glass-panel {
+            background: rgba(46, 78, 143, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .glow-accent {
+            box-shadow: 0 0 15px rgba(176, 198, 255, 0.2);
+        }
+        .text-glow {
+            text-shadow: 0 0 10px rgba(230, 191, 160, 0.5);
+        }
+        
+        /* Custom scrollbar for data dense tables */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(16, 20, 21, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(193, 197, 227, 0.3);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(193, 197, 227, 0.5);
+        }
+        
+        .sticky-col-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="min-h-screen overflow-x-hidden antialiased flex flex-col">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/10 backdrop-blur-xl border-b border-white/20 shadow-[0_0_15px_rgba(176,198,255,0.1)] flex justify-between items-center px-gutter h-20"><div class="flex items-center gap-4"><img alt="VOITSFEST Logo" class="h-10 w-auto" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVMayD1qwZAIPmorUq0vv9hxqu3XIPifbDexDEBJ7uhkv_bgu1MYz5_-3oFUj42Q3gHuayhqUfQT1508yw4vzU-2fXhdx_zqE4f6wCnq62ggI8YCRJ_Pvf694Y-g4ih4Bu0Muo-T1uNGBijUTTqmmSdwC8-CUFCTNvVyx2Lqe1_RnqTOXvifHpkGROcCXJLpBIeICxmw4XqIoKI7ekwU86zQ4HuhWuH-S4BjsKCSWyJUacmz3pXJCKmmXMLWoilaSZwA"></div><nav class="hidden lg:flex items-center gap-8 absolute left-1/2 -translate-x-1/2"><div class="relative group"><a class="text-label-md font-label-md uppercase tracking-wider text-on-surface-variant hover:text-secondary transition-colors flex items-center gap-1" href="#">Competitions <span class="material-symbols-outlined text-sm">expand_more</span></a><div class="absolute top-full left-0 mt-2 w-64 bg-surface-container-lowest/60 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-300 z-50"><a class="block px-4 py-3 text-sm hover:bg-white/10 transition-colors" href="#">Business Plan Competition (BPC)</a><a class="block px-4 py-3 text-sm hover:bg-white/10 transition-colors" href="#">Business Case Competition (BCC)</a></div></div><div class="relative group"><a class="text-label-md font-label-md uppercase tracking-wider text-on-surface-variant hover:text-secondary transition-colors flex items-center gap-1" href="#">Events <span class="material-symbols-outlined text-sm">expand_more</span></a><div class="absolute top-full left-0 mt-2 w-64 bg-surface-container-lowest/60 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-300 z-50"><a class="block px-4 py-3 text-sm hover:bg-white/10 transition-colors" href="#">Seminar Kewirausahaan</a><a class="block px-4 py-3 text-sm hover:bg-white/10 transition-colors" href="#">ColorFun Run</a><a class="block px-4 py-3 text-sm hover:bg-white/10 transition-colors" href="#">Festival</a></div></div><a class="text-label-md font-label-md uppercase tracking-wider text-on-surface-variant hover:text-secondary transition-colors" href="#">Tenants</a><a class="text-label-md font-label-md uppercase tracking-wider text-on-surface-variant hover:text-secondary transition-colors" href="#">Sponsors</a></nav><div class="flex items-center gap-4"><button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">notifications</span></button><button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">settings</span></button><div class="w-10 h-10 rounded-full bg-secondary-container border border-secondary flex items-center justify-center overflow-hidden"><img alt="Admin Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDO2bx_RyXUssXsML0wQ9-UBf88lZlOmtLGUh7c-hEukKb-I74kg0KzzgugZz4mmiJuyjENlvRvDzh9_LQVtiLz5RXlLou9vr1ckwrZ8AZGMyJVnH31kjlwcS6LgW_UMGgOpN2_lc5GOSCR4B8CxqRypXTCpby3RDw9ZUEHay7U39srgDw5AhBcugq7_dmZr0D-TYoctcWZ4KuaB8V_A05qM80Dw8zQIrz0mpD9LvnnWq6U0RWXmv3z"></div></div></header>
+<!-- Main Content Area -->
+<main class="pt-[104px] p-gutter flex-1 flex flex-col">
+<div class="max-w-[1920px] mx-auto w-full flex-1 flex flex-col gap-sm">
+<!-- Page Header -->
+<header class="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-sm shrink-0">
+<div>
+<h1 class="font-headline-lg text-on-surface mb-xs text-headline-md">BPC Participant Database</h1>
+<p class="font-body-md text-on-surface-variant">Manage and review all Business Plan Competition registrations.</p>
+</div>
+<div class="flex flex-wrap gap-sm mb-xs"><div class="flex flex-col gap-sm w-full items-end"><div class="flex gap-sm"><button class="bg-secondary/10 text-on-surface-variant border border-white/10 px-sm py-xs rounded-lg font-label-md text-label-md hover:bg-secondary/20 hover:text-secondary transition-colors flex items-center gap-xs"><span class="material-symbols-outlined text-sm">person</span> Data Akun</button><button class="bg-secondary/10 text-on-surface-variant border border-white/10 px-sm py-xs rounded-lg font-label-md text-label-md hover:bg-secondary/20 hover:text-secondary transition-colors flex items-center gap-xs"><span class="material-symbols-outlined text-sm">database</span> Data ColorFun Run</button><button class="bg-secondary/10 text-on-surface-variant border border-white/10 px-sm py-xs rounded-lg font-label-md text-label-md hover:bg-secondary/20 hover:text-secondary transition-colors flex items-center gap-xs"><span class="material-symbols-outlined text-sm">database</span> Data Festival</button></div><div class="flex gap-sm"><button class="bg-secondary/20 text-secondary border border-secondary/50 px-sm py-xs rounded-lg font-label-md text-label-md hover:bg-secondary/30 transition-colors flex items-center gap-xs"><span class="material-symbols-outlined text-sm">database</span> Data BPC</button><button class="bg-secondary/10 text-on-surface-variant border border-white/10 px-sm py-xs rounded-lg font-label-md text-label-md hover:bg-secondary/20 hover:text-secondary transition-colors flex items-center gap-xs"><span class="material-symbols-outlined text-sm">database</span> Data BCC</button><button class="bg-secondary/10 text-on-surface-variant border border-white/10 px-sm py-xs rounded-lg font-label-md text-label-md hover:bg-secondary/20 hover:text-secondary transition-colors flex items-center gap-xs"><span class="material-symbols-outlined text-sm">database</span> Data Seminar</button><button class="bg-tertiary/10 text-on-surface-variant border border-white/10 px-sm py-xs rounded-lg font-label-md text-label-md hover:bg-tertiary/20 hover:text-tertiary transition-colors flex items-center gap-xs"><span class="material-symbols-outlined text-sm">person_search</span> Data Tenant</button></div></div></div>
+</header>
+<!-- BPC Database Table Section -->
+<section class="glass-panel rounded-xl flex flex-col flex-1 overflow-hidden">
+<div class="p-sm border-b border-white/10 flex justify-between items-center bg-surface/50 backdrop-blur-sm shrink-0">
+<div class="flex items-center gap-sm">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="bg-surface-container border border-white/10 rounded-lg pl-9 pr-3 py-1.5 text-sm text-on-surface focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary w-64 transition-all" placeholder="Search teams, members..." type="text">
+</div>
+<button class="bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg text-sm font-medium text-on-surface-variant hover:bg-white/10 hover:text-on-surface transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">filter_list</span> Filter
+</button>
+</div>
+<div class="flex gap-2 text-sm text-on-surface-variant">
+<span class="">Total: <strong class="text-on-surface">1,245</strong></span>
+<span class="mx-2">|</span>
+<span class="">Pending: <strong class="text-tertiary">142</strong></span>
+</div>
+</div>
+<div class="overflow-auto flex-1 bg-surface-container-lowest/80 relative">
+<table class="w-full text-left border-collapse whitespace-nowrap text-sm">
+<thead class="sticky-col-header bg-surface-container-high/90 backdrop-blur-md shadow-sm"><tr><th class="p-2 border-b border-r border-white/10 text-center font-label-md text-secondary tracking-widest bg-secondary/5" colspan="18">STAGE 1: TEAM DATA</th><th class="p-2 border-b border-r border-white/10 text-center font-label-md text-tertiary tracking-widest bg-tertiary/5" colspan="3">STAGE 2: PAYMENT</th><th class="p-2 border-b border-r border-white/10 text-center font-label-md text-primary tracking-widest bg-primary/5" colspan="5">STAGE 3: DOCUMENTATION</th><th class="p-2 border-b border-white/10 text-center font-label-md text-on-surface-variant tracking-widest bg-white/5" colspan="3">ADMIN</th></tr><tr class="border-b border-white/10 text-on-surface-variant font-label-md uppercase tracking-wider text-[11px]"><th class="px-4 py-3 border-r border-white/5 sticky left-0 z-20 backdrop-blur-md bg-surface-container">Nama Tim</th><th class="px-4 py-3 border-r border-white/5">Nama Lengkap Ketua Tim</th><th class="px-4 py-3 border-r border-white/5">WhatsApp</th><th class="px-4 py-3 border-r border-white/5">Email</th><th class="px-4 py-3 border-r border-white/5">Asal Instansi</th><th class="px-4 py-3 border-r border-white/5">Jenjang Pendidikan</th><th class="px-4 py-3 border-r border-white/5">Fakultas</th><th class="px-4 py-3 border-r border-white/5">Jurusan</th><th class="px-4 py-3 border-r border-white/5 text-center">Scan Kartu Pelajar</th><th class="px-4 py-3 border-r border-white/5">Nama Lengkap Member 2</th><th class="px-4 py-3 border-r border-white/5">Jenjang Pendidikan</th><th class="px-4 py-3 border-r border-white/5">Fakultas</th><th class="px-4 py-3 border-r border-white/5">Jurusan</th><th class="px-4 py-3 border-r border-white/5 text-center">Scan Kartu Pelajar</th><th class="px-4 py-3 border-r border-white/5">Nama Lengkap Member 3</th><th class="px-4 py-3 border-r border-white/5">Jenjang Pendidikan</th><th class="px-4 py-3 border-r border-white/5">Fakultas</th><th class="px-4 py-3 border-r border-white/10">Jurusan</th><th class="px-4 py-3 border-r border-white/5 bg-tertiary/5">Nama Pemilik Rekening Pengirim</th><th class="px-4 py-3 border-r border-white/5 bg-tertiary/5">Metode Pembayaran</th><th class="px-4 py-3 border-r border-white/10 bg-tertiary/5 text-center">Bukti Transfer</th><th class="px-4 py-3 border-r border-white/5 bg-primary/5">Judul Ide Bisnis</th><th class="px-4 py-3 border-r border-white/5 bg-primary/5 text-center">BMC</th><th class="px-4 py-3 border-r border-white/5 bg-primary/5 text-center">Bukti Follow IG</th><th class="px-4 py-3 border-r border-white/5 bg-primary/5 text-center">Screenshot Repost Story</th><th class="px-4 py-3 border-r border-white/10 bg-primary/5 text-center">Screenshot Komentar Feed</th><th class="px-4 py-3 border-r border-white/5 bg-white/5">Status</th><th class="px-4 py-3 border-r border-white/5 bg-white/5">Reg. Date</th><th class="px-4 py-3 bg-white/5 text-center">Actions</th></tr></thead>
+<tbody class="font-body-md text-on-surface"><tr class="border-b border-white/5 hover:bg-surface-variant/40 transition-colors group"><td class="px-4 py-2 border-r border-white/5 font-medium sticky left-0 z-10 group-hover:bg-surface-variant/40 transition-colors bg-surface-container">TechNova Innovators</td><td class="px-4 py-2 border-r border-white/5">Budi Santoso</td><td class="px-4 py-2 border-r border-white/5">+62 812-3456-7890</td><td class="px-4 py-2 border-r border-white/5 text-secondary hover:underline cursor-pointer">budi.s@example.com</td><td class="px-4 py-2 border-r border-white/5">Universitas Indonesia</td><td class="px-4 py-2 border-r border-white/5">S1</td><td class="px-4 py-2 border-r border-white/5">Fasilkom</td><td class="px-4 py-2 border-r border-white/5">Ilmu Komputer</td><td class="px-4 py-2 border-r border-white/5 text-center"><button class="text-secondary hover:text-white transition-colors"><span class="material-symbols-outlined text-[18px]">badge</span></button></td><td class="px-4 py-2 border-r border-white/5">Andi Wijaya</td><td class="px-4 py-2 border-r border-white/5">S1</td><td class="px-4 py-2 border-r border-white/5">Fasilkom</td><td class="px-4 py-2 border-r border-white/5">Ilmu Komputer</td><td class="px-4 py-2 border-r border-white/5 text-center"><button class="text-on-surface-variant hover:text-white transition-colors"><span class="material-symbols-outlined text-[18px]">badge</span></button></td><td class="px-4 py-2 border-r border-white/5">Citra Lestari</td><td class="px-4 py-2 border-r border-white/5">S1</td><td class="px-4 py-2 border-r border-white/5">Fasilkom</td><td class="px-4 py-2 border-r border-white/10">Ilmu Komputer</td><td class="px-4 py-2 border-r border-white/5 bg-tertiary/5">Budi Santoso</td><td class="px-4 py-2 border-r border-white/5 bg-tertiary/5">BCA Transfer</td><td class="px-4 py-2 border-r border-white/10 bg-tertiary/5 text-center"><button class="text-tertiary hover:text-white transition-colors"><span class="material-symbols-outlined text-[18px]">receipt_long</span></button></td><td class="px-4 py-2 border-r border-white/5 bg-primary/5 max-w-[200px] truncate">AI-Driven Waste Management...</td><td class="px-4 py-2 border-r border-white/5 bg-primary/5 text-center"><button class="text-primary hover:text-white transition-colors"><span class="material-symbols-outlined text-[18px]">description</span></button></td><td class="px-4 py-2 border-r border-white/5 bg-primary/5 text-center"><button class="text-primary hover:text-white transition-colors"><span class="material-symbols-outlined text-[18px]">image</span></button></td><td class="px-4 py-2 border-r border-white/5 bg-primary/5 text-center"><button class="text-primary hover:text-white transition-colors"><span class="material-symbols-outlined text-[18px]">image</span></button></td><td class="px-4 py-2 border-r border-white/10 bg-primary/5 text-center"><button class="text-primary hover:text-white transition-colors"><span class="material-symbols-outlined text-[18px]">image</span></button></td><td class="px-4 py-2 border-r border-white/5 bg-white/5"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#1b3d2b] text-[#86e2af] text-xs font-bold uppercase border border-[#2d6648]"><span class="w-1.5 h-1.5 rounded-full bg-[#86e2af]"></span> Approved</span></td><td class="px-4 py-2 border-r border-white/5 bg-white/5 text-on-surface-variant text-xs">2025-10-12 14:30</td><td class="px-4 py-2 bg-white/5 text-center"><div class="flex items-center justify-center gap-2"><button class="text-on-surface-variant hover:text-secondary transition-colors"><span class="material-symbols-outlined text-[18px]">edit</span></button><button class="text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-[18px]">delete</span></button></div></td></tr></tbody>
+</table>
+</div>
+</section>
+</div>
+</main>
+<footer class="w-full rounded-t-[40px] mt-xl relative z-20 p-margin-mobile md:p-lg text-on-background bg-surface-container-lowest bg-gradient-to-t from-background/80 to-transparent overflow-hidden mt-auto"><div class="absolute inset-0 z-[-1] opacity-30"><img alt="" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBhBO5oQyjeCoIbZ27Aa4hkINj2T0B3kTh9qNimQjib6d_qthSEkkcRsb7ae6BeZzw0Bm9U1YV4uUBg0OdNKkuuSyhuM7NoZV0MdXIXaboH2sY4U4uP0x0ZucGlCrK9ZO8Cuut3g73k4ONhOF_VZ2yRkKNPKs0tcjt56nIZ7uL7Q-uZr_qyiZ4hlk57WXEWphJ9994RZCFoobrJ7RL7FkJg0TXD62ONg1Eu40E3DJiYWoXpWUeKsqLmrPjhwSeoUxfcQA"></div><div class="max-w-container-max mx-auto grid grid-cols-1 md:grid-cols-12 gap-12 py-10 relative z-10 pl-8"><div class="md:col-span-5 flex flex-col"><div class="flex items-center mb-6"><span class="font-headline-lg text-headline-lg text-on-surface tracking-tighter">VOITSFEST<span class="text-secondary">.</span></span></div><p class="font-body-md leading-relaxed mb-8 max-w-md text-on-surface/80">VOITSFEST adalah signature event unggulan dari Fakultas Vokasi ITS. Ajang kolaborasi inovasi, kreativitas, dan ekonomi kreatif yang berkelanjutan bagi seluruh civitas akademika dan masyarakat umum.</p><div class="flex space-x-4"><div class="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-white/10 hover:border-secondary border-white/20 bg-white/5"><img alt="Instagram" class="w-full h-full object-contain p-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBTl2UmqpxIGwKZRj4YRh0VfCk0rzWtcTEDRTABCFuE3PDWh6v-8oYCCthi8glenQHMm6XTLpxa5a4cB9Qc8lzNVq-o2nuXDpIuMpjfBYSkdgs-4l5JQbsX98TXCdsb7UPRJVCIHSVtYsa4jQhNOfinSwpp9cRchV3q8yv0_kXM_acM6RdVSl2qAJqcBbcAxKlYMjWJ3mes6H3BV2LhZPQ38jL2ALBlTPZEny0AmoLOlC_RUhdzXR7L-JBugVZwvI6jXpY"></div><div class="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-white/10 hover:border-secondary border-white/20 bg-white/5"><img alt="LinkedIn" class="w-full h-full object-contain p-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuChtDlwwC1tu3mFI1n0MivSKcB_MeEneaMMfmazYFYn3N5c80VPBz2LzJToWpSctvnrDsAZwXr3Dyt20RERGdmGYmoM7UVqVp35X95w4qiAOlRZrGir5ut1BwL71Z4fEUAZ1VZhwp5K09MvQYMbkLGELQ5FVx0hQFt4GS2ViAYtvqoLE2GEAmtFAkoa2y3cxoXOIacf29nig3UPi5tmTPqDtzcHtwtZZ4Hr5yb8kRPW3NtUyuPoNdAzbvZ6V54TjchqwOk"></div><div class="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-white/10 hover:border-secondary border-white/20 bg-white/5"><img alt="TikTok" class="w-full h-full object-contain p-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMh7hiA86g1A5Yr-MNdOUAHmdXwoQhMtF3aHS4_jOsOLv6C1F0PweAe_s7qFTBwAJhfXCU1bCdCXMyrtgVEO9QGE_4HznGv7JYHTeYkgygfffgSqjEsYVko14LB3MB5KsGhelKDMi3q9WohafBNokWkb6FZ_hQPASYs7RWO-cv6gu110Q52ClnBaPBWtPo1MpX82g6-3Ef4V4qvSk2bm6PV7Sr-g_NwVW1lHisW9wv5lo26nazT1g8V2rEIfGVoYIeGRg"></div></div></div><div class="md:col-span-3"><h4 class="font-label-md text-label-md uppercase mb-6 tracking-widest text-secondary font-bold">Events</h4><ul class="space-y-4"><li class=""><a class="transition-colors font-body-md hover:text-secondary text-on-surface" href="#">Entrepreneurship Seminar</a></li><li class=""><a class="transition-colors font-body-md hover:text-secondary text-on-surface" href="#">ColorFun Run</a></li><li class=""><a class="transition-colors font-body-md hover:text-secondary text-on-surface" href="#">Festival</a></li><li class=""><a class="transition-colors font-body-md hover:text-secondary text-on-surface" href="#">FAQ</a></li></ul></div><div class="md:col-span-4"><h4 class="font-label-md text-label-md uppercase mb-6 tracking-widest text-secondary font-bold">Reach Us</h4><ul class="space-y-4"><li class="font-body-md text-on-surface">voitsfest2026@gmail.com</li><li class="font-body-md text-on-surface">Fakultas Vokasi,<br>Institut Teknologi Sepuluh Nopember</li></ul></div></div><div class="max-w-container-max mx-auto border-t border-white/10 pt-8 pb-8 flex flex-col md:flex-row justify-between items-center relative z-10 pl-8"><p class="font-label-md text-[10px] uppercase tracking-widest mb-4 md:mb-0 text-on-surface/60">© 2026 VOITSFEST. ALL RIGHTS RESERVED.</p></div></footer>
+
+
+
+
+
+
+
+
+</body></html>

@@ -1,0 +1,532 @@
+<!DOCTYPE html><html class="dark" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>VOITSFEST 2026 - Cosmic Parade of The Stars</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-background": "#dde1ff",
+                        "background": "#0d1228",
+                        "on-surface": "#dde1ff",
+                        "on-error-container": "#ffdad6",
+                        "error": "#ffb4ab",
+                        "on-primary": "#3f2e00",
+                        "tertiary": "#d6e5ff",
+                        "on-tertiary-container": "#005598",
+                        "on-secondary-fixed-variant": "#234485",
+                        "on-secondary-container": "#96b4fc",
+                        "on-error": "#690005",
+                        "surface-bright": "#333850",
+                        "outline-variant": "#4e4635",
+                        "surface-container": "#191e35",
+                        "primary-fixed": "#ffdf9d",
+                        "primary-fixed-dim": "#f0c04d",
+                        "on-tertiary-fixed": "#001c39",
+                        "on-tertiary": "#00315c",
+                        "surface-container-lowest": "#080d22",
+                        "surface-tint": "#f0c04d",
+                        "outline": "#9b8f7c",
+                        "primary-container": "#f2c14e",
+                        "on-primary-fixed-variant": "#5b4300",
+                        "on-secondary": "#012d6d",
+                        "secondary-fixed-dim": "#b0c6ff",
+                        "surface-dim": "#0d1228",
+                        "inverse-primary": "#785a00",
+                        "primary": "#ffe0a3",
+                        "on-surface-variant": "#d2c5af",
+                        "surface-variant": "#2f334b",
+                        "secondary": "#b0c6ff",
+                        "tertiary-fixed-dim": "#a3c9ff",
+                        "surface-container-low": "#151a31",
+                        "surface-container-high": "#242940",
+                        "surface-container-highest": "#2f334b",
+                        "on-tertiary-fixed-variant": "#004882",
+                        "tertiary-container": "#a6caff",
+                        "inverse-surface": "#dde1ff",
+                        "secondary-fixed": "#d9e2ff",
+                        "on-secondary-fixed": "#001944",
+                        "secondary-container": "#234485",
+                        "surface": "#0d1228",
+                        "error-container": "#93000a",
+                        "on-primary-container": "#6b4f00",
+                        "on-primary-fixed": "#251a00",
+                        "inverse-on-surface": "#2a2f47",
+                        "tertiary-fixed": "#d3e3ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "container-max": "1280px",
+                        "margin-desktop": "64px",
+                        "stack-sm": "8px",
+                        "section-gap": "80px",
+                        "gutter": "24px",
+                        "stack-md": "16px",
+                        "stack-lg": "32px",
+                        "margin-mobile": "20px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Space Grotesk"],
+                        "label-sm": ["JetBrains Mono"],
+                        "display-lg": ["Space Grotesk"],
+                        "headline-md": ["Space Grotesk"],
+                        "headline-lg-mobile": ["Space Grotesk"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-lg": ["48px", {"lineHeight": "56px", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "display-lg": ["72px", {"lineHeight": "80px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["32px", {"lineHeight": "40px", "fontWeight": "500"}],
+                        "headline-lg-mobile": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(46, 78, 143, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(176, 198, 255, 0.3);
+        }
+        .glow-effect {
+            transition: all 0.3s ease;
+        }
+        .glow-effect:hover {
+            box-shadow: 0 0 25px rgba(240, 192, 77, 0.5);
+            transform: translateY(-8px) scale(1.02);
+            z-index: 10;
+        }
+        .text-glow {
+            text-shadow: 0 0 15px rgba(240, 192, 77, 0.8);
+        }
+        
+        @keyframes orbit {
+            from { transform: rotate(0deg) translateX(150px) rotate(0deg); }
+            to { transform: rotate(360deg) translateX(150px) rotate(-360deg); }
+        }
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0px); }
+        }
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }
+        .orbit-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .orbit-item {
+            position: absolute;
+            animation: orbit 20s linear infinite;
+        }
+        
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+
+        .scroll-track {
+            display: flex;
+            width: max-content;
+            animation: scroll 40s linear infinite;
+        }
+        .scroll-track:hover {
+            animation-play-state: paused;
+        }
+        @keyframes scroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        @keyframes driftFade1 {
+            0% { transform: translate(-50px, -50px); opacity: 0; }
+            20% { opacity: 0.7; }
+            80% { opacity: 0.7; }
+            100% { transform: translate(150px, 150px); opacity: 0; }
+        }
+        @keyframes driftFade2 {
+            0% { transform: translate(50px, -50px); opacity: 0; }
+            20% { opacity: 0.6; }
+            80% { opacity: 0.6; }
+            100% { transform: translate(-150px, 150px); opacity: 0; }
+        }
+        .animate-drift-1 {
+            animation: driftFade1 15s ease-in-out infinite;
+        }
+        .animate-drift-2 {
+            animation: driftFade2 20s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md overflow-x-hidden relative min-h-screen">
+<!-- Global Shader Background -->
+<div class="fixed inset-0 z-[-2] overflow-hidden">
+<img alt="Cosmic Background" class="w-full h-full object-cover opacity-60" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDXFCJyI8d4IkZ25qUK6sZkUcH-gxubi3q4G9bAn4Rui5Do2gSXgPSbDAiaLA6qsvh3q7QeYy674-dAsldDgCI3-yJVyB2fLkMylxBDjuYfH5sgDEqnPEaTOz1PG9LYgjXDyCK0C-fsdQl4voEiRvbqIs8WA7-sbpYExPhdv9E1UQ37GcuTpsTy-jghP_9qUdznX5RWJWlxHJFF_ZQ2X74J1g2g71jRw49lXeJ6Sd6rRTmDwhG7rFbIPs33aULuryNQDnE">
+<div class="absolute inset-0 bg-background/40"></div>
+</div>
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-surface/60 dark:bg-surface/60 backdrop-blur-xl border-b border-secondary-container/30 shadow-[0_0_20px_rgba(35,68,133,0.4)]">
+<div class="flex justify-between items-center px-margin-mobile md:px-margin-desktop py-4 max-w-container-max mx-auto"><!-- Logo -->
+<div class="flex items-center">
+    <img alt="VOITSFEST 2026 Logo" class="h-12 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhvB5HbosBha1eHXqae6Br9l6yMjhPY1l2qP4yyoOixfzAgVuw4j4qbsHKEIlam0kFP9txrR7ZW6Y0QlAWaYrcCaZaG4wih_LO5DUFcD5Tf94xQ2QN_ebBOhLx3qxr-m_OW88X4CSoVdpuvxNA_TxYWPx0oX_SvH9Gs1-0emC3YJbNnM_RpHKRKaQJDNKXrGiltL8zgiM5BToBLYrkC5wq7QGnmG4EnjHc7e6OeDXiABaeL88ozI0r2wcGRiJIfdUCCQ">
+</div>
+
+<!-- Centered Navigation -->
+<ul class="hidden md:flex space-x-gutter justify-center flex-1 items-center"><li class="relative group">
+        <a class="text-on-surface/80 hover:text-primary transition-colors hover:bg-primary/10 duration-300 px-3 py-2 rounded-lg font-label-sm text-label-sm uppercase flex items-center gap-1" href="#">
+            Competitions <span class="material-symbols-outlined text-sm">expand_more</span>
+        </a>
+        <div class="absolute top-full left-0 mt-2 w-64 glass-card rounded-xl border border-primary/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 overflow-hidden">
+            <a class="block px-4 py-3 text-sm text-on-surface hover:bg-primary/10 hover:text-primary transition-colors border-b border-primary/10" href="#">Business Plan Competition (BPC)</a>
+            <a class="block px-4 py-3 text-sm text-on-surface hover:bg-primary/10 hover:text-primary transition-colors" href="#">Business Case Competition (BCC)</a>
+        </div>
+    </li>
+    <li class="relative group">
+        <a class="text-on-surface/80 hover:text-primary transition-colors hover:bg-primary/10 duration-300 px-3 py-2 rounded-lg font-label-sm text-label-sm uppercase flex items-center gap-1" href="#">
+            Events <span class="material-symbols-outlined text-sm">expand_more</span>
+        </a>
+        <div class="absolute top-full left-0 mt-2 w-56 glass-card rounded-xl border border-primary/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 overflow-hidden">
+            <a class="block px-4 py-3 text-sm text-on-surface hover:bg-primary/10 hover:text-primary transition-colors border-b border-primary/10" href="#">Seminar Kewirausahaan</a>
+            <a class="block px-4 py-3 text-sm text-on-surface hover:bg-primary/10 hover:text-primary transition-colors border-b border-primary/10" href="#">ColorFun Run</a>
+            <a class="block px-4 py-3 text-sm text-on-surface hover:bg-primary/10 hover:text-primary transition-colors" href="#">Festival</a>
+        </div>
+    </li>
+    <li class="relative">
+        <a class="text-on-surface/80 hover:text-primary transition-colors hover:bg-primary/10 duration-300 px-3 py-2 rounded-lg font-label-sm text-label-sm uppercase" href="#">Tenants</a>
+    </li>
+    <li class="relative">
+        <a class="text-on-surface/80 hover:text-primary transition-colors hover:bg-primary/10 duration-300 px-3 py-2 rounded-lg font-label-sm text-label-sm uppercase" href="#">Sponsors</a>
+    </li></ul>
+
+<!-- Action Buttons -->
+<div class="flex items-center space-x-4">
+    <button class="bg-primary-fixed-dim text-on-primary font-label-sm text-label-sm px-6 py-2 rounded-full scale-95 active:scale-90 transition-transform glow-effect uppercase hover:scale-105">
+        REGISTER
+    </button>
+    <button class="border-2 border-primary-fixed-dim text-primary-fixed-dim font-label-sm text-label-sm px-6 py-2 rounded-full scale-95 active:scale-90 transition-transform glow-effect uppercase hover:bg-primary/10 hover:scale-105">
+        LOGIN
+    </button>
+</div></div>
+</nav>
+<!-- Main Content -->
+<main class="pb-section-gap relative z-10 pt-20">
+<!-- Cosmic Drifting Decorators -->
+<div class="absolute inset-0 z-[-1] pointer-events-none overflow-hidden h-full">
+<img alt="Komet 1" class="absolute top-[8%] left-[10%] w-64 h-auto opacity-0 animate-drift-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBV4XvQidOZN-BTW_af_BZLt1tQazNm4Z-8ttlSv4p25ZIv48WfVDXdjW0ng5HjrEWYMml7hJ2T0v5tZQnxVnruz072azDX_196kvOm9c3Da5AJfAVstxOlPKN4-zsuzYFCuSEwe6ROwSFKwq2TYZEn7sBpiYbsrmM8t_2T3jn-rKa31ti9IE25Tsj9ZRMtrzn0-4jaus7tmOvn76khvENuPnOnTY383hqh1yAtbwwbwUDDaiypD97R_wUuOSRFL3-uz5g">
+<img alt="Komet 2" class="absolute top-[20%] right-[15%] w-80 h-auto opacity-0 animate-drift-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC74mChHAyNg-pZnR1HPU4TjTxWO0A4nslAJxb_cFTG2GJMR5w_etYhYI-aEPHsknHRqgN1R9MwFnakXLU7KBHoqro6kviNdZ2QVzSiqowItT9YOarv36VTfWmDlO5Xn_iJhiVgW53vn9D5dNChDlnquReV8WGMqEzqPWY-izK2-e_MHNPHwBpbIY9F0OIBVphkNJjUvWSwbRZTCKG4cbApN08Ma3GAa2bzLQqjIZffXGTj2ubsIcVWecYMPFyGPExWu6k">
+<img alt="Komet 1" class="absolute top-[35%] right-[5%] w-72 h-auto opacity-0 animate-drift-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC0V05aG7hamlN8W9ou8XfPldNgZy0aRST3rBRlKmYj4wI0zLjasf7WbiWjXpOwW9Bn3mczKqqXaLZO8U1NIN8mHeBRaNySkMCVCvu5anMBjF1-1OpqAljSXrdVzF5GI5rOFh08ji_AWwrB1Ex8-Lb5r55xq-aDnLfy8Mt1dRhz8bov-nMyTX4kwXm5MHYdNvYZYuJ5qa7l8KPzTM4hheXf2SObOp6nKmNdyHtk_SaLHoQP0_WDUStCkT2wYMOKy0bqmJY">
+<img alt="Komet 2" class="absolute top-[50%] left-[8%] w-96 h-auto opacity-0 animate-drift-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDV-XIyL7Stm2ULI0aq4suu4LDrAvwuKvBjBbh1_Dr8yjcSsLIFrh8oAhfb1X7M0HtWkWvUGKMjljqJPRcZOIPRvh16QSUJQva5EgeDePDVxEiIP5fQqXoBV2SX6H6EYihGARrcodvmYPNY1yY9LCMl6vGrEcFb6RanyY7IF0RgEO2wEUMZvFPw3kiVGOnXq9MBwKPudi8zhIwyYPJhHuKwkO2LMNL4Lfxz4eGUOona8JV2-qekHRI6o4qvMOg6f60XK7I">
+<img alt="Komet 1" class="absolute top-[70%] left-[25%] w-64 h-auto opacity-0 animate-drift-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC8Ub6lPn3Apo60V1rAs4rZk268wKGUIzpe3Tfn2Cp2_2luXDRBxH9Qk8bhM7VinxZqiC5-X3tJuM3nk9_yVltt0DM_rcqYk-ghI5nvbI-akjjNPWtrJ40J5GP9PXCe6P5xq9xCRLRTehi3D7XGHg1qlFsgjk73IU1Q__tLLZnRViFFC36l08pVL_IKG0yw1QK-5bC2RVO2jpX8jpAOuO2Fc29ROv9BlMzQpzj7IYPlfX-gThyLWIcMX8t_gxNR181aCWs">
+<img alt="Komet 2" class="absolute top-[85%] right-[10%] w-80 h-auto opacity-0 animate-drift-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_FEtzlwjvrgGZQjAVdNgyW2VKta9COcCUXGxwP4OIFYD10Ql0Hlm-RL3_NHU1852e0_HR5HypoaxGFrRcUCJMW9nKJtujW0GQg_RkDZNbIGqWNtjOVy4QgSsEVlouxEnV8TQtB1iXPVPvYG5kTyZF4Eyh7X77zV5QRYzF3btRSjDnQVGWuShZC-rqhBn7PSLkVWpteDfLe6kfHI-iF6FnUsBQwdk3prRUnANrqo0p3EfCN7vSmMMN4a99sLcPLHK7tYk">
+<img alt="Komet 1" class="absolute top-[15%] left-[40%] w-48 h-auto opacity-0 animate-drift-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCiD5fp7yc9pN3EwgQldGBwxSPw0sg-Gn4cK7xd1oIWYV-Z01T-ZjLJL3wizuIo4hybnQieZroME7ShyloqTwrqjCwPNUklUZOcnqQVWQUy3Tg2UMoRxHCGWYyTXhlNSOw1rLWG1wzKTNMILdYaXeLGOPqcGF4jpW9PrxoUQ0PVXV14YnsX25muOKww_Ml1fYAmbiwGe4ylNJ9bnbmPIgZu2bjzk3OHC72PuBZk44pboYvbAeVp9Vp22HJM50RFuEhjhVQ" style="animation-duration: 18s;"><img alt="Komet 2" class="absolute top-[45%] right-[30%] w-64 h-auto opacity-0 animate-drift-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBIaJuCfuwh93IQl-0v4bIdqCkSpeL6Sw8EWuijgxWDeYshA0g4qENHNez4zUjnzyxlWHaP7LOK38DGU4Eo6GfuIDeNGZTFQgoyYZGaSPED47prTdnl6WufdygfkOwyOW7aJOEeY9DJujBAfXTY7kOZ-a9eZ3-_bY_KeMK-HneYVvTgam9OQSJyYLyqthO4mJ8vAs9OBiXtaTmzZzNfnPrY1dE3PM2nPNS8Ajj3zPyl0U7VJZ1qkIlsOzeebGmoYcuQly0" style="animation-duration: 22s;"><img alt="Komet 1" class="absolute top-[60%] left-[5%] w-56 h-auto opacity-0 animate-drift-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8qYWZb2KIMzfkkY_tnNaZC4AbXHk-R_SjNJ0uA1H_WjLTJcRAw0KIx0qoN0MGMIjJGcJY71miJ9o5fzGkcosHUK1MCZhYmsx8KnT2JqJTSFi4MTAGOlZ1R4HwdrPU2Ef53PfxBvLyyjLbsqDNEyECWbJhlnjf6p2Yz4RmRSg6nMXimav-HqRwg3xYmA0dRakquqRdfnE1NAPHRLe9Tmm33WywtcAnGLz9fWnu0ty8pwyPhCzR1S6JAZAve5K_EACc0yE" style="animation-duration: 14s;"><img alt="Komet 2" class="absolute top-[75%] right-[45%] w-72 h-auto opacity-0 animate-drift-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCsdqB9oUMKiR20e-MgGPtfRzqCO6OBOJe1eVuR38WPqKAp6mJHZf0C9NrvPGDuCcyjMXgt_WJA44OKZFTKE3xrIXUTF7GkR2VtaEonmHk4pl7HID327ksWfWl3_wdv7fwABuwAOklDsEOgXGCeMe2j4OcP8weDXC5WBBnjFWx-kTkvdLm28RrwiSiLb-o274M3IZy0ECOC0hZly7IgwePvVqecDElt6CgdK5Lz8Ve-Ow6F1Au4Ad5ACR3gksNJW1XOcFw" style="animation-duration: 25s;"><img alt="Komet 1" class="absolute top-[90%] left-[60%] w-40 h-auto opacity-0 animate-drift-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC-IRxbwIpe8iUgMuyHKy6bCPHSHIfDPR-yy5L1ebGBBt2f9qaDnedrnpZpnlVcFW5kZZOV5n1MxhkcG9Gp8yszWz8FxMrA35TuQ__NLrDx650N36mAuW52UBCkXkqdj1G-x-M3ymnIhE3AvUTb7LLnhXqI3XdhTLazAFD7EbczRaRGLXobtHAX9AvNXzrCZRi1pNd4KOb3iHU6jb50RU_1yZqbi_mamTlE-88-r7lj06_l4Xpl2dDdEOZimmOAmrmDgAE" style="animation-duration: 20s;"><img alt="Komet 2" class="absolute top-[5%] right-[60%] w-52 h-auto opacity-0 animate-drift-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBHokhK66JPWIO1u_4388eB7MjIxAPLuItAR0yQgf-bxdE2Ed1YFeht8PLJ3xEDXBdIXvlE7YHqIZFtOCJf7GHk7CvdbePHSDCPz66T2HXE28WgnGaXLNuT1uhOFPjsh48-OjdXZFSvNwoaVkoWOpQwJ-gxxAKcHOtD6VaP8QVXMfsbZ-60iHbpo3S3zYFM5RxrhnMwTv8cLmobBQh7ORMrWhGn1RNSlnaYZfqKZT-tAGfTCuA-ESY09_ZGkHKVpX9kazg" style="animation-duration: 17s;"><img alt="Komet 2" class="absolute top-[15%] right-[40%] w-64 h-auto opacity-0 animate-drift-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1TVi-6eziiTpKGmM986ywwxgrJTVGLJuFbrv1es7yDxkUDVBfy5uUDrwMTWDELNWFobfrFT-eQIjlruoZruPVgGHX2MKcitle4h-8okIdDgvxF0hzNFP-9-CHiJLXHSiTJYJmrKcg9fTpuTaZPCxA1wkxcaZ6Z-qqLJmbH0bSig0GIx9PL2nUNgmDpLCBdtWe-G2HoHVYTZ5RWvdnS1scrveSNCvbqxhp8-6Yk7ExXz-JpmirJkDCIfs4_X5sRMSQ1w" style="animation-duration: 19s; animation-delay: 2s;"><img alt="Komet 2" class="absolute top-[30%] left-[60%] w-72 h-auto opacity-0 animate-drift-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAAwAIdWdFFomW8hy7raOVtzlZ0mXzdyP0scVMRFxZqf3wetE5I0qJcLE3aQQZH8thmE_9bC3RsbD0Oci0i6fSsl0cLi0IbY_qDSP5bhAIvEjsYwY4tOQTXRGfg7SynKXhmDLAzY77gm3OOYkzowgM6PcqLVFhRfanJAJ9jZVtQeBa3gPXT9ObLV2vsTivCtBRCMlqJlNSLj-ZxyerSgATuTKD7w-r7fWhOOfty_Rv97rtcJViyf-jfZ70OsR3qeO7uyA" style="animation-duration: 23s; animation-delay: 5s;"><img alt="Komet 2" class="absolute top-[40%] right-[5%] w-56 h-auto opacity-0 animate-drift-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDmKs1PMj576Hm0MDCO6DsnK5xxzT_nfWyQxrhw4wAsq8-EF5YVZXixk8VXb3Yiu4G_1HqQMjKnWQlyo89z7kRjhiBpK6GmIjYA2ssHpDbHFHM6CnEwkNuJrBP0TYqikB3mt2vKlH-mVKCuj3qELjdmfTNBOc9P2CtCSKG3_CTIzeI4T32EPU4t3AOYl0Ja_k7whjhxmukg-TvHC-t6AVre4CrWRnzXSGazxaNTHwlz-9VNsR7LVWDJti7aBo6Txag9lg" style="animation-duration: 16s; animation-delay: 8s;"><img alt="Komet 2" class="absolute top-[55%] left-[15%] w-80 h-auto opacity-0 animate-drift-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_UFfUe-sGGpVu_5jW-9xxpS25O8G_ugzkO8pLQUFQOKOh9RG2qlTmlqmx_po3k2md2KDvZGBjyGYDdTLb3UJ6rdep984Byq2felfI_T70Flm1NqajEF44mrVpaC8AvJSo0q3oKeQeD3XpUlAWUCUJatGm76Mjr4Yy2NenycoarPtUy4MY6gl-hBmWzfrP-rLfYUTw0yzUWWIKyTRSYybuh8x2LwTctFgfh5LEtfyz6nH3plZQ9AbqseZv29Ifbnilow" style="animation-duration: 21s; animation-delay: 1s;"><img alt="Komet 2" class="absolute top-[65%] right-[25%] w-48 h-auto opacity-0 animate-drift-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaRR87Mww2kMZjyx1LAaXTUSWP-gxzPUMWPM72uFHLzoRi-5FyZN2LPWgrN74ZySG3s7dFfeRDunjFsgCqOEIWiiXiv8uNHQpj-3brxozMxw4dk2nhvsF24T_bOmKTs79UCynuLf7vVmCjU4QoodJsBxNO-oZpnR5Yiu1xZleFcDmVmXmLyHDGlUgXjWvkQLbSOrKhcMHmXk4D4V9M4u5p1FiWKUrtgPk4i1shGG0jlVm8DvTDrBUtQpA2mP3RHs179Q" style="animation-duration: 24s; animation-delay: 10s;"><img alt="Komet 2" class="absolute top-[80%] left-[45%] w-64 h-auto opacity-0 animate-drift-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD1wyFYG7jVpR-nfCwjuBFaB5bWx21Dv7PBE4qX-FkuoJ5sc1lFYQW0aBiJnQiUmkbBwOB0GMQ_58Rz5nSC6sIfHCmpQwMVhI6mDgPrJvP38Ht9MIOUeb9jzLxH4tor9lidY0fl7FBd8ZDLOo7mh4NF-qGaEtr4I5HbBJhawugHCW9WV4jgKe5LHrRH3uj5LWaROKB_AyxsiXypkrRl36oidb8XILknREK7dRm3KQEx10xRHqembSTjLABHffxGGjfMog" style="animation-duration: 18s; animation-delay: 4s;"><img alt="Komet 2" class="absolute top-[92%] right-[60%] w-72 h-auto opacity-0 animate-drift-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDNvXhI-iDqsDMG_JQVWRIDLFaSJtMW3FnA3WMrnP4JkZHbWJdxrJGxdzp80ieIX3STyXasEEjBaiaUXH6xPJpKQ1a-WPnbYS0yTQxBuzkypqv3iLb8Hy-wFyrl9u5tD2R-1YBZ_yL9k_VReL4bsWgTeaHA6jPVMHhewBXntNeqm4m6vCJhxJYTcec9ga2_2hvGdeoeItpH-a8D7LTU8xYfktsM3A5OjOSM2CGIsicYmZaRYoIANcAMmWCzFAHZKT8A7Q" style="animation-duration: 22s; animation-delay: 12s;"><img alt="Komet 2" class="absolute top-[25%] right-[80%] w-52 h-auto opacity-0 animate-drift-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3dfESMqOY5B2ZBvxkPxQaqAmC5mkfOFtCGAKSqalCpednbCWaM23LS1JZm3GqFqJJkDpqtI8IIo-WmCEHfJlDLy6Rgnn4MJb2qmEqHpYTj_cqbdLLfYMJuRNehgkg_VMkbA6CVlAX1DISO_bafp5sCXgxvetTT9rDznkGDqXOfvzmbrUmi2mG1DJwr3sjRBkqE3Iy5bbxnb_0445qLGb78EplUVziDVGTqPL1ufh4liIiSIEHv4FD4q_8lwifciqBMw" style="animation-duration: 20s; animation-delay: 7s;"></div>
+<!-- Hero Section -->
+<section class="relative min-h-[80vh] flex flex-col items-center justify-center px-margin-mobile md:px-margin-desktop text-center">
+<!-- Cosmic Assets around Hero -->
+<div class="absolute inset-0 pointer-events-none overflow-hidden">
+<img alt="Cosmic element" class="absolute top-[10%] left-[5%] w-32 h-32 animate-float opacity-70" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDmGVFNr6u7E7H1YitJfXwjVb2wNDM9kSa08NubQALEFdNni7leUSX-V5GDxP7YT-Qkj7A-9ME1U__3zFomKzmIIxqyiQk02lspnwTJh01QGMrI1BdSngSPN5vkX_XzsGNc5p16DKLIpjetdLaJSR8chceajfeBU_XEC1ui88OujLLxhyKFJayXU4ibAigHJ5AL1a77K_eodT3F-e83KeDgdccOzWW5JO4GpdfTiPb6C-IUAVzDOGdSgf9aG_qBPoXnVOU">
+<img alt="Cosmic element" class="absolute top-[20%] right-[10%] w-48 h-48 animate-float opacity-80" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCDlhLhkTjfqbdMaIFXvGJTMBq5bfBKFBvdzZthcC6eo6sy0W2xoLPgTi-hHdJL4xl_PYUTAd7EUPI3SaF7_IwV4bUGOYA6NpwoVL7Z2rOtGAUtIg58uKWh1Vc41YnGY4k5zCdpXQPZ5NGreYwbxLIINWWNfF0Jv0yoM5dVxWG_h2-QqJSFEOujKjaB6rBwJ2nnzTWEy0taBMJ29RsOuMANg-hUnm0i2davjztcGr2ANPzBXG8-77XHzgK1dOYK0xV-lsE">
+<img alt="Cosmic element" class="absolute bottom-[10%] left-[15%] w-40 h-40 animate-float opacity-60" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLwJVD5glx3IIbaEQOt4Z0uhCwGfkOvAPj8-RJX6H-UgigDsjvbSsKlVS7Se67TcDK9dAqZ8LsWNueMfVIsZJTPYYOMJ5h2GkGcjgoHu-OFWTCSFab8D0YAxAG6j71V4PgI9Obwlr_oLn6D6MofSEt9eJFFrHWe5utZCdGbSCZQiVJQ7Ub9IO7czsQSGoME-AlJxUD28Zle2FUpgFKQcIBwKP2em9AFB0TU0aCSY2gHSVaXnGua7rNKN_4FdKl5h6eloA">
+<img alt="Cosmic element" class="absolute bottom-[20%] right-[5%] w-24 h-24 animate-float opacity-90" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDTv9BvttwmCMhpbHhyWwtEpsjZgTkEUp0UdgOtn6Y5ez_gT90_sqiJ6IEM-HaiJVk3pAue-f7rhGEk0wq_sy6Xu0uTi68sW4Kyk-BnY2WIjf1gk_E9k78l2T1-YMdDfb9PF32T5FEAK0Zw0-BP8eFVH2h9ESPqo8zDEqwBdV4cDMm1PTV2beHynmYqpXxwlEUjub74VBmoed4PXZWZ9QIUshSJQPfch1Bqz7saNHmHRWSnn_cceKeFsGkDkoK7WHIF-I">
+</div>
+<div class="relative z-10 max-w-4xl mx-auto flex flex-col items-center">
+<h1 class="font-headline-lg text-display-lg md:text-[120px] uppercase font-bold tracking-tighter text-primary-container text-glow mb-2 leading-none">VOITSFEST</h1><p class="font-headline-md text-3xl md:text-4xl uppercase font-bold tracking-wider text-primary-container text-glow mb-4">Shine Loud, Glow Together</p>
+<!-- Countdown Timer -->
+<div class="flex space-x-gutter mb-stack-lg">
+<div class="glass-card p-4 rounded-xl flex flex-col items-center min-w-[100px]">
+<span class="font-headline-lg text-headline-lg text-primary-container">142</span>
+<span class="font-label-sm text-label-sm text-tertiary uppercase">Days</span>
+</div>
+<div class="glass-card p-4 rounded-xl flex flex-col items-center min-w-[100px]">
+<span class="font-headline-lg text-headline-lg text-primary-container">10</span>
+<span class="font-label-sm text-label-sm text-tertiary uppercase">Hours</span>
+</div>
+<div class="glass-card p-4 rounded-xl flex flex-col items-center min-w-[100px]">
+<span class="font-headline-lg text-headline-lg text-primary-container">45</span>
+<span class="font-label-sm text-label-sm text-tertiary uppercase">Mins</span>
+</div>
+</div><p class="font-headline-md text-headline-md text-primary-container text-glow mb-stack-lg">The Next Milestone</p>
+<button class="bg-primary-container text-on-primary font-headline-md text-headline-md px-10 py-4 rounded-full hover:shadow-[0_0_30px_rgba(240,192,77,0.6)] transition-all transform hover:scale-105 duration-300">
+                    Enter the Galaxy
+                </button>
+</div>
+</section>
+<!-- Theme and About Sections -->
+<section class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-section-gap relative z-10 flex flex-col gap-stack-lg">
+<!-- Theme Section -->
+<div class="glass-card p-stack-lg rounded-2xl border-primary/20 max-w-4xl mx-auto text-center w-full"><h2 class="font-headline-lg text-headline-lg text-primary-fixed mb-4 text-glow">Cosmic: Parade of The Stars</h2><p class="font-body-lg text-body-lg text-on-surface/80 leading-relaxed mb-12 max-w-3xl mx-auto">Mengonseptualisasikan VOITSFEST 2026 sebagai ekosistem festival vokasi yang menyatukan semangat kewirausahaan mahasiswa, showcase inovasi keilmiahan, dan pengalaman interaktif dalam satu harmoni.</p><div class="grid grid-cols-1 md:grid-cols-3 gap-gutter mb-12"><div class="glass-card p-6 rounded-2xl border-primary/20 flex flex-col items-center"><div class="w-16 h-16 rounded-full bg-on-surface/10 flex items-center justify-center mb-6"><span class="material-symbols-outlined text-4xl text-primary-fixed">all_inclusive</span></div><h3 class="font-headline-md text-primary-fixed mb-4">Cosmic</h3><p class="font-body-md text-on-surface/70">Melambangkan ruang kolaborasi tanpa batas yang dinamis.</p></div><div class="glass-card p-6 rounded-2xl border-primary/20 flex flex-col items-center"><div class="w-16 h-16 rounded-full bg-on-surface/10 flex items-center justify-center mb-6"><span class="material-symbols-outlined text-4xl text-primary-fixed">groups</span></div><h3 class="font-headline-md text-primary-fixed mb-4">Parade</h3><p class="font-body-md text-on-surface/70">Merepresentasikan gerak kolektif lintas departemen yang saling mengisi.</p></div><div class="glass-card p-6 rounded-2xl border-primary/20 flex flex-col items-center"><div class="w-16 h-16 rounded-full bg-on-surface/10 flex items-center justify-center mb-6"><span class="material-symbols-outlined text-4xl text-primary-fixed">stars</span></div><h3 class="font-headline-md text-primary-fixed mb-4">Stars</h3><p class="font-body-md text-on-surface/70">Menegaskan bahwa setiap mahasiswa, tenant, serta karya inovatif adalah cahaya unik yang berkontribusi pada kesatuan acara.</p></div></div><div class="relative pt-12 border-t border-primary/10"><span class="material-symbols-outlined text-5xl text-primary/30 absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-4">format_quote</span><p class="font-body-lg italic text-on-surface/90 max-w-3xl mx-auto leading-relaxed">VOITSFEST sebagai platform strategis yang mengarahkan engagement pengunjung langsung ke aktivitas ekonomi tenant, sekaligus mengukuhkan positioning Fakultas Vokasi ITS sebagai event unggulan yang berkelanjutan, terkelola profesional, dan berdampak nyata bagi ekosistem kreatif kampus.</p></div></div>
+<!-- About VOITSFEST -->
+<div class="glass-card p-stack-lg rounded-2xl border-primary/20 max-w-4xl mx-auto text-center w-full py-12"><h2 class="font-headline-lg text-headline-lg text-primary-fixed mb-6 text-glow">About VOITSFEST</h2><p class="font-body-lg text-body-lg text-on-surface/80 leading-relaxed">VOITSFEST 2026 hadir kembali sebagai signature event unggulan dari Fakultas Vokasi Institut Teknologi Sepuluh Nopember. Festival ini dirancang sebagai ekosistem yang menyatukan inovasi keilmiahan, kreativitas mahasiswa, serta pengembangan ekonomi kreatif yang berkelanjutan. Lebih dari sekadar festival biasa, VOITSFEST 2026 merupakan ruang kolaborasi tanpa batas, tempat berkumpulnya ribuan pasang mata untuk menikmati perpaduan antara edukasi, aksi olahraga, dan hiburan spektakuler.</p></div>
+</section>
+<section class="max-w-[100vw] mx-auto py-section-gap overflow-hidden w-full relative z-10">
+<h2 class="font-headline-lg text-headline-lg text-primary-fixed mb-stack-lg text-center">Celestial Events</h2>
+<div class="relative group py-10 w-full flex overflow-hidden max-w-container-max mx-auto">
+<div class="scroll-track">
+<div class="flex gap-gutter pr-[24px] shrink-0">
+<!-- BPC -->
+<div class="glass-card rounded-2xl p-stack-lg glow-effect group cursor-pointer w-[300px] md:w-[400px] flex-shrink-0 flex flex-col">
+<div class="w-full h-48 mb-6 rounded-xl overflow-hidden relative">
+<img alt="Futuristic Planet Tech Asset" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7pdUGAgQbtPQpKA5n8Yw8MRtT9Vwp6kR7EKGjebjTJj9BM11P3v_eEodz79Q3BxEUIshtZEsVBTlNvvyGYSJRMWmefHNuD4TPOZrN1t3XsW7-g2kt4OaLJnR0a_p1XwztX5ym7rf5ril5zTcxL6cjbA576Ue_o7XKe0cdJsLkIlOMk1ZkrLtPlbNyajbIg3MNZQ7erafcbKQpjAg2j-06ktXNBvClGNTp5fTH6lQjSv9p3L0SAYTZppqSLnnwlo61rQ">
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent"></div>
+</div>
+<div class="flex items-center space-x-4 mb-stack-md">
+<span class="material-symbols-outlined text-4xl text-secondary-fixed">emoji_events</span>
+<h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">BPC</h3>
+</div>
+<p class="font-body-md text-tertiary">Business Plan Competition for the visionary innovators of tomorrow.</p>
+</div>
+<!-- BCC -->
+<div class="glass-card rounded-2xl p-stack-lg glow-effect group cursor-pointer w-[300px] md:w-[400px] flex-shrink-0 flex flex-col">
+<div class="w-full h-48 mb-6 rounded-xl overflow-hidden relative">
+<img alt="Coding Star Asset" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDz5YYSptRpCko4pi_HarCDtcL2300bganYieX3c92v0ACh9fd7o_a3mUNQF8ayrI-c8AyLdWOsuxIBvFCbunJqZ_SACAm5YoBKyh28KQLmGkk5LhAoKH6FInSv7wLiwsrcLFDawpIDxaCL_6TvsdDvoZyI0hyL7mWmvhfL22VsC-iZSqEvJeuLWidPK2vgIWvKtaMBiSklbkOE34vivD1-2lK9FO8SN2O0Fx6uacab_rO-eogoQ4Mn5s0SIiFkbpoQzw">
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent"></div>
+</div>
+<div class="flex items-center space-x-4 mb-stack-md">
+<span class="material-symbols-outlined text-4xl text-secondary-fixed">emoji_events</span>
+<h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">BCC</h3>
+</div>
+<p class="font-body-md text-tertiary">Coding challenges that push the boundaries of logical space.</p>
+</div>
+<!-- Seminar -->
+<div class="glass-card rounded-2xl p-stack-lg glow-effect group cursor-pointer w-[300px] md:w-[400px] flex-shrink-0 flex flex-col">
+<div class="w-full h-48 mb-6 rounded-xl overflow-hidden relative">
+<img alt="Bright Constellation Komet" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_yNY2ldi60fTsNdDxYI1Pw3lj0gDaKyq4eP2WblfqEAxaov-acm5DkwMLDzaLQmji4sbBlmhfVeXKjgPOPMEBBeipTlTCl-5t360EtdHJaMDhPsJLe9M4tP9YYuMN0FOgvFe9F1lAC3gXEpTfbqH29R-A56r-QF4VtqO2abl5ZlZcZcJvHBvdPQlnhAAl5uUKqe_HiNKjYr-ZKWTPXcSktoDV4huHKU3xtj7KIMIfvPFyOH5KNxQ5lOqs6z_Gr3A38w">
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent"></div>
+</div>
+<div class="flex items-center space-x-4 mb-stack-md">
+<span class="material-symbols-outlined text-4xl text-secondary-fixed">forum</span>
+<h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">Entrepreneurship Seminar</h3>
+</div>
+<p class="font-body-md text-tertiary">Insights from industry stars and tech constellations.</p>
+</div>
+<!-- Tenant Registration -->
+<div class="glass-card rounded-2xl p-stack-lg glow-effect group cursor-pointer w-[300px] md:w-[400px] flex-shrink-0 flex flex-col">
+<div class="w-full h-48 mb-6 rounded-xl overflow-hidden relative">
+<img alt="Bazaar Market Asset BATU" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCTJ2i8nt5ctaRAUQGuz3DewKNCVam_SNOQkdP6QLcJilUUvY-CLXA3FkcYbfAIxamnHyo7yUn5JilXW2MQGO4ArQa3o1lrw0L5_09VxXomwNmrpzbQHyxmuKFi4xE8rBTnREvXmFafEGUcrXoz9LS-7HQsAmWMFlqXpWC0cx4mRu1KqRTup0HqTzpyHIBig677LObYuZWNhuj3UR23EV4iNWZtS68rwVNpwQeykJPnSqXUNlkwwLcgoimvniziAnecmA">
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent"></div>
+</div>
+<div class="flex items-center space-x-4 mb-stack-md">
+<span class="material-symbols-outlined text-4xl text-secondary-fixed">storefront</span>
+<h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">Tenant Registration</h3>
+</div>
+<p class="font-body-md text-tertiary">Explore earthly delights and secure your cosmic merchandise spot.</p>
+</div>
+<!-- ColorFun Run -->
+<div class="glass-card rounded-2xl p-stack-lg glow-effect group cursor-pointer w-[300px] md:w-[400px] flex-shrink-0 flex flex-col relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 opacity-0 group-hover:opacity-100 transition-opacity z-0 pointer-events-none"></div>
+<div class="w-full h-48 mb-6 rounded-xl overflow-hidden relative z-10">
+<img alt="Vibrant Planetary Asset" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC7XbrYLFAHIVT17K3pNLM7Q8wRAAmwe-SXrHE-dgc-a4kp6XPQpuJKwexKguS8x5w1iRf-alkSbX5JGwZKXJIWVcMI7QiMO-CVHneXR6VgbeDRhkmjcKd8bgxpdfGYkshgn0VwaVtuBg1q9HtsPiHOWcJthZrqmWuJqODeQ6L6XkVxd3qx212q3pbpzvGOsu9Ujd9SxXUNirZoIjKbnOlRueB8oR1WrJ6_OmMug37dT9v-DGLiRFJ76MeK_AVcU1PF0A">
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent"></div>
+</div>
+<div class="relative z-10 flex items-center space-x-4 mb-stack-md">
+<span class="material-symbols-outlined text-4xl text-primary">directions_run</span>
+<h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">ColorFun Run</h3>
+</div>
+<p class="font-body-md text-tertiary relative z-10">A vibrant dash through cosmic dust. Experience the physical manifestation of our parade of stars.</p>
+</div>
+<!-- Festival -->
+<div class="glass-card rounded-2xl p-stack-lg glow-effect group cursor-pointer w-[300px] md:w-[400px] flex-shrink-0 flex flex-col">
+<div class="w-full h-48 mb-6 rounded-xl overflow-hidden relative">
+<img alt="Grand Celestial Festival Asset" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAmvA3wQGoAq4vR8zT-X7M-Pg8KYreqmIa3FhhcEdDScgxQIQ7ByFS2amCTTD4tsGopBim5nbvug1JzwE14nxfJ_mquRM3I3vzpCbm9YXkxXwWJ79Oj-fovmUbi7lyygJBr-5__3ZyTVsaxVZi0FCPvi9SFfOo4SXPU6ldvO5oK_-dqtVk8MVx6UBvAxb1azq5MxJTfqbVuSP6RbJCAyZv63Ousy6h6YJ6Y829QruawNEp9YDAVgvv2YmQqZSA_rUl-nw">
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent"></div>
+</div>
+<div class="flex items-center space-x-4 mb-stack-md">
+<span class="material-symbols-outlined text-4xl text-secondary-fixed">festival</span>
+<h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">Festival</h3>
+</div>
+<p class="font-body-md text-tertiary">The grand finale. A spectacular celebration to close the cosmic parade.</p>
+</div>
+</div>
+<div class="flex gap-gutter pr-[24px] shrink-0">
+<!-- BPC (Duplicate) -->
+<div class="glass-card rounded-2xl p-stack-lg glow-effect group cursor-pointer w-[300px] md:w-[400px] flex-shrink-0 flex flex-col">
+<div class="w-full h-48 mb-6 rounded-xl overflow-hidden relative">
+<img alt="Futuristic Planet Tech Asset" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCEz_BgMlypw_YhBKP3JyssdTLmP4gSKBjH1V-o4YouBsFElJYLL9Ls_ZcXr-M4rV1lNYM7bTWuzEeMYKJVmHCsUlFaKSxWOAmva-TEEIGWBoGR0l_TVeYHAwuZkQ0VIrwh_dyy-CouduZRXUn5Pq9HZsWxm9f805wAYDuP51v9O47uB-yvHTLN9bt1M5MJRDDjhorZdXaJYAqE5WXJYpX1gN-d32M94xs_Zho1z-MWz1pTDbBpN5Pa6PpZzQPiiHHNVg">
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent"></div>
+</div>
+<div class="flex items-center space-x-4 mb-stack-md">
+<span class="material-symbols-outlined text-4xl text-secondary-fixed">emoji_events</span>
+<h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">BPC</h3>
+</div>
+<p class="font-body-md text-tertiary">Business Plan Competition for the visionary innovators of tomorrow.</p>
+</div>
+<!-- BCC (Duplicate) -->
+<div class="glass-card rounded-2xl p-stack-lg glow-effect group cursor-pointer w-[300px] md:w-[400px] flex-shrink-0 flex flex-col">
+<div class="w-full h-48 mb-6 rounded-xl overflow-hidden relative">
+<img alt="Coding Star Asset" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBT34BW1G6FIxmna9OObfcdR6k-JqHGyvI4SXJuon72hNRolLDn8PSydUqgSEubDSfoHqM02rlgCmYwXjPaE12RpE1UxRoz0UTOEZcvjOYH_I2bM8DQsDAlXfg0SUeYbOTeV9t-c0nOu491AB6yA3x-8g0Q595SklI2hqUldzj3ejChvruxUdtm9F8UfbqGvael20gw8gVxVwwQSqwaDmVg0Xlaq0jqz4ywXXmrOYRIKi9pre6dAEUuesEdsrBTJngLVA">
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent"></div>
+</div>
+<div class="flex items-center space-x-4 mb-stack-md">
+<span class="material-symbols-outlined text-4xl text-secondary-fixed">emoji_events</span>
+<h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">BCC</h3>
+</div>
+<p class="font-body-md text-tertiary">Coding challenges that push the boundaries of logical space.</p>
+</div>
+<!-- Seminar (Duplicate) -->
+<div class="glass-card rounded-2xl p-stack-lg glow-effect group cursor-pointer w-[300px] md:w-[400px] flex-shrink-0 flex flex-col">
+<div class="w-full h-48 mb-6 rounded-xl overflow-hidden relative">
+<img alt="Bright Constellation Komet" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCCGc76to5NhOWrEo3N9DA2yy5BfUrSoNUfxEDdsPjNLpbbjUXdP1PxkqIV5s6BsZ2Uayrz-dX9GOEuj39b9o7GZfa5b4IquifuCfANjthtmiUuqD5yySKD_52YVN_C222iTp7bsuaIPo0C_GxUASqW-UbEbNdl3cx0qlQNrfMfUv4KtS7U6_RVLmfgVuErxnQAcQeSJ4qeW1c4R0DEVHdkKqKmwa7bgqHMsjOB8qaJPHdLYbK4yLxKIJySqD9SLs6y3A">
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent"></div>
+</div>
+<div class="flex items-center space-x-4 mb-stack-md">
+<span class="material-symbols-outlined text-4xl text-secondary-fixed">forum</span>
+<h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">Entrepreneurship Seminar</h3>
+</div>
+<p class="font-body-md text-tertiary">Insights from industry stars and tech constellations.</p>
+</div>
+<!-- Tenant Registration (Duplicate) -->
+<div class="glass-card rounded-2xl p-stack-lg glow-effect group cursor-pointer w-[300px] md:w-[400px] flex-shrink-0 flex flex-col">
+<div class="w-full h-48 mb-6 rounded-xl overflow-hidden relative">
+<img alt="Bazaar Market Asset BATU" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzXACdX3Rzs-EJ6937HmJR4F1-XT4fVNinPg564zdjX_kbieyizRjqQUsGoazbI38erzbtSzVCrQAAAJ0DFwC0Xd5hBPyAO36Obn9sugJ5-FkNRxVB8NV2ZhJJlbF71arfkptYCVj6ak1b0U_2J0LpVoHEQ2hF2wjSPrws7f-Sr4UphTASP8rK_IWUdXEnox1Er91vesauCYg2OxOjFWHS-upnt4LW4VYf6jww2JSzuw-sq_83O1_UqshM_7d0nAHX7g">
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent"></div>
+</div>
+<div class="flex items-center space-x-4 mb-stack-md">
+<span class="material-symbols-outlined text-4xl text-secondary-fixed">storefront</span>
+<h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">Tenant Registration</h3>
+</div>
+<p class="font-body-md text-tertiary">Explore earthly delights and secure your cosmic merchandise spot.</p>
+</div>
+<!-- ColorFun Run (Duplicate) -->
+<div class="glass-card rounded-2xl p-stack-lg glow-effect group cursor-pointer w-[300px] md:w-[400px] flex-shrink-0 flex flex-col relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 opacity-0 group-hover:opacity-100 transition-opacity z-0 pointer-events-none"></div>
+<div class="w-full h-48 mb-6 rounded-xl overflow-hidden relative z-10">
+<img alt="Vibrant Planetary Asset" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyFgjo1OLjUOL6XOlFYXYdNi1HLoz03eiiJpzaJyDU-pn41SrNdUQLC5gFTNUpEl6WUu8Jjl4mQkp6rC2Sq_oJcHD6Qq26LWQI2VzkB_Om3uGXviLxH7IcrQ4pZdx-hsZ9tkRZSPBGeDjVaARttd0EGikIcIutRDXtwVKHivRlBPg5MlcELnwBW0rIOwjQbao4MlafoM748lZwyrba4lkbIsUJ45Smn-GnZF7Llc7gQ_JZ-Oq_szClYZLvZ1Xneg-apA">
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent"></div>
+</div>
+<div class="relative z-10 flex items-center space-x-4 mb-stack-md">
+<span class="material-symbols-outlined text-4xl text-primary">directions_run</span>
+<h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">ColorFun Run</h3>
+</div>
+<p class="font-body-md text-tertiary relative z-10">A vibrant dash through cosmic dust. Experience the physical manifestation of our parade of stars.</p>
+</div>
+<!-- Festival (Duplicate) -->
+<div class="glass-card rounded-2xl p-stack-lg glow-effect group cursor-pointer w-[300px] md:w-[400px] flex-shrink-0 flex flex-col">
+<div class="w-full h-48 mb-6 rounded-xl overflow-hidden relative">
+<img alt="Grand Celestial Festival Asset" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAmpiLiCK6xLcpHQ3LXPwEuOTFNZFpxZEmYsthrzSceNpzf2qwvqsa2bd3H0AmTS4XFmSd1JeF6pOyKBbbl7WjWTUvz8H3jtwZ-9zLbvdaTFj46v1mcMte38l-ovm_bF4bjdPO9ccNxxDd-UCQHz97PWpi-T_kC7wt_RuPy_q6BzqqvzujWxI942HnR0He1gnwYAo219taDgU-Q4svdkUARA_XcYc8_nP87fp3CjyxEM9HPOx6Iwn_e7GzPOeQxR7gTRA">
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent"></div>
+</div>
+<div class="flex items-center space-x-4 mb-stack-md">
+<span class="material-symbols-outlined text-4xl text-secondary-fixed">festival</span>
+<h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">Festival</h3>
+</div>
+<p class="font-body-md text-tertiary">The grand finale. A spectacular celebration to close the cosmic parade.</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Cosmic Timeline -->
+<section class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-section-gap relative z-10"><h2 class="font-headline-lg text-headline-lg text-primary-fixed mb-stack-lg text-center">Journey Map</h2><div class="relative max-w-container-max mx-auto py-10"><div class="absolute left-1/2 top-0 bottom-0 w-[2px] bg-primary/30 -translate-x-1/2 hidden md:block"></div><div class="relative flex flex-col gap-16"><!-- Tenant Registration (Left) --><div class="flex flex-col md:flex-row items-center w-full relative group"><div class="w-full md:w-1/2 md:pr-12 flex justify-end"><div class="glass-card p-6 rounded-xl border-primary/20 hover:border-primary/50 transition-all duration-300 text-center w-full md:w-[400px] h-[120px] flex flex-col justify-center"><h4 class="font-headline-md text-primary mb-1">Tenant Registration</h4><p class="font-body-md text-tertiary text-sm">August - September 2026</p></div></div><div class="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center justify-center top-1/2 -translate-y-1/2"><div class="w-4 h-4 rounded-full bg-primary shadow-[0_0_15px_rgba(240,192,77,0.8)] z-10"></div></div><div class="w-full md:w-1/2"></div></div><!-- Entrepreneurship Seminar (Right) --><div class="flex flex-col md:flex-row items-center w-full relative group"><div class="w-full md:w-1/2"></div><div class="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center justify-center top-1/2 -translate-y-1/2"><div class="w-4 h-4 rounded-full bg-primary shadow-[0_0_15px_rgba(240,192,77,0.8)] z-10"></div></div><div class="w-full md:w-1/2 md:pl-12 flex justify-start"><div class="glass-card p-6 rounded-xl border-primary/20 hover:border-primary/50 transition-all duration-300 text-center w-full md:w-[400px] h-[120px] flex flex-col justify-center"><h4 class="font-headline-md text-primary mb-1">Entrepreneurship Seminar</h4><p class="font-body-md text-tertiary text-sm">September 2026</p></div></div></div><!-- Final BPC & BCC (Left) --><div class="flex flex-col md:flex-row items-center w-full relative group"><div class="w-full md:w-1/2 md:pr-12 flex justify-end"><div class="glass-card p-6 rounded-xl border-primary/20 hover:border-primary/50 transition-all duration-300 text-center w-full md:w-[400px] h-[120px] flex flex-col justify-center"><h4 class="font-headline-md text-primary mb-1">Final BPC &amp; BCC</h4><p class="font-body-md text-tertiary text-sm">September 2026</p></div></div><div class="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center justify-center top-1/2 -translate-y-1/2"><div class="w-4 h-4 rounded-full bg-primary shadow-[0_0_15px_rgba(240,192,77,0.8)] z-10"></div></div><div class="w-full md:w-1/2"></div></div><!-- ColorFun Run (Right) --><div class="flex flex-col md:flex-row items-center w-full relative group"><div class="w-full md:w-1/2"></div><div class="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center justify-center top-1/2 -translate-y-1/2"><div class="w-4 h-4 rounded-full bg-primary shadow-[0_0_15px_rgba(240,192,77,0.8)] z-10"></div></div><div class="w-full md:w-1/2 md:pl-12 flex justify-start"><div class="glass-card p-6 rounded-xl border-primary/20 hover:border-primary/50 transition-all duration-300 text-center w-full md:w-[400px] h-[120px] flex flex-col justify-center"><h4 class="font-headline-md text-primary mb-1">ColorFun Run</h4><p class="font-body-md text-tertiary text-sm">Oktober 2026</p></div></div></div><!-- Festival (Left) --><div class="flex flex-col md:flex-row items-center w-full relative group"><div class="w-full md:w-1/2 md:pr-12 flex justify-end"><div class="glass-card p-6 rounded-xl border-primary/50 bg-primary/10 shadow-[0_0_25px_rgba(240,192,77,0.3)] text-center w-full md:w-[400px] h-[120px] flex flex-col justify-center"><h4 class="font-headline-md text-primary-fixed mb-1">Festival</h4><p class="font-body-md text-tertiary text-sm">Oktober 2026</p></div></div><div class="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center justify-center top-1/2 -translate-y-1/2"><div class="w-6 h-6 rounded-full bg-primary shadow-[0_0_20px_rgba(240,192,77,1)] z-10"></div></div><div class="w-full md:w-1/2"></div></div></div></div></section><section class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-section-gap relative z-10">
+<h2 class="font-headline-lg text-headline-lg text-primary-fixed mb-stack-lg text-center text-glow">Sponsors &amp; Media Partners</h2>
+<div class="flex flex-col gap-12">
+<!-- Top Tier Sponsors -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter max-w-4xl mx-auto w-full">
+<div class="glass-card rounded-2xl h-32 flex items-center justify-center border border-outline-variant/20 hover:border-primary/50 transition-all duration-300">
+<div class="w-40 h-10 bg-on-surface/10 rounded animate-pulse"></div>
+</div>
+<div class="glass-card rounded-2xl h-32 flex items-center justify-center border border-outline-variant/20 hover:border-primary/50 transition-all duration-300">
+<div class="w-40 h-10 bg-on-surface/10 rounded animate-pulse"></div>
+</div>
+<div class="glass-card rounded-2xl h-32 flex items-center justify-center border border-outline-variant/20 hover:border-primary/50 transition-all duration-300">
+<div class="w-40 h-10 bg-on-surface/10 rounded animate-pulse"></div>
+</div>
+</div>
+<!-- Media Partners -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-gutter w-full">
+<div class="glass-card rounded-xl h-24 flex items-center justify-center border border-outline-variant/20 hover:border-primary/30 transition-all duration-300">
+<div class="w-24 h-6 bg-on-surface/5 rounded animate-pulse"></div>
+</div>
+<div class="glass-card rounded-xl h-24 flex items-center justify-center border border-outline-variant/20 hover:border-primary/30 transition-all duration-300">
+<div class="w-24 h-6 bg-on-surface/5 rounded animate-pulse"></div>
+</div>
+<div class="glass-card rounded-xl h-24 flex items-center justify-center border border-outline-variant/20 hover:border-primary/30 transition-all duration-300">
+<div class="w-24 h-6 bg-on-surface/5 rounded animate-pulse"></div>
+</div>
+<div class="glass-card rounded-xl h-24 flex items-center justify-center border border-outline-variant/20 hover:border-primary/30 transition-all duration-300">
+<div class="w-24 h-6 bg-on-surface/5 rounded animate-pulse"></div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full rounded-t-[40px] mt-section-gap relative z-20 text-on-background bg-surface-container-lowest bg-gradient-to-t from-background/80 to-transparent py-10 overflow-hidden"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxfseeMoK0lqJiYBHHuMdDBbk2ZuoBX5-p1Zm40exNmVIDDR7ne-i8QFEVEfccgwuUsqCKDdjtfKm79J3pEIe5jQ4bmiyl7h4AsRMUAtDYDrc3tOXGRDiFe39IbK_ExL_3wqKy2ptjfPiIvxVfpJbw49y3ZtZa3M5yhg2_xrzWJQr_PGMktwpnHrx0E8UvJYsdUoy-Z8T95eRjtr7g2u131yajhYATRyYO7Zbr5cTtTxmizrWFIOsV8CHu8KFUr1gavA" alt="Bintang-Bintang Presisi" class="absolute inset-0 w-full h-full object-cover opacity-30 z-0 pointer-events-none"><div class="absolute inset-0 z-[-1] overflow-hidden pointer-events-none w-full h-full"></div>
+<div class="max-w-container-max mx-auto grid grid-cols-1 md:grid-cols-12 gap-12 py-10 px-margin-mobile md:px-margin-desktop relative z-10">
+<!-- Left Column -->
+<div class="md:col-span-5 flex flex-col">
+<div class="flex items-center mb-6">
+<span class="font-headline-lg text-headline-lg text-on-surface tracking-tighter">VOITSFEST<span class="text-primary">.</span></span>
+</div>
+<p class="font-body-md leading-relaxed mb-8 max-w-md text-on-surface/80" data-stitch-orig-opacity="0">VOITSFEST adalah signature event unggulan dari Fakultas Vokasi ITS. Ajang kolaborasi inovasi, kreativitas, dan ekonomi kreatif yang berkelanjutan bagi seluruh civitas akademika dan masyarakat umum.</p>
+<div class="flex space-x-4"><div class="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-on-surface/10 hover:border-primary border-primary/50 bg-on-surface/5"><img alt="Instagram" class="w-full h-full object-contain p-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBTl2UmqpxIGwKZRj4YRh0VfCk0rzWtcTEDRTABCFuE3PDWh6v-8oYCCthi8glenQHMm6XTLpxa5a4cB9Qc8lzNVq-o2nuXDpIuMpjfBYSkdgs-4l5JQbsX98TXCdsb7UPRJVCIHSVtYsa4jQhNOfinSwpp9cRchV3q8yv0_kXM_acM6RdVSl2qAJqcBbcAxKlYMjWJ3mes6H3BV2LhZPQ38jL2ALBlTPZEny0AmoLOlC_RUhdzXR7L-JBugVZwvI6jXpY"></div><div class="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-on-surface/10 hover:border-primary border-primary/50 bg-on-surface/5"><img alt="LinkedIn" class="w-full h-full object-contain p-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuChtDlwwC1tu3mFI1n0MivSKcB_MeEneaMMfmazYFYn3N5c80VPBz2LzJToWpSctvnrDsAZwXr3Dyt20RERGdmGYmoM7UVqVp35X95w4qiAOlRZrGir5ut1BwL71Z4fEUAZ1VZhwp5K09MvQYMbkLGELQ5FVx0hQFt4GS2ViAYtvqoLE2GEAmtFAkoa2y3cxoXOIacf29nig3UPi5tmTPqDtzcHtwtZZ4Hr5yb8kRPW3NtUyuPoNdAzbvZ6V54TjchqwOk"></div><div class="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-on-surface/10 hover:border-primary border-primary/50 bg-on-surface/5"><img alt="TikTok" class="w-full h-full object-contain p-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMh7hiA86g1A5Yr-MNdOUAHmdXwoQhMtF3aHS4_jOsOLv6C1F0PweAe_s7qFTBwAJhfXCU1bCdCXMyrtgVEO9QGE_4HznGv7JYHTeYkgygfffgSqjEsYVko14LB3MB5KsGhelKDMi3q9WohafBNokWkb6FZ_hQPASYs7RWO-cv6gu110Q52ClnBaPBWtPo1MpX82g6-3Ef4V4qvSk2bm6PV7Sr-g_NwVW1lHisW9wv5lo26nazT1g8V2rEIfGVoYIeGRg"></div></div>
+</div>
+<!-- Middle Column -->
+<div class="md:col-span-3">
+<h4 class="font-label-sm text-label-sm uppercase mb-6 tracking-widest text-on-background font-bold text-primary-fixed">Events</h4>
+<ul class="space-y-4">
+<li class=""><a class="transition-colors font-body-md hover:text-primary text-on-surface" href="#">Entrepreneurship Seminar</a></li>
+<li class=""><a class="transition-colors font-body-md hover:text-primary text-on-surface" href="#">ColorFun Run</a></li>
+<li class=""><a class="transition-colors font-body-md hover:text-primary text-on-surface" href="#">Festival</a></li>
+<li class=""><a class="transition-colors font-body-md hover:text-primary text-on-surface" href="#">FAQ</a></li>
+</ul>
+</div>
+<!-- Right Column -->
+<div class="md:col-span-4">
+<h4 class="font-label-sm text-label-sm uppercase mb-6 tracking-widest text-on-background font-bold text-primary-fixed">Reach Us</h4>
+<ul class="space-y-4">
+<li class="font-body-md text-on-surface">voitsfest2026@gmail.com</li>
+<li class="font-body-md text-on-surface">
+                    Fakultas Vokasi,<br>
+                    Institut Teknologi Sepuluh Nopember
+                </li>
+</ul>
+</div>
+</div>
+<div class="max-w-container-max mx-auto border-t border-on-surface/10 pt-8 pb-4 flex flex-col md:flex-row justify-between items-center px-margin-mobile md:px-margin-desktop relative z-10">
+<p class="font-label-sm text-label-sm uppercase tracking-widest mb-4 md:mb-0 text-on-surface/60">
+            © 2026 VOITSFEST. ALL RIGHTS RESERVED.
+        </p>
+</div>
+</footer>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body></html>

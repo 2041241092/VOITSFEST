@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="id" style=""><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Registration - Entrepreneurship Seminar | VOITSFEST 2026</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        
+        /* Custom Animations */
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+        @keyframes driftFade1 {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 0.6; }
+        }
+        @keyframes driftFade2 {
+            0% { transform: translate(100vw, -100vh); opacity: 1; }
+            99% { opacity: 1; }
+            100% { transform: translate(-150vw, 150vh); opacity: 0; }
+        }
+        .animate-twinkle {
+            animation: twinkle 4s ease-in-out infinite;
+        }
+        .animate-driftFade1 {
+            animation: driftFade1 8s ease-in-out infinite;
+        }
+        .animate-driftFade2 {
+            animation: driftFade2 10s linear infinite;
+        }
+        
+        /* Glassmorphism overrides */
+        .glass-panel {
+            background: rgba(46, 78, 143, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .glass-input {
+            background-color: #ffffff !important;
+            border: 1px solid rgba(46, 78, 143, 0.5) !important;
+            color: #0b1026 !important; 
+        }
+        .glass-input:focus {
+            border-color: #b0c6ff !important;
+            box-shadow: 0 0 10px rgba(176, 198, 255, 0.3) !important;
+            outline: none;
+        }
+        .glass-input:read-only, .glass-input:disabled {
+            background-color: rgba(255, 255, 255, 0.5) !important;
+            color: rgba(11, 16, 38, 0.7) !important;
+            cursor: not-allowed;
+        }
+        
+        /* Ensure options are visible */
+        select.glass-input option {
+            background-color: #ffffff;
+            color: #0b1026;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-dim": "#101415",
+                      "outline-variant": "#46464d",
+                      "on-error-container": "#ffdad6",
+                      "surface-container-lowest": "#0b0f10",
+                      "on-surface-variant": "#c7c5ce",
+                      "tertiary-fixed": "#ffdcc0",
+                      "inverse-surface": "#e0e3e5",
+                      "tertiary-container": "#1f0d00",
+                      "tertiary-fixed-dim": "#e6bfa0",
+                      "surface-container": "#1d2022",
+                      "on-background": "#e0e3e5",
+                      "on-surface": "#e0e3e5",
+                      "on-tertiary": "#432b15",
+                      "secondary-fixed": "#d9e2ff",
+                      "background": "#101415",
+                      "primary-fixed": "#dde1ff",
+                      "tertiary": "#e6bfa0",
+                      "inverse-on-surface": "#2d3133",
+                      "inverse-primary": "#585d77",
+                      "on-primary-fixed": "#151a31",
+                      "secondary-fixed-dim": "#b0c6ff",
+                      "error": "#ffb4ab",
+                      "on-secondary-fixed-variant": "#234485",
+                      "primary": "#c1c5e3",
+                      "error-container": "#93000a",
+                      "on-secondary": "#012d6d",
+                      "primary-container": "#0b1026",
+                      "surface-container-high": "#272a2c",
+                      "surface-container-highest": "#323537",
+                      "on-error": "#690005",
+                      "on-tertiary-container": "#97775b",
+                      "on-primary-fixed-variant": "#41455e",
+                      "surface-bright": "#363a3b",
+                      "on-tertiary-fixed-variant": "#5c4129",
+                      "outline": "#919097",
+                      "on-secondary-container": "#96b4fc",
+                      "on-tertiary-fixed": "#2b1704",
+                      "on-primary-container": "#777c97",
+                      "on-primary": "#2a2f47",
+                      "surface-container-low": "#191c1e",
+                      "surface-variant": "#323537",
+                      "secondary": "#b0c6ff",
+                      "secondary-container": "#234485",
+                      "surface": "#101415",
+                      "primary-fixed-dim": "#c1c5e3",
+                      "surface-tint": "#c1c5e3",
+                      "on-secondary-fixed": "#001944",
+                      // Custom brand colors added for convenience based on style guide
+                      "midnight-navy": "#0B1026",
+                      "starlight-blue": "#2E4E8F",
+                      "sky-blue": "#8AB4F8",
+                      "stardust-gold": "#F2C94C"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "lg": "48px",
+                      "xl": "80px",
+                      "sm": "12px",
+                      "gutter": "24px",
+                      "base": "8px",
+                      "xs": "4px",
+                      "md": "24px",
+                      "margin-mobile": "16px",
+                      "container-max": "1280px"
+              },
+              "fontFamily": {
+                      "body-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "headline-sm": [
+                              "Space Grotesk"
+                      ],
+                      "headline-lg": [
+                              "Space Grotesk"
+                      ],
+                      "headline-md": [
+                              "Space Grotesk"
+                      ],
+                      "label-md": [
+                              "Space Grotesk"
+                      ],
+                      "body-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "display-lg": [
+                              "Space Grotesk"
+                      ],
+                      "display-lg-mobile": [
+                              "Space Grotesk"
+                      ]
+              },
+              "fontSize": {
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-sm": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-md": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg": [
+                              "72px",
+                              {
+                                      "lineHeight": "80px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "display-lg-mobile": [
+                              "40px",
+                              {
+                                      "lineHeight": "48px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ]
+              }
+            }
+          }
+        }
+    </script>
+</head>
+<body class="bg-midnight-navy text-on-surface min-h-screen flex flex-col relative overflow-x-hidden">
+<!-- Global Background with Celestial Animations -->
+<div class="fixed inset-0 z-[-1] pointer-events-none">
+<div class="absolute inset-0 bg-midnight-navy"></div>
+<img alt="Background" class="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-screen" data-alt="A mesmerizing deep space galaxy background, blending dark midnight blues with swirling cosmic dust and distant starlight. The atmosphere is vast and mysterious." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVMgSntHTF1ZxuDlezPJr8Dl3rE2JF38_j-81ernDLimYEqKuz9424c1-Jdi4OwgjCRZcmCJq-7WWYK8E2HdOxV9BL2D8iLqyp1Chmm1S1hAriHWXSnSJObwbNkikowuPiL_sp6zu6HwzEysM8TyqIw_agQhqDTgBzuM6RrRZoA7gQLqOPsauIIvfw3jBDwM1sz5xVzWWRSn-tn_IR6xJHH0HlPfR_JIAMasJTf5SLVNueVLn2TTqFoMhXIyrRcsNtDw"/>
+<!-- Animated Elements -->
+<div class="absolute inset-0 overflow-hidden">
+<img class="absolute top-[10%] left-[20%] w-64 opacity-50 animate-twinkle" data-alt="Twinkling distant stars in a dark cosmos, glowing softly in hues of stardust gold and pale white, creating a sense of deep, infinite space." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMpSBaeOFHfHowFS0qdo_7GgNKNsgE7FIQyGMiDhWSH1l_HWivV__izV19KTe4r8KQgUeT1-3Z9KKBmE6UNJJvpCbtDHHqM9BwT2vM9ZNkLcavR1GBIAB9A7comWpi1_zGG0kYtm72PO9xdL1_Og52T3pQRbxtCbS2U4YUHkHeCzA6yxeiWWxE0D3zKlWmSb_rngsx1kcVOUIdBycy29Le2p-ePIz2hugeJ4m3GR_g2z4msyxaxnDeoq5fh5jeCNpFhg" style="animation-delay: 0s;"/>
+<img class="absolute top-[60%] right-[15%] w-96 opacity-30 animate-twinkle" data-alt="Another cluster of softly glowing stars against the deep void of space, enhancing the celestial, immersive futuristic atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAM7wlfIx8PAbJ3Ao84J6at1AsqHWl9-N3jl5Krz2nmF0Nq4bWrOwN637uXilGGpaxaH5mThMnu5EsvB8r-8a0FPc-WzdszuaBbC_MQ3lAfmxqGiCO73-fkg9q0UhAWZPNE9u32j2VvppDG_U5Ux_t-lTLZg_TUnBmIw2LrQchm7gmjA9zNyVtDVLpgXNqcCNNddzxjj3g1j2U86etz-NaD8eSsWTNydwSiDlEABJx1nEQsjySx_fymUW5kc6OyvRTLCw" style="animation-delay: 1.5s;"/>
+<img alt="Komet 2" class="absolute w-[30rem] opacity-30 animate-driftFade2" data-alt="A secondary shooting star blazing through the cosmos, its bright trail contrasting beautifully with the dark, mysterious background nebula." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAw0XSJ7vEMwxkO0KC6KldFNvSS7Zo4jX3kMYtzu8QFxUxmeJ00o_bY4e-juic8ko7nc4JEfVbqiYSb0nSLoU96S2sHl2LQct4OM_DGrC3O6wz4t4lBzsooicD3lueO8c9gHmbV9oQaa3I683oyLJFx1Z_FIFEpCtXrAYJJsPTM-efbAGo6uHNcauTm9rVMKcKr1-zY7RCTQ55QG6Li8b5bh-RS__Vld3q2GQ6RL-rMZxdPcBC4ayCgFw1H_yeIxm_vTQ" style="top: -10%; left: 80%; animation-duration: 12s; animation-delay: 1s;"/>
+<img alt="Komet 2" class="absolute w-[20rem] opacity-30 animate-driftFade2" data-alt="A secondary shooting star blazing through the cosmos, its bright trail contrasting beautifully with the dark, mysterious background nebula." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAw0XSJ7vEMwxkO0KC6KldFNvSS7Zo4jX3kMYtzu8QFxUxmeJ00o_bY4e-juic8ko7nc4JEfVbqiYSb0nSLoU96S2sHl2LQct4OM_DGrC3O6wz4t4lBzsooicD3lueO8c9gHmbV9oQaa3I683oyLJFx1Z_FIFEpCtXrAYJJsPTM-efbAGo6uHNcauTm9rVMKcKr1-zY7RCTQ55QG6Li8b5bh-RS__Vld3q2GQ6RL-rMZxdPcBC4ayCgFw1H_yeIxm_vTQ" style="top: 20%; left: 110%; animation-duration: 15s; animation-delay: 6s;"/>
+<img alt="Komet 2" class="absolute w-[25rem] opacity-30 animate-driftFade2" data-alt="A secondary shooting star blazing through the cosmos, its bright trail contrasting beautifully with the dark, mysterious background nebula." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAw0XSJ7vEMwxkO0KC6KldFNvSS7Zo4jX3kMYtzu8QFxUxmeJ00o_bY4e-juic8ko7nc4JEfVbqiYSb0nSLoU96S2sHl2LQct4OM_DGrC3O6wz4t4lBzsooicD3lueO8c9gHmbV9oQaa3I683oyLJFx1Z_FIFEpCtXrAYJJsPTM-efbAGo6uHNcauTm9rVMKcKr1-zY7RCTQ55QG6Li8b5bh-RS__Vld3q2GQ6RL-rMZxdPcBC4ayCgFw1H_yeIxm_vTQ" style="top: 40%; left: 90%; animation-duration: 9s; animation-delay: 11s;"/>
+</div>
+</div>
+<!-- TopNavBar -->
+<header class="bg-surface/80 dark:bg-surface/80 backdrop-blur-xl text-tertiary-fixed-dim dark:text-tertiary-fixed-dim fixed top-0 w-full z-50 border-b border-white/10 shadow-[0px_0px_15px_rgba(176,198,255,0.1)]">
+<div class="flex justify-between items-center px-margin-mobile md:px-lg h-xl max-w-container-max mx-auto">
+<a class="flex items-center h-full py-2" href="/">
+<img alt="VOITSFEST 2026" class="h-full w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD0KyqfJ_-bEqgakVXi9wId6f59KM003rkfFlUu3xqjNjFiQzlssUk7UUjClAAU7XEIlGF8HET7VYCmsQV3DD9GHvJjjwGhBkxr2Yzr8PUjQrd0ByxoCJvge-SSjAIH1mQyKIcLTXI1rj6U7B8MGjM2WUgHRe1ReObZxxafi-BKFKEP-AryQPf872gnEeRnci3-0SMBzHWcVLPr4tUOPmLuCMT5d8nDkiJiIWCLDl2QSdpy-jSNFVJqqTyBAQS_1iWCmQ"/>
+</a>
+<nav class="hidden md:flex gap-gutter items-center font-label-md text-label-md">
+<div class="relative group">
+<button class="text-on-surface-variant hover:text-tertiary transition-colors duration-300 uppercase flex items-center gap-1">
+        Competitions
+        <span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+<div class="absolute top-full left-0 mt-2 w-64 glass-panel rounded-xl overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
+<a class="block px-md py-sm hover:bg-tertiary/10 text-on-surface-variant hover:text-tertiary transition-colors" href="#">Business Plan Competition (BPC)</a>
+<a class="block px-md py-sm hover:bg-tertiary/10 text-on-surface-variant hover:text-tertiary transition-colors" href="#">Business Case Competition (BCC)</a>
+</div>
+</div>
+<div class="relative group">
+<button class="text-on-surface-variant hover:text-tertiary transition-colors duration-300 uppercase flex items-center gap-1">
+        Events
+        <span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+<div class="absolute top-full left-0 mt-2 w-64 glass-panel rounded-xl overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
+<a class="block px-md py-sm hover:bg-tertiary/10 text-on-surface-variant hover:text-tertiary transition-colors" href="#">Seminar Kewirausahaan</a>
+<a class="block px-md py-sm hover:bg-tertiary/10 text-on-surface-variant hover:text-tertiary transition-colors" href="#">ColorFun Run</a>
+<a class="block px-md py-sm hover:bg-tertiary/10 text-on-surface-variant hover:text-tertiary transition-colors" href="#">Festival</a>
+</div>
+</div>
+<a class="text-on-surface-variant hover:text-tertiary transition-colors duration-300 uppercase" href="#">Tenants</a>
+<a class="text-on-surface-variant hover:text-tertiary transition-colors duration-300 uppercase" href="#">Sponsors</a>
+</nav>
+<div class="hidden md:flex items-center gap-sm">
+<button class="bg-tertiary text-on-tertiary font-label-md text-label-md px-md py-sm rounded-full hover:shadow-[0_0_15px_rgba(176,198,255,0.3)] transition-all uppercase">
+    Register
+</button>
+<button class="border border-tertiary text-tertiary font-label-md text-label-md px-md py-sm rounded-full hover:bg-tertiary/10 transition-all uppercase">
+    Login
+</button>
+</div>
+<button class="md:hidden text-tertiary-fixed-dim">
+<span class="material-symbols-outlined text-[32px]">menu</span>
+</button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-grow pt-[120px] pb-xl px-margin-mobile md:px-md lg:px-xl mx-auto w-full relative z-10 max-w-container-max md:px-lg">
+<!-- Header Section -->
+<div class="text-center mb-12 mx-auto">
+<h1 class="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg text-white mb-4 drop-shadow-md">Festival Registration</h1>
+<p class="font-body-lg text-body-lg text-secondary-fixed-dim max-w-2xl mx-auto"><span class="" style="color: rgb(193, 197, 227);">Secure your spot for the grand finale of VOITSFEST 2026.</span></p>
+</div>
+<!-- Registration Form -->
+<form class="space-y-gutter max-w-5xl mx-auto" id="registrationForm">
+<!-- Section 1: Konfirmasi Data Peserta -->
+<div class="glass-panel rounded-xl p-md md:p-lg relative overflow-hidden group md:p-md">
+<div class="absolute inset-0 bg-gradient-to-br from-starlight-blue/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+<h2 class="font-headline-md text-headline-md text-stardust-gold mb-6 flex items-center gap-3">
+<span class="material-symbols-outlined text-[28px]">person</span>
+                    Konfirmasi Data Peserta
+                </h2>
+<div class="space-y-6 relative z-10">
+<div>
+<label class="block font-label-md text-label-md text-primary-fixed-dim mb-2" for="namaLengkap">Nama Lengkap</label>
+<div class="relative">
+<input class="w-full rounded-lg glass-input px-4 py-3 font-body-md text-body-md focus:ring-0 transition-all duration-300" id="namaLengkap" name="namaLengkap" placeholder="Masukkan nama lengkap sesuai KTP/KTM" readonly="" type="text" value="Budi Santoso"/>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary-fixed-dim/50">lock</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-4">
+<div>
+<label class="block font-label-md text-label-md text-primary-fixed-dim mb-2" for="nomorWA">Nomor WhatsApp</label>
+<div class="relative">
+<input class="w-full rounded-lg glass-input px-4 py-3 font-body-md text-body-md focus:ring-0 transition-all duration-300" id="nomorWA" name="nomorWA" placeholder="081234567890" readonly="" type="tel" value="081234567890"/>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary-fixed-dim/50">lock</span>
+</div>
+</div>
+<div>
+<label class="block font-label-md text-label-md text-primary-fixed-dim mb-2" for="email">Email Aktif</label>
+<div class="relative">
+<input class="w-full rounded-lg glass-input px-4 py-3 font-body-md text-body-md focus:ring-0 transition-all duration-300" id="email" name="email" placeholder="email@contoh.com" readonly="" type="email" value="budi.santoso@example.com"/>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary-fixed-dim/50">lock</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Section 2: Pemilihan Tiket & Pembayaran -->
+<div class="glass-panel rounded-xl p-md md:p-lg relative overflow-hidden group md:p-md" id="sectionPembayaran">
+<h2 class="font-headline-md text-headline-md text-stardust-gold mb-6 flex items-center gap-3">
+<span class="material-symbols-outlined text-[28px]">account_balance_wallet</span>
+                    Pemilihan Tiket &amp; Pembayaran
+                </h2>
+<div class="space-y-6">
+<!-- Ticket Selection -->
+<div>
+<label class="block font-label-md text-label-md text-primary-fixed-dim mb-3">Pilih Kategori Tiket Festival</label>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+<label class="relative flex items-center p-4 cursor-not-allowed rounded-lg border border-starlight-blue/30 bg-midnight-navy/30 opacity-60">
+<input class="peer sr-only" disabled="" id="ticketPresale1" name="kategoriTiket" type="radio" value="presale1"/>
+<div class="flex-grow text-center">
+<p class="font-body-md text-white font-medium mb-1">Presale 1</p>
+<p class="font-label-md text-stardust-gold mb-1">Rp 50.000</p>
+<span class="text-xs font-bold text-error uppercase tracking-wider">Sold Out</span>
+</div>
+</label>
+<label class="relative flex items-center p-4 cursor-pointer rounded-lg border border-starlight-blue/50 bg-midnight-navy/50 hover:bg-starlight-blue/20 transition-colors has-[:checked]:bg-starlight-blue/30 has-[:checked]:border-stardust-gold">
+<input class="peer sr-only" id="ticketPresale2" name="kategoriTiket" onchange="document.getElementById('totalAmount').textContent = 'Rp 75.000'" required="" type="radio" value="presale2"/>
+<div class="flex-grow text-center">
+<p class="font-body-md text-white font-medium mb-1">Presale 2</p>
+<p class="font-label-md text-stardust-gold mb-1">Rp 75.000</p>
+<span class="text-xs font-bold text-sky-blue uppercase tracking-wider">Available</span>
+</div>
+</label>
+<label class="relative flex items-center p-4 cursor-pointer rounded-lg border border-starlight-blue/50 bg-midnight-navy/50 hover:bg-starlight-blue/20 transition-colors has-[:checked]:bg-starlight-blue/30 has-[:checked]:border-stardust-gold">
+<input class="peer sr-only" id="ticketNormal" name="kategoriTiket" onchange="document.getElementById('totalAmount').textContent = 'Rp 100.000'" required="" type="radio" value="normal"/>
+<div class="flex-grow text-center">
+<p class="font-body-md text-white font-medium mb-1">Normal Price</p>
+<p class="font-label-md text-stardust-gold mb-1">Rp 100.000</p>
+<span class="text-xs font-bold text-sky-blue uppercase tracking-wider">Available</span>
+</div>
+</label>
+</div>
+</div>
+<!-- Payment State (Always Visible) -->
+<div class="space-y-6" id="stateBayar">
+<div class="bg-gradient-to-r from-stardust-gold/20 to-transparent border-l-4 border-stardust-gold p-4 rounded-r-lg flex items-center justify-between">
+<div>
+<p class="font-label-md text-label-md text-primary-fixed-dim uppercase tracking-wider">Total Pembayaran</p>
+<h3 class="font-headline-sm text-headline-sm text-stardust-gold mt-1" id="totalAmount">Rp -</h3>
+</div>
+<span class="material-symbols-outlined text-4xl text-stardust-gold/50">payments</span>
+</div>
+<div>
+<label class="block font-label-md text-label-md text-primary-fixed-dim mb-3">Metode Pembayaran</label>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:grid-cols-2">
+<label class="relative flex items-center p-4 cursor-pointer rounded-lg border border-starlight-blue/50 bg-midnight-navy/50 hover:bg-starlight-blue/20 transition-colors has-[:checked]:bg-starlight-blue/30 has-[:checked]:border-stardust-gold"><input class="peer sr-only" id="bayarBNI" name="metodeBayar" onchange="const bDetails = document.getElementById('bankDetailsContainer'); const qDetails = document.getElementById('qrisImageContainer'); if(this.checked) { bDetails.classList.remove('hidden'); qDetails.classList.add('hidden'); }" required="" type="radio" value="bni"/><span class="material-symbols-outlined text-[24px] mr-3 text-primary-fixed-dim peer-checked:text-sky-blue flex items-center justify-center w-6 h-6">account_balance</span><div class="flex-grow"><p class="font-body-md text-white font-medium">Bank Transfer</p></div></label>
+<label class="relative flex items-center p-4 cursor-pointer rounded-lg border border-starlight-blue/50 bg-midnight-navy/50 hover:bg-starlight-blue/20 transition-colors has-[:checked]:bg-starlight-blue/30 has-[:checked]:border-stardust-gold">
+<input class="peer sr-only" id="bayarQRIS" name="metodeBayar" onchange="const bDetails = document.getElementById('bankDetailsContainer'); const qDetails = document.getElementById('qrisImageContainer'); if(this.checked) { bDetails.classList.add('hidden'); qDetails.classList.remove('hidden'); qDetails.classList.add('flex'); }" required="" type="radio" value="qris"/>
+<span class="material-symbols-outlined text-[24px] mr-3 text-primary-fixed-dim peer-checked:text-sky-blue flex items-center justify-center w-6 h-6">qr_code_2</span>
+<div>
+<p class="font-body-md text-white font-medium">QRIS</p>
+</div>
+</label>
+</div><div class="mt-4 glass-panel rounded-xl p-md border-l-4 border-l-secondary bg-surface/30 hidden md:p-md" id="bankDetailsContainer"><h4 class="font-label-md text-label-md text-secondary mb-2">Transfer Destination:</h4><p class="font-body-md text-body-md text-white mb-1">BNI (Bank Negara Indonesia)</p><div class="flex items-center gap-2 mb-1"><p class="font-body-md text-body-md text-white font-mono text-lg tracking-wider">1433025776</p><button class="text-secondary hover:text-white transition-colors" title="Copy Account Number" type="button"><span class="material-symbols-outlined text-sm">content_copy</span></button></div><p class="font-body-md text-body-md text-white">a.n Amalia Fitria Damaiyanti</p></div>
+</div>
+<!-- QRIS Image Section -->
+<div class="justify-center my-4 hidden" id="qrisImageContainer"><div class="bg-white p-6 rounded-xl shadow-lg mx-auto"><img alt="QRIS Barcode" class="max-w-[200px] w-full h-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvv2GIFn7hphmtrF1o8vHbJev39CT3cABAuHU-D0c-_SnsFkhniociwVprcIMdkxYydjTJf8p7BEUXfMSG_oNUWbwxMXba39Q9q9O93iOls29Dl9DCeqWpolQMDY0vlB00RPabS_vUhFJP1KhsF2Klp7wnOc8cgYbhqmU9Wu-Xq8wDkHky9cWcYPp6irmR0LkFBNCaU4ZWY1byXnGXKy8u7AVchuxcsVqfdSUQvCBChpRNKDmFtBw76ey3eNqV-eqsdg"/></div></div>
+<div>
+<label class="block font-label-md text-label-md text-primary-fixed-dim mb-2" for="namaPemilikRekening">Nama Pemilik Rekening Pengirim</label>
+<input class="w-full rounded-lg glass-input px-4 py-3 font-body-md text-body-md focus:ring-0 transition-all duration-300" id="namaPemilikRekening" name="namaPemilikRekening" required="" type="text"/>
+</div>
+<div>
+<label class="block font-label-md text-label-md text-primary-fixed-dim mb-2">Unggah Bukti Transfer</label>
+<div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-starlight-blue border-dashed rounded-lg bg-white hover:bg-white/90 transition-colors duration-300 group cursor-pointer text-midnight-navy">
+<div class="space-y-1 text-center">
+<span class="material-symbols-outlined text-4xl text-midnight-navy transition-colors duration-300">receipt_long</span>
+<div class="flex text-sm text-on-surface-variant justify-center mt-2">
+<label class="relative cursor-pointer rounded-md font-medium text-secondary hover:text-secondary-fixed-dim focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-secondary" for="bukti-upload">
+<span class="">Upload a file</span>
+<input accept="image/*" class="sr-only" id="bukti-upload" name="bukti-upload" required="" type="file"/>
+</label>
+<p class="pl-1">or drag and drop</p>
+</div>
+<p class="text-xs text-midnight-navy/70">PNG, JPG up to 5MB</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Section 3: Persetujuan & Finalisasi -->
+<div class="glass-panel rounded-xl p-md md:p-lg relative overflow-hidden group md:p-md mt-gutter">
+<h2 class="font-headline-md text-headline-md text-stardust-gold mb-6 flex items-center gap-3">
+<span class="material-symbols-outlined text-[28px]">fact_check</span>
+                    Persetujuan &amp; Finalisasi
+                </h2>
+<div class="space-y-4">
+<label class="flex items-start gap-4 p-4 rounded-lg bg-midnight-navy/30 border border-starlight-blue/30 cursor-pointer hover:bg-midnight-navy/50 transition-colors">
+<div class="flex items-center h-5 mt-1">
+<input class="w-5 h-5 rounded border-starlight-blue text-sky-blue focus:ring-sky-blue bg-midnight-navy" id="persetujuanAturan" name="persetujuanAturan" required="" type="checkbox"/>
+</div>
+<div class="text-sm font-body-md text-on-surface">
+Saya bersedia mematuhi tata tertib Festival, termasuk tidak membawa senjata tajam, obat-obatan terlarang, dan barang bawaan yang dilarang panitia.
+</div>
+</label>
+</div>
+</div>
+<!-- Submit Button -->
+<div class="pt-6 flex justify-end">
+<button class="bg-tertiary text-primary-container font-label-md text-label-md px-xl py-sm rounded-full hover:shadow-[0_0_15px_rgba(230,191,160,0.5)] transition-all uppercase flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none w-full md:w-auto justify-center" type="submit">
+                        Kirim Pembayaran<span class="material-symbols-outlined text-[20px]">confirmation_number</span>
+</button>
+</div>
+</div></form></main>
+<!-- Footer -->
+<footer class="w-full rounded-t-[40px] mt-xl relative z-20 p-margin-mobile md:p-lg text-on-background bg-surface-container-lowest bg-gradient-to-t from-background/80 to-transparent overflow-hidden">
+<div class="absolute inset-0 z-[-1] opacity-30"><img alt="" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBhBO5oQyjeCoIbZ27Aa4hkINj2T0B3kTh9qNimQjib6d_qthSEkkcRsb7ae6BeZzw0Bm9U1YV4uUBg0OdNKkuuSyhuM7NoZV0MdXIXaboH2sY4U4uP0x0ZucGlCrK9ZO8Cuut3g73k4ONhOF_VZ2yRkKNPKs0tcjt56nIZ7uL7Q-uZr_qyiZ4hlk57WXEWphJ9994RZCFoobrJ7RL7FkJg0TXD62ONg1Eu40E3DJiYWoXpWUeKsqLmrPjhwSeoUxfcQA"/></div>
+<div class="max-w-container-max mx-auto grid grid-cols-1 md:grid-cols-12 gap-12 py-10 relative z-10 px-4 md:px-8">
+<div class="md:col-span-5 flex flex-col">
+<div class="flex items-center mb-6"><span class="font-headline-lg text-headline-lg text-on-surface tracking-tighter">VOITSFEST<span class="text-secondary">.</span></span></div>
+<p class="font-body-md leading-relaxed mb-8 max-w-md text-on-surface/80">VOITSFEST adalah signature event unggulan dari Fakultas Vokasi ITS. Ajang kolaborasi inovasi, kreativitas, dan ekonomi kreatif yang berkelanjutan bagi seluruh civitas akademika dan masyarakat umum.</p>
+<div class="flex space-x-4">
+<div class="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-white/10 hover:border-secondary border-white/20 bg-white/5"><img alt="Instagram" class="w-full h-full object-contain p-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBTl2UmqpxIGwKZRj4YRh0VfCk0rzWtcTEDRTABCFuE3PDWh6v-8oYCCthi8glenQHMm6XTLpxa5a4cB9Qc8lzNVq-o2nuXDpIuMpjfBYSkdgs-4l5JQbsX98TXCdsb7UPRJVCIHSVtYsa4jQhNOfinSwpp9cRchV3q8yv0_kXM_acM6RdVSl2qAJqcBbcAxKlYMjWJ3mes6H3BV2LhZPQ38jL2ALBlTPZEny0AmoLOlC_RUhdzXR7L-JBugVZwvI6jXpY"/></div>
+<div class="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-white/10 hover:border-secondary border-white/20 bg-white/5"><img alt="LinkedIn" class="w-full h-full object-contain p-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuChtDlwwC1tu3mFI1n0MivSKcB_MeEneaMMfmazYFYn3N5c80VPBz2LzJToWpSctvnrDsAZwXr3Dyt20RERGdmGYmoM7UVqVp35X95w4qiAOlRZrGir5ut1BwL71Z4fEUAZ1VZhwp5K09MvQYMbkLGELQ5FVx0hQFt4GS2ViAYtvqoLE2GEAmtFAkoa2y3cxoXOIacf29nig3UPi5tmTPqDtzcHtwtZZ4Hr5yb8kRPW3NtUyuPoNdAzbvZ6V54TjchqwOk"/></div>
+<div class="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-white/10 hover:border-secondary border-white/20 bg-white/5"><img alt="TikTok" class="w-full h-full object-contain p-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMh7hiA86g1A5Yr-MNdOUAHmdXwoQhMtF3aHS4_jOsOLv6C1F0PweAe_s7qFTBwAJhfXCU1bCdCXMyrtgVEO9QGE_4HznGv7JYHTeYkgygfffgSqjEsYVko14LB3MB5KsGhelKDMi3q9WohafBNokWkb6FZ_hQPASYs7RWO-cv6gu110Q52ClnBaPBWtPo1MpX82g6-3Ef4V4qvSk2bm6PV7Sr-g_NwVW1lHisW9wv5lo26nazT1g8V2rEIfGVoYIeGRg"/></div>
+</div>
+</div>
+<div class="md:col-span-3">
+<h4 class="font-label-md text-label-md uppercase mb-6 tracking-widest text-secondary font-bold">Events</h4>
+<ul class="space-y-4"><li class=""><a class="transition-colors font-body-md hover:text-secondary text-on-surface" href="#">Entrepreneurship Seminar</a></li><li class=""><a class="transition-colors font-body-md hover:text-secondary text-on-surface" href="#">ColorFun Run</a></li><li class=""><a class="transition-colors font-body-md hover:text-secondary text-on-surface" href="#">Festival</a></li><li class=""><a class="transition-colors font-body-md hover:text-secondary text-on-surface" href="#">FAQ</a></li></ul>
+</div>
+<div class="md:col-span-4">
+<h4 class="font-label-md text-label-md uppercase mb-6 tracking-widest text-secondary font-bold">Reach Us</h4>
+<ul class="space-y-4"><li class="font-body-md text-on-surface">voitsfest2026@gmail.com</li><li class="font-body-md text-on-surface">Fakultas Vokasi,<br/>Institut Teknologi Sepuluh Nopember</li></ul>
+</div>
+</div>
+<div class="max-w-container-max mx-auto border-t border-white/10 pt-8 pb-8 flex flex-col md:flex-row justify-between items-center relative z-10 px-4 md:px-8">
+<p class="font-label-md text-[10px] uppercase tracking-widest mb-4 md:mb-0 text-on-surface/60">© 2026 VOITSFEST. ALL RIGHTS RESERVED.</p>
+</div>
+</footer>
+<!-- Interactive Logic Script -->
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const radioBNI = document.getElementById('bayarBNI');
+            const radioQRIS = document.getElementById('bayarQRIS');
+            const qrisImageContainer = document.getElementById('qrisImageContainer');
+
+            // Payment method logic for QRIS
+            const handlePaymentMethodChange = () => {
+                if (radioQRIS.checked) {
+                    qrisImageContainer.classList.remove('hidden');
+                    qrisImageContainer.classList.add('flex');
+                } else {
+                    qrisImageContainer.classList.add('hidden');
+                    qrisImageContainer.classList.remove('flex');
+                }
+            };
+
+            radioBNI?.addEventListener('change', handlePaymentMethodChange);
+            radioQRIS?.addEventListener('change', handlePaymentMethodChange);
+            
+            // Simple visual feedback for file uploads
+            const fileInputs = document.querySelectorAll('input[type="file"]');
+            fileInputs.forEach(input => {
+                input.addEventListener('change', function(e) {
+                    if (this.files && this.files.length > 0) {
+                        const fileName = this.files[0].name;
+                        const label = this.parentElement.querySelector('span');
+                        if (label) label.textContent = fileName;
+                        
+                        // Change icon to check
+                        const container = this.closest('.group');
+                        const icon = container.querySelector('.material-symbols-outlined');
+                        if (icon) {
+                            icon.textContent = 'check_circle';
+                            icon.classList.add('text-sky-blue');
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+</body></html>

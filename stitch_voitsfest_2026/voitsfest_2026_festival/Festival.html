@@ -1,0 +1,317 @@
+<!DOCTYPE html><html class="dark" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>VOITSFEST - Festival</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-background": "#dde1ff",
+                    "on-primary-fixed": "#251a00",
+                    "primary-fixed": "#ffdf9d",
+                    "inverse-on-surface": "#2a2f47",
+                    "accent-glow": "rgba(240, 192, 77, 0.5)",
+                    "on-primary": "#3f2e00",
+                    "glass-fill": "rgba(46, 78, 143, 0.4)",
+                    "on-tertiary-fixed-variant": "#004882",
+                    "on-surface-variant": "#d2c5af",
+                    "secondary-container": "#234485",
+                    "secondary-fixed-dim": "#b0c6ff",
+                    "surface-container-highest": "#2f334b",
+                    "outline": "#9b8f7c",
+                    "tertiary": "#d6e5ff",
+                    "background": "#0d1228",
+                    "primary-fixed-dim": "#f0c04d",
+                    "surface-bright": "#333850",
+                    "inverse-surface": "#dde1ff",
+                    "outline-variant": "#4e4635",
+                    "tertiary-fixed-dim": "#a3c9ff",
+                    "on-secondary-fixed": "#001944",
+                    "on-primary-fixed-variant": "#5b4300",
+                    "on-error": "#690005",
+                    "tertiary-fixed": "#d3e3ff",
+                    "primary-container": "#f2c14e",
+                    "on-secondary-fixed-variant": "#234485",
+                    "surface-tint": "#f0c04d",
+                    "surface-dim": "#0d1228",
+                    "on-error-container": "#ffdad6",
+                    "error-container": "#93000a",
+                    "inverse-primary": "#785a00",
+                    "error": "#ffb4ab",
+                    "surface-container-low": "#151a31",
+                    "surface-container": "#191e35",
+                    "on-surface": "#dde1ff",
+                    "primary": "#ffe0a3",
+                    "tertiary-container": "#a6caff",
+                    "surface": "#0d1228",
+                    "on-tertiary-fixed": "#001c39",
+                    "surface-container-lowest": "#080d22",
+                    "surface-container-high": "#242940",
+                    "on-primary-container": "#6b4f00",
+                    "on-secondary-container": "#96b4fc",
+                    "secondary": "#b0c6ff",
+                    "on-tertiary": "#00315c",
+                    "on-secondary": "#012d6d",
+                    "surface-variant": "#2f334b",
+                    "on-tertiary-container": "#005598",
+                    "secondary-fixed": "#d9e2ff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "section-gap": "80px",
+                    "stack-md": "16px",
+                    "gutter": "24px",
+                    "container-max": "1280px",
+                    "margin-mobile": "20px",
+                    "stack-sm": "8px",
+                    "margin-desktop": "64px",
+                    "stack-lg": "32px"
+            },
+            "fontFamily": {
+                    "display-lg": ["Space Grotesk"],
+                    "headline-lg-mobile": ["Space Grotesk"],
+                    "body-md": ["Inter"],
+                    "headline-lg": ["Space Grotesk"],
+                    "label-sm": ["JetBrains Mono"],
+                    "body-lg": ["Inter"],
+                    "headline-md": ["Space Grotesk"]
+            },
+            "fontSize": {
+                    "display-lg": ["120px", {"lineHeight": "1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-lg-mobile": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-lg": ["48px", {"lineHeight": "56px", "fontWeight": "600"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "headline-md": ["32px", {"lineHeight": "40px", "fontWeight": "500"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body {
+            background-color: #0d1228;
+            color: #dde1ff;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(35, 68, 133, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 85% 30%, rgba(242, 193, 78, 0.08) 0%, transparent 40%);
+            background-attachment: fixed;
+            overflow-x: hidden;
+        }
+
+        .glass-card {
+            background-color: rgba(46, 78, 143, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .glowing-text {
+            text-shadow: 0 0 30px rgba(240, 192, 77, 0.6), 0 0 60px rgba(240, 192, 77, 0.3);
+        }
+
+        .floating-element {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-15px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .flip-card {
+            perspective: 1000px;
+            cursor: pointer;
+        }
+        
+        .flip-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform-style: preserve-3d;
+        }
+        
+        .flip-card.flipped .flip-card-inner {
+            transform: rotateY(180deg);
+        }
+        
+        .flip-card-front, .flip-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 0.75rem;
+        }
+        
+        .flip-card-front {
+            background: linear-gradient(135deg, rgba(35,68,133,0.6) 0%, rgba(13,18,40,0.8) 100%);
+            border: 1px solid rgba(240, 192, 77, 0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 20px rgba(240, 192, 77, 0.1);
+        }
+        
+        .flip-card-back {
+            transform: rotateY(180deg);
+            border: 2px solid rgba(240, 192, 77, 0.8);
+            box-shadow: 0 0 25px rgba(240, 192, 77, 0.5);
+            overflow: hidden;
+        }
+
+        .star-bg {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: 
+                radial-gradient(1px 1px at 20px 30px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 40px 70px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(1.5px 1.5px at 50px 160px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 90px 40px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 130px 80px, rgba(255,255,255,0.8), rgba(0,0,0,0));
+            background-repeat: repeat;
+            background-size: 200px 200px;
+            opacity: 0.3;
+            z-index: -1;
+            animation: twinkle 10s linear infinite;
+        }
+
+        @keyframes twinkle {
+            0% { opacity: 0.2; }
+            50% { opacity: 0.5; }
+            100% { opacity: 0.2; }
+        }
+    </style>
+</head>
+<body class="font-body-md text-body-md antialiased relative" style="background-image: url(&quot;https://lh3.googleusercontent.com/aida/AEtjO1UKNK_9lLS5T_0pt0RodpdeOykOROvB-LO2csE9G3Z3bCH8pioA7skrfS4LTRcGTmWnEJFQJN0TAM7v3ZZVU69cMV1_OPalhlmCLr_zOUHz2U9XIkLWnZr6AL79ky1H28-pDFnOFGskYNT1TghJVt4ASnxzzCwTyh1_bLL_uVyfhtnFgMGE3fpsByc2BkHqvuUa2rO9o2KNpB8kmdmAwBUGGrpC7-Zsm16yWMsYePeEcnvN_vmkvi_OkaND2hqRt_KMhUe7at8wnw&quot;); background-attachment: fixed; background-size: cover; background-position: center center;">
+<div class="star-bg fixed"></div>
+<!-- Top Navigation -->
+<nav class="fixed top-0 w-full z-50 bg-surface/40 backdrop-blur-md border-b border-white/10 transition-all duration-300">
+<div class="flex justify-between items-center px-margin-mobile md:px-margin-desktop py-4 max-w-container-max mx-auto"><!-- Logo -->
+<div class="flex items-center">
+<a href="#" class="block h-10"><img src="https://lh3.googleusercontent.com/aida/AEtjO1XOf85pk2rBFYPjZJyuH6egxN2hmDJjCUYi9p_1BviRJK2VFMVHVQuaw8QQGkiSJY6jumw0wJh1Iwje-9ndONt5fqHkNUKqdX5Mw1vGlraJiO2QU824NERRz_mvaYor8-XiyHnQmWcrICLWF9qWt7dEF5XsymOdg7wwwVA15MTr7802IQ1Tq-bV0RVcoRyovKJAQZ97cmglTTox4OtwQEsHuEBPS6xAePwC79oK-1aZOY7dlDDgSlWSsvuNdy5kzAnXW5qg_xYp" alt="VOITSFEST" class="h-full w-auto object-contain"></a>
+</div>
+<!-- Centered Navigation -->
+<ul class="hidden md:flex space-x-gutter justify-center flex-1 items-center flex-row">
+<li class="relative group flex">
+<a class="text-on-surface/80 hover:text-primary transition-colors hover:bg-primary/10 duration-300 px-3 py-2 rounded-lg font-label-sm text-label-sm uppercase flex items-center gap-1 flex-row" href="#">
+            Competitions <span class="material-symbols-outlined text-sm">expand_more</span>
+</a>
+<div class="absolute top-full left-0 mt-2 w-64 glass-card rounded-xl border border-primary/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 overflow-hidden">
+<a class="block px-4 py-3 text-sm text-on-surface hover:bg-primary/10 hover:text-primary transition-colors border-b border-primary/10" href="#">Business Plan Competition (BPC)</a>
+<a class="block px-4 py-3 text-sm text-on-surface hover:bg-primary/10 hover:text-primary transition-colors" href="#">Business Case Competition (BCC)</a>
+</div>
+</li>
+<li class="relative group flex">
+<a class="text-on-surface/80 hover:text-primary transition-colors hover:bg-primary/10 duration-300 px-3 py-2 rounded-lg font-label-sm text-label-sm uppercase flex items-center gap-1 flex-row" href="#">
+            Events <span class="material-symbols-outlined text-sm">expand_more</span>
+</a>
+<div class="absolute top-full left-0 mt-2 w-56 glass-card rounded-xl border border-primary/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 overflow-hidden">
+<a class="block px-4 py-3 text-sm text-on-surface hover:bg-primary/10 hover:text-primary transition-colors border-b border-primary/10" href="#">Seminar Kewirausahaan</a>
+<a class="block px-4 py-3 text-sm text-on-surface hover:bg-primary/10 hover:text-primary transition-colors border-b border-primary/10" href="#">ColorFun Run</a>
+<a class="block px-4 py-3 text-sm text-on-surface hover:bg-primary/10 hover:text-primary transition-colors" href="#">Festival</a>
+</div>
+</li>
+<li class="flex"><a class="text-on-surface/80 hover:text-primary transition-colors hover:bg-primary/10 duration-300 px-3 py-2 rounded-lg font-label-sm text-label-sm uppercase flex-row" href="#">Tenants</a></li>
+<li class="flex"><a class="text-on-surface/80 hover:text-primary transition-colors hover:bg-primary/10 duration-300 px-3 py-2 rounded-lg font-label-sm text-label-sm uppercase flex-row" href="#">Sponsors</a></li>
+
+</ul>
+<!-- Action Buttons -->
+<div class="flex items-center space-x-4"><button class="bg-primary text-on-primary font-label-sm text-label-sm px-6 py-2 rounded-full font-bold transition-all hover:scale-105 hover:shadow-[0_0_20px_rgba(240,192,77,0.4)] uppercase">REGISTER</button><button class="hidden md:block text-primary border border-primary hover:bg-primary/10 transition-all font-label-sm text-label-sm uppercase tracking-widest px-4 py-2 rounded-full">LOGIN</button></div></div>
+</nav>
+<main class="pt-[100px]">
+<!-- Hero Section -->
+<section class="relative min-h-[921px] flex items-center justify-center overflow-hidden px-margin-desktop max-md:px-margin-mobile py-section-gap">
+<div class="relative z-10 text-center flex flex-col items-center max-w-4xl mx-auto mt-16">
+<div class="glass-card px-6 py-2 rounded-full mb-stack-lg inline-block border border-primary-container/30">
+<span class="font-label-sm text-label-sm text-primary-container uppercase tracking-[0.2em]">The Grand Finale</span>
+</div>
+<h1 class="font-display-lg text-display-lg max-md:font-headline-lg-mobile max-md:text-headline-lg-mobile text-primary-fixed mb-stack-md glowing-text uppercase floating-element">FESTIVAL</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mb-stack-lg mt-stack-md bg-surface/50 backdrop-blur-md p-4 rounded-xl border border-white/5">
+                    October 2026 &nbsp;|&nbsp; 16:00 - Finish &nbsp;|&nbsp; ITS Campus
+                </p>
+
+</div>
+</section>
+<!-- The Experience -->
+
+<!-- Cosmic Memories Grid -->
+<section class="py-section-gap px-margin-desktop max-md:px-margin-mobile max-w-container-max mx-auto rounded-3xl border border-white/5 relative overflow-hidden bg-surface-container-lowest/20" id="tickets">
+<div class="absolute top-0 right-0 w-96 h-96 bg-primary-container/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2"></div>
+<div class="text-center mb-section-gap relative z-10">
+<h2 class="font-headline-lg text-headline-lg max-md:font-headline-lg-mobile max-md:text-headline-lg-mobile text-primary-fixed-dim mb-stack-sm">MEMORIES</h2>
+<p class="font-body-lg text-body-lg text-primary uppercase tracking-[0.3em] opacity-80">Festival Rekap</p>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-gutter relative z-10">
+<!-- Memory Card 1 -->
+<div class="flip-card h-[300px]" onclick="this.classList.toggle('flipped')">
+<div class="flip-card-inner">
+<div class="flip-card-front"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuApylMAoLJ268aLfquatwdOuWxUSXr5lf75orIdzy02C5kVvDn3_XlJVUItDIJUL-jqdTBPUlbtIlZlnNBpX6RsYN34qbjxDfBZBLK7gYRfHpXh7N0PgcaUJtbhd7NG-x9hfLmqXVqAfSiIRpcbfFLn_RXmif9Ov5EPTt5Aly1BE9iwtFeQ0TOlncxcQONIW0mjja0FzRvLGTdfWSTqYwPaz8ZP6ZiJcH-vutgHx_zNP0TZIy4JGA0uIM1MofTN_WecRQ" class="absolute inset-0 w-full h-full object-contain z-0" alt="Fancy Frame"><div class="relative z-10 flex flex-col items-center justify-center bg-background/20 backdrop-blur-sm p-4 rounded-xl"><span class="material-symbols-outlined text-4xl text-primary-container mb-4 opacity-90">fingerprint</span><span class="font-label-sm text-label-sm text-on-surface uppercase tracking-widest text-center font-bold"><br></span></div></div>
+<div class="flip-card-back">
+<img alt="Memory" class="w-full h-full object-cover rounded-xl" data-alt="A vibrant, high-energy photograph of university students running through a massive cloud of glowing neon pink and blue powder at a color run event. The runners are smiling broadly, covered in vivid colors, with a dark, futuristic campus backdrop subtly visible. The lighting is cinematic, highlighting the dynamic motion and euphoric atmosphere of the festival." src="https://lh3.googleusercontent.com/aida/AEtjO1WxFYwiFS89GizA4FGhI2SAxHeOctIC6E1F7P0ESx_5Ox_RM2a7SUX160WuMDj29Lq2vyP2DXARSfWbsQgWHOmq-F5RaCOD64drU1z08RGpzH-3vjCvqJbSOP3FGecHXb8idiA84VKtV4p1fpUoaFJUKYByOkVtQ6W-37dJMuUW-zyX7140592gMALzwqQtc6C0NKaDU9IUvTPpKTOQtYIpIEg37xU8e54wUw1rFR0JS7N6ZXoH2_ZS5xHXgzFBFgl2BKMRevx6Bg">
+</div>
+</div>
+</div>
+<!-- Memory Card 2 -->
+<div class="flip-card h-[300px]" onclick="this.classList.toggle('flipped')">
+<div class="flip-card-inner">
+<div class="flip-card-front"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-CASkGB0_ZFjW-hhJooqyFw41cDjRr2qtbAeJymAcnT4d8UtmBK8phgJ6lvoMNSWPeYvstwP5G-pnR_j0pv2Qm6cqGKt8HrH4qY7tpCpWQyZmPFnnjCGfapCyxI-bucB_GVfGF_SZhZRMVaclLIYkJNNIDRIFl8JKc8dynnV5mfRH_H7wvqo3LG-kmkdir4VRgYNqCDA_qAI0LLjqZmq6Dz9I-ApIWCOUAvu2s3iyrT2KQFsq7OzrZpjdN283OvUrCg" class="absolute inset-0 w-full h-full object-contain z-0" alt="Fancy Frame"><div class="relative z-10 flex flex-col items-center justify-center bg-background/20 backdrop-blur-sm p-4 rounded-xl"><span class="material-symbols-outlined text-4xl text-primary-container mb-4 opacity-90">fingerprint</span><span class="font-label-sm text-label-sm text-on-surface uppercase tracking-widest text-center font-bold"><br></span></div></div>
+<div class="flip-card-back">
+<img alt="Memory" class="w-full h-full object-cover rounded-xl" data-alt="A dramatic wide shot of a massive crowd at a night music festival, illuminated by intense, cutting-edge laser lights in vibrant golds and deep purples. A colossal futuristic stage structure looms in the background. The silhouette of the cheering crowd creates a sense of immense scale and collective euphoria, perfectly capturing a high-tech university festival atmosphere." src="https://lh3.googleusercontent.com/aida/AEtjO1WxFYwiFS89GizA4FGhI2SAxHeOctIC6E1F7P0ESx_5Ox_RM2a7SUX160WuMDj29Lq2vyP2DXARSfWbsQgWHOmq-F5RaCOD64drU1z08RGpzH-3vjCvqJbSOP3FGecHXb8idiA84VKtV4p1fpUoaFJUKYByOkVtQ6W-37dJMuUW-zyX7140592gMALzwqQtc6C0NKaDU9IUvTPpKTOQtYIpIEg37xU8e54wUw1rFR0JS7N6ZXoH2_ZS5xHXgzFBFgl2BKMRevx6Bg">
+</div>
+</div>
+</div>
+<!-- Memory Card 3 -->
+<div class="flip-card h-[300px]" onclick="this.classList.toggle('flipped')">
+<div class="flip-card-inner">
+<div class="flip-card-front"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxQfwy5H0wjGMIlyKFYpSphfg5Q6x_dD51Ng6YM1TCKyAXBfISYTB7w0-FylnaWDbIBm6vL63jh3JOPKjUWsMuy0brQTO6zVLNxr3a4WW-QGhltiOmhHrrezjezVgDoCh4UTuK4iKhkaRzlAe51EFztEydRZxGCXr9QwYgHdIXHd3i-fy8_p9t5btP3JjzTgBZQZ5OQJhKHAUMpOXzh8t2xwb7fai3rMuHYZefKBF963Z0PU24DBs9lCUOTXT5iRPtqA" class="absolute inset-0 w-full h-full object-contain z-0" alt="Fancy Frame"><div class="relative z-10 flex flex-col items-center justify-center bg-background/20 backdrop-blur-sm p-4 rounded-xl"><span class="material-symbols-outlined text-4xl text-primary-container mb-4 opacity-90">fingerprint</span><span class="font-label-sm text-label-sm text-on-surface uppercase tracking-widest text-center font-bold"><br></span></div></div>
+<div class="flip-card-back">
+<img alt="Memory" class="w-full h-full object-cover rounded-xl" data-alt="A close-up, dynamic shot of a DJ performing on a highly futuristic stage, surrounded by complex glowing holographic displays and sleek digital mixers. The lighting is dominated by deep cosmic blues and sharp, glowing amber accents. The DJ's hands are a blur of motion, conveying high energy and cutting-edge musical technology." src="https://lh3.googleusercontent.com/aida/AEtjO1WxFYwiFS89GizA4FGhI2SAxHeOctIC6E1F7P0ESx_5Ox_RM2a7SUX160WuMDj29Lq2vyP2DXARSfWbsQgWHOmq-F5RaCOD64drU1z08RGpzH-3vjCvqJbSOP3FGecHXb8idiA84VKtV4p1fpUoaFJUKYByOkVtQ6W-37dJMuUW-zyX7140592gMALzwqQtc6C0NKaDU9IUvTPpKTOQtYIpIEg37xU8e54wUw1rFR0JS7N6ZXoH2_ZS5xHXgzFBFgl2BKMRevx6Bg">
+</div>
+</div>
+</div>
+<!-- Memory Card 4 -->
+<div class="flip-card h-[300px]" onclick="this.classList.toggle('flipped')">
+<div class="flip-card-inner">
+<div class="flip-card-front"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCHPJI5o0LoHFyUj0Lf0WsGi0OBPfLKt1txVCawYqbdb5zQfq-BzTj1ipwXHWxh8PO07UNJ0sUSndeLQ-2LiHW0pQ8Wi7QyX2jP2A1IKVRx1n2FnjcUr9Ln_QcDTUbIAPiNY0NhgpLQt6eclJRGPPwHNjYqWB6YkOo2WJJf_bt4Quve3swwzMSb5cWHfexZjEBybw625pf5_Yh6Lyh7DTUKQGkcMluJPPYTI0jz48NBKycptnoYXCClgmk8SXbkI-mVSQ" class="absolute inset-0 w-full h-full object-contain z-0" alt="Fancy Frame"><div class="relative z-10 flex flex-col items-center justify-center bg-background/20 backdrop-blur-sm p-4 rounded-xl"><span class="material-symbols-outlined text-4xl text-primary-container mb-4 opacity-90">fingerprint</span></div></div>
+<div class="flip-card-back">
+<img alt="Memory" class="w-full h-full object-cover rounded-xl" data-alt="A stunning nighttime photograph of an interactive art installation at a festival. Giant, translucent geometric shapes glowing from within in shades of gold and cosmic purple are scattered across a dark field. Silhouettes of young attendees are interacting with the glowing structures, creating a magical, otherworldly, and highly photogenic atmosphere." src="https://lh3.googleusercontent.com/aida/AEtjO1WxFYwiFS89GizA4FGhI2SAxHeOctIC6E1F7P0ESx_5Ox_RM2a7SUX160WuMDj29Lq2vyP2DXARSfWbsQgWHOmq-F5RaCOD64drU1z08RGpzH-3vjCvqJbSOP3FGecHXb8idiA84VKtV4p1fpUoaFJUKYByOkVtQ6W-37dJMuUW-zyX7140592gMALzwqQtc6C0NKaDU9IUvTPpKTOQtYIpIEg37xU8e54wUw1rFR0JS7N6ZXoH2_ZS5xHXgzFBFgl2BKMRevx6Bg">
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full rounded-t-[40px] mt-section-gap relative z-20 text-on-background bg-surface-container-lowest bg-gradient-to-t from-background/80 to-transparent py-10 overflow-hidden"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxfseeMoK0lqJiYBHHuMdDBbk2ZuoBX5-p1Zm40exNmVIDDR7ne-i8QFEVEfccgwuUsqCKDdjtfKm79J3pEIe5jQ4bmiyl7h4AsRMUAtDYDrc3tOXGRDiFe39IbK_ExL_3wqKy2ptjfPiIvxVfpJbw49y3ZtZa3M5yhg2_xrzWJQr_PGMktwpnHrx0E8UvJYsdUoy-Z8T95eRjtr7g2u131yajhYATRyYO7Zbr5cTtTxmizrWFIOsV8CHu8KFUr1gavA" alt="Bintang-Bintang Presisi" class="absolute inset-0 w-full h-full object-cover opacity-30 z-0 pointer-events-none"><div class="absolute inset-0 z-[-1] overflow-hidden pointer-events-none w-full h-full"></div><div class="max-w-container-max mx-auto grid grid-cols-1 md:grid-cols-12 gap-12 py-10 px-margin-mobile md:px-margin-desktop relative z-10"><div class="md:col-span-5 flex flex-col"><div class="flex items-center mb-6"><span class="font-headline-lg text-headline-lg text-on-surface tracking-tighter">VOITSFEST<span class="text-primary">.</span></span></div><p class="font-body-md leading-relaxed mb-8 max-w-md text-on-surface/80">VOITSFEST adalah signature event unggulan dari Fakultas Vokasi ITS. Ajang kolaborasi inovasi, kreativitas, dan ekonomi kreatif yang berkelanjutan bagi seluruh civitas akademika dan masyarakat umum.</p><div class="flex space-x-4"><div class="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-on-surface/10 hover:border-primary border-primary/50 bg-on-surface/5"><img alt="Instagram" class="w-full h-full object-contain p-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBTl2UmqpxIGwKZRj4YRh0VfCk0rzWtcTEDRTABCFuE3PDWh6v-8oYCCthi8glenQHMm6XTLpxa5a4cB9Qc8lzNVq-o2nuXDpIuMpjfBYSkdgs-4l5JQbsX98TXCdsb7UPRJVCIHSVtYsa4jQhNOfinSwpp9cRchV3q8yv0_kXM_acM6RdVSl2qAJqcBbcAxKlYMjWJ3mes6H3BV2LhZPQ38jL2ALBlTPZEny0AmoLOlC_RUhdzXR7L-JBugVZwvI6jXpY"></div><div class="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-on-surface/10 hover:border-primary border-primary/50 bg-on-surface/5"><img alt="LinkedIn" class="w-full h-full object-contain p-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuChtDlwwC1tu3mFI1n0MivSKcB_MeEneaMMfmazYFYn3N5c80VPBz2LzJToWpSctvnrDsAZwXr3Dyt20RERGdmGYmoM7UVqVp35X95w4qiAOlRZrGir5ut1BwL71Z4fEUAZ1VZhwp5K09MvQYMbkLGELQ5FVx0hQFt4GS2ViAYtvqoLE2GEAmtFAkoa2y3cxoXOIacf29nig3UPi5tmTPqDtzcHtwtZZ4Hr5yb8kRPW3NtUyuPoNdAzbvZ6V54TjchqwOk"></div><div class="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-on-surface/10 hover:border-primary border-primary/50 bg-on-surface/5"><img alt="TikTok" class="w-full h-full object-contain p-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMh7hiA86g1A5Yr-MNdOUAHmdXwoQhMtF3aHS4_jOsOLv6C1F0PweAe_s7qFTBwAJhfXCU1bCdCXMyrtgVEO9QGE_4HznGv7JYHTeYkgygfffgSqjEsYVko14LB3MB5KsGhelKDMi3q9WohafBNokWkb6FZ_hQPASYs7RWO-cv6gu110Q52ClnBaPBWtPo1MpX82g6-3Ef4V4qvSk2bm6PV7Sr-g_NwVW1lHisW9wv5lo26nazT1g8V2rEIfGVoYIeGRg"></div></div></div><div class="md:col-span-3"><h4 class="font-label-sm text-label-sm uppercase mb-6 tracking-widest text-on-background font-bold text-primary-fixed">Events</h4><ul class="space-y-4"><li class=""><a class="transition-colors font-body-md hover:text-primary text-on-surface" href="#">Entrepreneurship Seminar</a></li><li class=""><a class="transition-colors font-body-md hover:text-primary text-on-surface" href="#">ColorFun Run</a></li><li class=""><a class="transition-colors font-body-md hover:text-primary text-on-surface" href="#">Festival</a></li><li class=""><a class="transition-colors font-body-md hover:text-primary text-on-surface" href="#">FAQ</a></li></ul></div><div class="md:col-span-4"><h4 class="font-label-sm text-label-sm uppercase mb-6 tracking-widest text-on-background font-bold text-primary-fixed">Reach Us</h4><ul class="space-y-4"><li class="font-body-md text-on-surface">voitsfest2026@gmail.com</li><li class="font-body-md text-on-surface">Fakultas Vokasi,<br>Institut Teknologi Sepuluh Nopember</li></ul></div></div><div class="max-w-container-max mx-auto border-t border-on-surface/10 pt-8 pb-4 flex flex-col md:flex-row justify-between items-center px-margin-mobile md:px-margin-desktop relative z-10"><p class="font-label-sm text-label-sm uppercase tracking-widest mb-4 md:mb-0 text-on-surface/60">© 2026 VOITSFEST. ALL RIGHTS RESERVED.</p></div></footer>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body></html>
