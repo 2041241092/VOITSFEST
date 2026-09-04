@@ -77,6 +77,9 @@ export interface Transaction {
   verified_by: string | null;
   verified_at: string | null;
   created_at: string;
+  participant_category?: string;
+  student_id_number?: string | null;
+  student_card_url?: string | null;
 }
 
 export interface Ticket {
@@ -89,6 +92,9 @@ export interface Ticket {
   scanned_by: string | null;
   scanned_at: string | null;
   created_at: string;
+  payment_status?: string | null;
+  amount_paid?: number | null;
+  ticket_phase?: string | null;
 }
 
 export interface CmsSetting {
@@ -114,7 +120,11 @@ export interface Sponsor {
   id: string;
   name: string;
   logo_url: string;
+  website_url?: string | null;
+  type?: "Sponsor" | "Media Partner" | string | null;
   is_active: boolean;
   order: number;
+  category?: "sponsor" | "media_partner" | string;
   created_at: string;
 }
+

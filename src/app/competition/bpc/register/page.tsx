@@ -1,8 +1,695 @@
+"use client";
+
+import { useState, useMemo, useEffect } from "react";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
+import CustomHeading from "@/components/ui/CustomHeading";
+import { createClient } from "@/lib/supabase/client";
+import { 
+  UploadCloud, 
+  User, 
+  Star, 
+  CheckCircle, 
+  ArrowRight, 
+  Banknote, 
+  QrCode, 
+  FileText,
+  Info,
+  CreditCard,
+  Copy,
+  Check,
+  AlertCircle
+} from "lucide-react";
+import Link from "next/link";
+import GatewayGuard from "@/components/gateway/GatewayGuard";
+import { fetchPricingTiers, EventPricing, DEFAULT_PRICING_TIERS } from "@/lib/pricing";
+
 export default function BpcRegisterPage() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Dynamic Pricing from cms_settings
+  const [cmsPricing, setCmsPricing] = useState<EventPricing>(DEFAULT_PRICING_TIERS.bpc);
+
+  useEffect(() => {
+    async function loadPricing() {
+      const tiers = await fetchPricingTiers();
+      if (tiers.bpc) {
+        setCmsPricing(tiers.bpc);
+      }
+    }
+    loadPricing();
+  }, []);
+
+  // Form State
+  const [teamName, setTeamName] = useState("");
+  const [institution, setInstitution] = useState("");
+  const [businessIdeaTitle, setBusinessIdeaTitle] = useState("");
+
+  const [leader, setLeader] = useState({ name: "", email: "", whatsapp: "", jenjang: "", fakultas: "", jurusan: "" });
+  const [member2, setMember2] = useState({ name: "", jenjang: "", fakultas: "", jurusan: "" });
+  const [member3, setMember3] = useState({ name: "", jenjang: "", fakultas: "", jurusan: "" });
+
+  const [paymentMethod, setPaymentMethod] = useState<"bni" | "qris">("bni");
+  const [accountName, setAccountName] = useState("");
+
+  const handleCopyAccountNumber = () => {
+    navigator.clipboard.writeText("1433025776");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Files State
+  const [leaderKtm, setLeaderKtm] = useState<File | null>(null);
+  const [member2Ktm, setMember2Ktm] = useState<File | null>(null);
+  const [member3Ktm, setMember3Ktm] = useState<File | null>(null);
+  const [bmcFile, setBmcFile] = useState<File | null>(null);
+  const [igProofs, setIgProofs] = useState<FileList | null>(null);
+  const [storyProofs, setStoryProofs] = useState<FileList | null>(null);
+  const [commentProofs, setCommentProofs] = useState<FileList | null>(null);
+  const [paymentProof, setPaymentProof] = useState<File | null>(null);
+
+  const supabase = createClient();
+
+  const handleFileUpload = async (file: File, path: string): Promise<string> => {
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+    const filePath = `${path}/${fileName}`;
+
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from("registrations")
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.warn(`Storage upload note for ${file.name}:`, uploadError.message);
+      }
+    } catch (storageErr) {
+      console.warn(`Storage upload exception for ${file.name}:`, storageErr);
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("registrations")
+      .getPublicUrl(filePath);
+
+    return publicUrlData.publicUrl;
+  };
+
+  const uploadMultipleFiles = async (files: FileList | null, path: string): Promise<string[]> => {
+    if (!files) return [];
+    const urls: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      urls.push(await handleFileUpload(files[i], path));
+    }
+    return urls;
+  };
+
+  // Comprehensive Form Validation Check
+  const isFormValid = useMemo(() => {
+    // 1. Team & Institution
+    if (!teamName.trim()) return false;
+    if (!institution.trim()) return false;
+
+    // 2. Leader details
+    if (!leader.name.trim()) return false;
+    if (!leader.whatsapp.trim()) return false;
+    if (!leader.email.trim()) return false;
+    if (!leader.jenjang) return false;
+    if (!leader.fakultas.trim()) return false;
+    if (!leader.jurusan.trim()) return false;
+    if (!leaderKtm) return false;
+
+    // 3. Optional Member 2 (if name provided, other fields must be complete)
+    if (member2.name.trim()) {
+      if (!member2.jenjang || !member2.fakultas.trim() || !member2.jurusan.trim() || !member2Ktm) {
+        return false;
+      }
+    }
+
+    // 4. Optional Member 3 (if name provided, other fields must be complete)
+    if (member3.name.trim()) {
+      if (!member3.jenjang || !member3.fakultas.trim() || !member3.jurusan.trim() || !member3Ktm) {
+        return false;
+      }
+    }
+
+    // 5. Documentation
+    if (!businessIdeaTitle.trim()) return false;
+    if (!bmcFile) return false;
+
+    // 6. Requirements proofs
+    if (!igProofs || igProofs.length === 0) return false;
+    if (!storyProofs || storyProofs.length === 0) return false;
+    if (!commentProofs || commentProofs.length === 0) return false;
+
+    // 7. Payment method & proof
+    if (paymentMethod !== "bni") return false;
+    if (!paymentProof) return false;
+
+    return true;
+  }, [
+    teamName,
+    institution,
+    leader,
+    leaderKtm,
+    member2,
+    member2Ktm,
+    member3,
+    member3Ktm,
+    businessIdeaTitle,
+    bmcFile,
+    igProofs,
+    storyProofs,
+    commentProofs,
+    paymentMethod,
+    paymentProof,
+  ]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isFormValid || isSubmitting) return;
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      // Validation
+      if (paymentMethod !== "bni") throw new Error("Untuk Saat Ini Layanan QRIS Belum Tersedia. Silakan gunakan transfer Bank BNI.");
+      if (!leaderKtm) throw new Error("Ketua Tim KTM is required");
+      if (!bmcFile) throw new Error("BMC File is required");
+      if (!paymentProof) throw new Error("Payment Proof is required");
+      if (!igProofs || igProofs.length === 0) throw new Error("IG Follow proof is required");
+      if (!storyProofs || storyProofs.length === 0) throw new Error("Story Repost proof is required");
+      if (!commentProofs || commentProofs.length === 0) throw new Error("Comment proof is required");
+
+      // 1. Upload Files
+      const leaderKtmUrl = await handleFileUpload(leaderKtm!, "bpc/ktm");
+      const member2KtmUrl = member2Ktm ? await handleFileUpload(member2Ktm!, "bpc/ktm") : null;
+      const member3KtmUrl = member3Ktm ? await handleFileUpload(member3Ktm!, "bpc/ktm") : null;
+      const bmcUrl = await handleFileUpload(bmcFile!, "bpc/proposals");
+      
+      const igProofUrls = await uploadMultipleFiles(igProofs!, "bpc/social");
+      const storyProofUrls = await uploadMultipleFiles(storyProofs!, "bpc/social");
+      const commentProofUrls = await uploadMultipleFiles(commentProofs!, "bpc/social");
+      
+      const paymentProofUrl = await handleFileUpload(paymentProof!, "bpc/payments");
+
+      // 2. Prepare Member Data JSON
+      const members = [
+        {
+          role: "leader",
+          name: leader.name,
+          email: leader.email,
+          whatsapp: leader.whatsapp,
+          jenjang: leader.jenjang,
+          fakultas: leader.fakultas,
+          jurusan: leader.jurusan,
+          ktm_url: leaderKtmUrl,
+          social_proofs: {
+            ig: igProofUrls,
+            story: storyProofUrls,
+            comment: commentProofUrls
+          }
+        }
+      ];
+
+      if (member2.name) {
+        members.push({
+          role: "member",
+          name: member2.name,
+          email: "",
+          whatsapp: "",
+          jenjang: member2.jenjang,
+          fakultas: member2.fakultas,
+          jurusan: member2.jurusan,
+          ktm_url: member2KtmUrl || "",
+          social_proofs: { ig: [], story: [], comment: [] }
+        });
+      }
+
+      if (member3.name) {
+        members.push({
+          role: "member",
+          name: member3.name,
+          email: "",
+          whatsapp: "",
+          jenjang: member3.jenjang,
+          fakultas: member3.fakultas,
+          jurusan: member3.jurusan,
+          ktm_url: member3KtmUrl || "",
+          social_proofs: { ig: [], story: [], comment: [] }
+        });
+      }
+
+      // 3. Insert BPC Registration
+      const { data: bpcData, error: bpcError } = await supabase
+        .from("bpc_registrations")
+        .insert({
+          team_name: teamName,
+          leader_name: leader.name,
+          leader_email: leader.email,
+          institution: institution,
+          member_names: members,
+          proposal_url: bmcUrl,
+          stage: 3,
+          status: "pending"
+        })
+        .select()
+        .single();
+
+      if (bpcError) throw bpcError;
+
+      // 4. Insert Transaction
+      const { error: txError } = await supabase
+        .from("transactions")
+        .insert({
+          source_type: "bpc",
+          source_id: bpcData.id,
+          sub_event_type: "BPC",
+          amount: cmsPricing.price,
+          payment_proof_url: paymentProofUrl,
+          status: "Pending"
+        });
+
+      if (txError) throw txError;
+
+      setIsSuccess(true);
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isSuccess) {
+    return (
+      <div className="text-on-background font-poppins overflow-x-hidden relative min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-grow flex items-center justify-center pt-24 pb-12 px-4 relative z-10">
+          <div className="glass-card max-w-md w-full p-8 rounded-2xl text-center border-t-4 border-t-secondary-fixed shadow-2xl">
+            <CheckCircle className="w-20 h-20 text-secondary-fixed mx-auto mb-6 drop-shadow-[0_0_15px_rgba(176,198,255,0.5)]" />
+            <CustomHeading as="h1" text="Registration Successful" className="text-3xl text-white mb-4" />
+            <p className="text-on-surface-variant font-poppins mb-8 leading-relaxed">
+              Your response has been recorded. Our team will verify your registration and payment shortly.
+            </p>
+            <Link href="/" className="inline-block bg-primary-container text-primary hover:bg-primary-container/80 px-6 py-3 rounded-full font-medium tracking-wider uppercase transition-colors font-poppins">
+              Return to Home
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
-    <main className="min-h-screen p-8">
-      <h1 className="text-2xl font-bold">BPC Registration</h1>
-      {/* TODO: Multi-step form (3 stages); check CMS registration_open_bpc */}
-    </main>
+    <GatewayGuard event="bpc">
+      <div className="text-on-background font-poppins overflow-x-hidden relative min-h-screen">
+        <Navbar />
+
+      <main className="flex-grow pt-32 pb-24 px-6 md:px-12 lg:px-24 mx-auto w-full max-w-[1280px] relative z-10">
+        <div className="text-center mb-16">
+          <CustomHeading 
+            as="h1" 
+            text="BPC Registration" 
+            className="text-4xl md:text-6xl text-white mb-4 drop-shadow-md tracking-tight text-center" 
+          />
+          <p className="font-poppins text-lg text-secondary-fixed-dim max-w-2xl mx-auto">
+            Complete your team details, business proposal, and payment in one seamless step.
+          </p>
+        </div>
+
+        {error && (
+          <div className="mb-8 p-4 bg-error-container/20 border border-error text-error rounded-xl flex items-center gap-3">
+            <Info className="w-6 h-6 flex-shrink-0" />
+            <p className="font-poppins text-sm">{error}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-12 max-w-4xl mx-auto">
+          {/* SECTION 1: TEAM INFORMATION */}
+          <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden">
+            <div className="mb-8 flex items-center gap-3">
+              <User className="w-8 h-8 text-primary-fixed" />
+              <CustomHeading as="h2" text="Team Information" className="text-2xl md:text-3xl text-primary-fixed" />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+              <div className="space-y-2">
+                <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Nama Tim *</label>
+                <input required type="text" value={teamName} onChange={e => setTeamName(e.target.value)} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" placeholder="Masukkan nama tim" />
+              </div>
+              <div className="space-y-2">
+                <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Asal Instansi/Universitas *</label>
+                <input required type="text" value={institution} onChange={e => setInstitution(e.target.value)} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" placeholder="Contoh: Universitas Indonesia" />
+              </div>
+            </div>
+
+            <div className="w-full h-px bg-gradient-to-r from-transparent via-outline-variant to-transparent my-8"></div>
+
+            {/* LEADER */}
+            <div className="mb-10">
+              <div className="flex items-center gap-2 mb-6">
+                <Star className="w-6 h-6 text-primary-fixed" />
+                <h3 className="font-poppins font-semibold text-xl text-white">Member 1 (Ketua Tim) *</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase block">Nama Lengkap</label>
+                  <input required type="text" value={leader.name} onChange={e => setLeader({...leader, name: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" placeholder="Sesuai kartu identitas" />
+                </div>
+                <div className="space-y-2">
+                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase block">WhatsApp</label>
+                  <input required type="tel" value={leader.whatsapp} onChange={e => setLeader({...leader, whatsapp: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" placeholder="08xx (13-15 digit)" />
+                </div>
+                <div className="space-y-2">
+                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase block">Email</label>
+                  <input required type="email" value={leader.email} onChange={e => setLeader({...leader, email: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" placeholder="Aktif dan sering diakses" />
+                </div>
+                <div className="space-y-2">
+                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase block">Jenjang Pendidikan</label>
+                  <select required value={leader.jenjang} onChange={e => setLeader({...leader, jenjang: e.target.value})} className="w-full bg-surface-container-highest border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins cursor-pointer">
+                    <option value="" disabled className="bg-surface-container-high text-on-surface-variant">Pilih Jenjang</option>
+                    <option value="d1" className="bg-surface-container-high text-white">D1</option>
+                    <option value="d2" className="bg-surface-container-high text-white">D2</option>
+                    <option value="d3" className="bg-surface-container-high text-white">D3</option>
+                    <option value="d4" className="bg-surface-container-high text-white">D4</option>
+                    <option value="s1" className="bg-surface-container-high text-white">S1</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase block">Fakultas</label>
+                  <input required type="text" value={leader.fakultas} onChange={e => setLeader({...leader, fakultas: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" placeholder="Fakultas (Jika ada)" />
+                </div>
+                <div className="space-y-2">
+                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase block">Jurusan</label>
+                  <input required type="text" value={leader.jurusan} onChange={e => setLeader({...leader, jurusan: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" placeholder="Jurusan" />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase block">Scan Kartu Pelajar/KTM (PDF)</label>
+                  <div className="relative w-full">
+                    <input required accept=".pdf" type="file" onChange={e => setLeaderKtm(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                    <div className="w-full border-2 border-dashed border-outline-variant rounded-lg py-8 flex flex-col items-center justify-center bg-surface-container-highest/30 hover:bg-surface-container-highest/60 transition-colors">
+                      <UploadCloud className="w-8 h-8 text-on-surface-variant mb-2" />
+                      <span className="text-white font-poppins font-medium">{leaderKtm ? leaderKtm.name : "Klik atau seret untuk unggah PDF"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="w-full h-px bg-gradient-to-r from-transparent via-outline-variant to-transparent my-8"></div>
+
+            {/* MEMBERS */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Member 2 */}
+              <div className="p-6 border border-white/5 bg-white/5 rounded-xl">
+                <div className="flex items-center gap-2 mb-6">
+                  <User className="w-5 h-5 text-secondary" />
+                  <h3 className="font-poppins font-semibold text-lg text-white">Member 2</h3>
+                </div>
+                <div className="space-y-4">
+                  <input type="text" value={member2.name} onChange={e => setMember2({...member2, name: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white outline-none font-poppins placeholder:text-on-surface-variant/50" placeholder="Nama Lengkap" />
+                  <select value={member2.jenjang} onChange={e => setMember2({...member2, jenjang: e.target.value})} className="w-full bg-surface-container-highest border border-outline-variant rounded-lg px-4 py-3 text-white outline-none font-poppins cursor-pointer">
+                    <option value="" disabled className="bg-surface-container-high text-on-surface-variant">Pilih Jenjang</option>
+                    <option value="d1" className="bg-surface-container-high text-white">D1</option>
+                    <option value="d2" className="bg-surface-container-high text-white">D2</option>
+                    <option value="d3" className="bg-surface-container-high text-white">D3</option>
+                    <option value="d4" className="bg-surface-container-high text-white">D4</option>
+                    <option value="s1" className="bg-surface-container-high text-white">S1</option>
+                  </select>
+                  <input type="text" value={member2.fakultas} onChange={e => setMember2({...member2, fakultas: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white outline-none font-poppins placeholder:text-on-surface-variant/50" placeholder="Fakultas" />
+                  <input type="text" value={member2.jurusan} onChange={e => setMember2({...member2, jurusan: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white outline-none font-poppins placeholder:text-on-surface-variant/50" placeholder="Jurusan" />
+                  <div className="relative w-full">
+                    <input accept=".pdf" type="file" onChange={e => setMember2Ktm(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                    <div className="w-full border-2 border-dashed border-outline-variant rounded-lg py-4 flex flex-col items-center justify-center bg-surface-container-highest/30">
+                      <span className="text-white font-poppins text-sm truncate px-2">{member2Ktm ? member2Ktm.name : "Unggah KTM (PDF)"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Member 3 */}
+              <div className="p-6 border border-white/5 bg-white/5 rounded-xl">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2">
+                    <User className="w-5 h-5 text-secondary" />
+                    <h3 className="font-poppins font-semibold text-lg text-white">Member 3</h3>
+                  </div>
+                  <span className="text-[10px] bg-surface-variant text-on-surface px-2 py-1 rounded-full uppercase font-poppins">Optional</span>
+                </div>
+                <div className="space-y-4">
+                  <input type="text" value={member3.name} onChange={e => setMember3({...member3, name: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white outline-none font-poppins placeholder:text-on-surface-variant/50" placeholder="Nama Lengkap" />
+                  <select value={member3.jenjang} onChange={e => setMember3({...member3, jenjang: e.target.value})} className="w-full bg-surface-container-highest border border-outline-variant rounded-lg px-4 py-3 text-white outline-none font-poppins cursor-pointer">
+                    <option value="" disabled className="bg-surface-container-high text-on-surface-variant">Pilih Jenjang</option>
+                    <option value="d1" className="bg-surface-container-high text-white">D1</option>
+                    <option value="d2" className="bg-surface-container-high text-white">D2</option>
+                    <option value="d3" className="bg-surface-container-high text-white">D3</option>
+                    <option value="d4" className="bg-surface-container-high text-white">D4</option>
+                    <option value="s1" className="bg-surface-container-high text-white">S1</option>
+                  </select>
+                  <input type="text" value={member3.fakultas} onChange={e => setMember3({...member3, fakultas: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white outline-none font-poppins placeholder:text-on-surface-variant/50" placeholder="Fakultas" />
+                  <input type="text" value={member3.jurusan} onChange={e => setMember3({...member3, jurusan: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white outline-none font-poppins placeholder:text-on-surface-variant/50" placeholder="Jurusan" />
+                  <div className="relative w-full">
+                    <input accept=".pdf" type="file" onChange={e => setMember3Ktm(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                    <div className="w-full border-2 border-dashed border-outline-variant rounded-lg py-4 flex flex-col items-center justify-center bg-surface-container-highest/30">
+                      <span className="text-white font-poppins text-sm truncate px-2">{member3Ktm ? member3Ktm.name : "Unggah KTM (PDF)"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 2: PROPOSAL & DOCS */}
+          <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden">
+            <div className="mb-8 flex items-center gap-3">
+              <FileText className="w-8 h-8 text-primary-fixed" />
+              <CustomHeading as="h2" text="Documentation" className="text-2xl md:text-3xl text-primary-fixed" />
+            </div>
+            
+            <div className="space-y-8">
+              <div className="space-y-2">
+                <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Judul Ide Bisnis *</label>
+                <input required type="text" value={businessIdeaTitle} onChange={e => setBusinessIdeaTitle(e.target.value)} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" placeholder="Masukkan judul ide bisnis tim Anda" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Upload File Business Model Canvas (BMC) *</label>
+                <p className="font-poppins text-xs text-on-surface-variant mb-2">Format Nama File: BMC_NamaTim_NamaKetuaTim. PDF (max. 1 file)</p>
+                <div className="relative w-full">
+                  <input required accept=".pdf" type="file" onChange={e => setBmcFile(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                  <div className="w-full border-2 border-dashed border-outline-variant rounded-lg py-12 flex flex-col items-center justify-center bg-surface-container-highest/30 hover:bg-surface-container-highest/60 transition-colors">
+                    <UploadCloud className="w-10 h-10 text-on-surface-variant mb-3" />
+                    <span className="text-white font-poppins font-medium">{bmcFile ? bmcFile.name : "Click to upload or drag and drop"}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="w-full h-px bg-gradient-to-r from-transparent via-outline-variant to-transparent my-6"></div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <label className="font-poppins font-medium text-xs text-on-surface-variant uppercase tracking-wider block h-10">Bukti Follow IG (@voitsfest) *</label>
+                  <div className="relative w-full h-32">
+                    <input required accept="image/*" multiple type="file" onChange={e => setIgProofs(e.target.files)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                    <div className="w-full h-full border-2 border-dashed border-outline-variant rounded-lg flex flex-col items-center justify-center bg-surface-container-highest/30">
+                      <span className="text-white font-poppins text-xs text-center px-2">{igProofs?.length ? `${igProofs.length} files selected` : "Upload Image(s)"}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="font-poppins font-medium text-xs text-on-surface-variant uppercase tracking-wider block h-10">Screenshot Repost Story *</label>
+                  <div className="relative w-full h-32">
+                    <input required accept="image/*" multiple type="file" onChange={e => setStoryProofs(e.target.files)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                    <div className="w-full h-full border-2 border-dashed border-outline-variant rounded-lg flex flex-col items-center justify-center bg-surface-container-highest/30">
+                      <span className="text-white font-poppins text-xs text-center px-2">{storyProofs?.length ? `${storyProofs.length} files selected` : "Upload Image(s)"}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="font-poppins font-medium text-xs text-on-surface-variant uppercase tracking-wider block h-10">Screenshot Komentar Feed *</label>
+                  <div className="relative w-full h-32">
+                    <input required accept="image/*" multiple type="file" onChange={e => setCommentProofs(e.target.files)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                    <div className="w-full h-full border-2 border-dashed border-outline-variant rounded-lg flex flex-col items-center justify-center bg-surface-container-highest/30">
+                      <span className="text-white font-poppins text-xs text-center px-2">{commentProofs?.length ? `${commentProofs.length} files selected` : "Upload Image(s)"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 3: PEMBAYARAN */}
+          <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden">
+            <div className="mb-8">
+              <CustomHeading as="h2" text="Pembayaran" className="text-2xl md:text-3xl text-primary-fixed flex items-center gap-3" />
+            </div>
+            
+            <div className="space-y-8 animate-in fade-in duration-300">
+              {/* Total Price Banner */}
+              <div className="p-4 rounded-xl border border-secondary/50 bg-secondary/10 flex justify-between items-center">
+                <div>
+                  <h3 className="font-medium text-xs uppercase text-secondary tracking-wider">
+                    Total Biaya Pendaftaran (Fase: {cmsPricing.phase})
+                  </h3>
+                  <p className="font-headline-md text-2xl text-white font-bold mt-1">
+                    Rp {cmsPricing.price.toLocaleString("id-ID")}
+                  </p>
+                </div>
+              </div>
+
+              {/* Metode Pembayaran */}
+              <div className="space-y-4">
+                <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Metode Pembayaran *</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Option 1: Bank Transfer (BNI) */}
+                  <label 
+                    className={`cursor-pointer rounded-xl p-4 border flex items-center gap-3.5 transition-all duration-300 ${
+                      paymentMethod === 'bni' 
+                        ? 'bg-secondary/20 border-secondary shadow-[0_0_15px_rgba(176,198,255,0.15)]' 
+                        : 'bg-neutral-900/60 border-neutral-800 hover:border-neutral-700'
+                    }`}
+                  >
+                    <input 
+                      type="radio" 
+                      name="paymentMethod" 
+                      value="bni" 
+                      checked={paymentMethod === 'bni'} 
+                      onChange={() => setPaymentMethod('bni')} 
+                      className="hidden" 
+                    />
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${paymentMethod === 'bni' ? 'border-secondary' : 'border-neutral-600'}`}>
+                      {paymentMethod === 'bni' && <div className="w-2.5 h-2.5 rounded-full bg-secondary" />}
+                    </div>
+                    <CreditCard className="w-5 h-5 text-secondary" />
+                    <span className="text-white font-medium text-sm">Bank Transfer (BNI)</span>
+                  </label>
+                  
+                  {/* Option 2: QRIS Digital */}
+                  <label 
+                    className={`cursor-pointer rounded-xl p-4 border flex items-center justify-between gap-3.5 transition-all duration-300 ${
+                      paymentMethod === 'qris' 
+                        ? 'bg-secondary/20 border-secondary shadow-[0_0_15px_rgba(176,198,255,0.15)]' 
+                        : 'bg-neutral-900/60 border-neutral-800 hover:border-neutral-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <input 
+                        type="radio" 
+                        name="paymentMethod" 
+                        value="qris" 
+                        checked={paymentMethod === 'qris'} 
+                        onChange={() => setPaymentMethod('qris')} 
+                        className="hidden" 
+                      />
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${paymentMethod === 'qris' ? 'border-secondary' : 'border-neutral-600'}`}>
+                        {paymentMethod === 'qris' && <div className="w-2.5 h-2.5 rounded-full bg-secondary" />}
+                      </div>
+                      <QrCode className="w-5 h-5 text-secondary" />
+                      <span className="text-white font-medium text-sm">QRIS Digital</span>
+                    </div>
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      Belum Tersedia
+                    </span>
+                  </label>
+                </div>
+
+                {/* Transfer Destination Details / QRIS Notice */}
+                <div className="mt-4 transition-all duration-300">
+                  {paymentMethod === 'bni' ? (
+                    <div className="p-6 rounded-xl border-l-4 border-l-secondary bg-surface-container-highest/50 border border-white/5 animate-in fade-in duration-300">
+                      <h4 className="text-secondary mb-2 text-xs uppercase tracking-wider font-semibold">Tujuan Transfer:</h4>
+                      <p className="text-white text-base font-medium mb-1">BNI (Bank Negara Indonesia)</p>
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className="text-white font-mono text-2xl tracking-wider font-bold">1433025776</span>
+                        <button
+                          type="button"
+                          onClick={handleCopyAccountNumber}
+                          className="px-3 py-1 rounded bg-secondary/20 hover:bg-secondary/30 text-secondary text-xs font-semibold flex items-center gap-1.5 transition-colors border border-secondary/30"
+                        >
+                          {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copied ? "Tersalin" : "Salin"}</span>
+                        </button>
+                      </div>
+                      <p className="text-on-surface-variant text-sm font-medium">a.n Amalia Fitria Damaiyanti</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center p-6 md:p-8 text-center rounded-xl bg-amber-500/10 border border-amber-500/30 animate-in fade-in duration-300">
+                      <div className="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center mb-3">
+                        <AlertCircle className="w-6 h-6 text-amber-400" />
+                      </div>
+                      <h4 className="text-amber-300 font-semibold text-base mb-1.5">
+                        Untuk Saat Ini Layanan QRIS Belum Tersedia
+                      </h4>
+                      <p className="text-xs text-neutral-300 max-w-md leading-relaxed">
+                        Mohon gunakan metode pembayaran <strong className="text-white">Bank Transfer (BNI)</strong> untuk menyelesaikan transaksi Anda.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Sender Account Name */}
+              <div className="space-y-2">
+                <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Nama Pemilik Rekening Pengirim *</label>
+                <input 
+                  required 
+                  type="text" 
+                  value={accountName} 
+                  onChange={e => setAccountName(e.target.value)} 
+                  className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium" 
+                  placeholder="Nama yang tertera pada rekening pengirim" 
+                />
+              </div>
+
+              {/* Upload Proof */}
+              <div className="space-y-2">
+                <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Upload Bukti Transfer *</label>
+                <div className="relative w-full">
+                  <input 
+                    required 
+                    accept="image/*" 
+                    type="file" 
+                    onChange={e => setPaymentProof(e.target.files?.[0] || null)} 
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                  />
+                  <div className="w-full border-2 border-dashed border-outline-variant rounded-lg py-8 flex flex-col items-center justify-center bg-surface-container-highest/30 hover:bg-surface-container-highest/60 transition-colors">
+                    <UploadCloud className="w-8 h-8 text-on-surface-variant mb-2" />
+                    <span className="text-white font-medium">
+                      {paymentProof ? paymentProof.name : "Unggah Bukti Transfer (JPG/PNG/PDF)"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-2 pt-8">
+            <button 
+              disabled={!isFormValid || isSubmitting} 
+              type="submit" 
+              className={`px-8 py-4 rounded-full font-medium tracking-wider uppercase flex items-center gap-3 transition-all font-poppins ${
+                !isFormValid || isSubmitting 
+                  ? "bg-primary-container text-primary opacity-50 cursor-not-allowed" 
+                  : "bg-primary-container text-primary hover:bg-primary-container/80 shadow-[0_0_20px_rgba(176,198,255,0.2)] cursor-pointer"
+              }`}
+            >
+              {isSubmitting ? "Submitting..." : "Submit Registration"}
+              {!isSubmitting && <ArrowRight className="w-5 h-5" />}
+            </button>
+            {!isFormValid && (
+              <p className="text-xs text-on-surface-variant/70 font-poppins">
+                Lengkapi seluruh data tim, ide bisnis, berkas BMC, persyaratan, dan pembayaran untuk mengirim pendaftaran.
+              </p>
+            )}
+          </div>
+        </form>
+      </main>
+      
+      <Footer />
+      </div>
+    </GatewayGuard>
   );
 }

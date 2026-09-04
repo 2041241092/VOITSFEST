@@ -29,98 +29,35 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // Refresh session - important for Server Components
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const { pathname } = request.nextUrl;
 
-  // ── Protected routes: /dashboard (user role) ──
-  if (pathname.startsWith("/dashboard")) {
-    if (!user) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("redirect", "/dashboard");
-      return NextResponse.redirect(url);
-    }
-
-    // Check role from profiles table
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile || profile.role !== "user") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("redirect", "/dashboard");
-      return NextResponse.redirect(url);
-    }
-  }
-
-  // ── Protected routes: /admin/* (admin or security role) ──
-  if (pathname.startsWith("/admin")) {
-    if (!user) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("redirect", "/admin");
-      return NextResponse.redirect(url);
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile || !["admin", "security"].includes(profile.role)) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("redirect", "/admin");
-      return NextResponse.redirect(url);
-    }
-
-    // Security dashboard only accessible by security role
-    if (pathname === "/admin/security" && profile.role !== "security" && profile.role !== "admin") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/admin";
-      return NextResponse.redirect(url);
-    }
-  }
-
-  // ── Protected routes: checkout pages (user role) ──
+  // NOTE: /festival/checkout and /colorfun/checkout are intentionally NOT blocked or
+  // intercepted at the server/middleware level to avoid redirect loops.
+  // Their auth guard is handled completely client-side in their respective page components.
   if (
     pathname === "/festival/checkout" ||
-    pathname === "/colorfun/checkout"
+    pathname === "/colorfun/checkout" ||
+    pathname === "/cfr/checkout"
   ) {
-    if (!user) {
+    return supabaseResponse;
+  }
+
+  // Refresh session - important for Server Components
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  // If there is no session and user tries to access protected routes, redirect to /login
+  if (!session) {
+    if (
+      pathname.startsWith("/admin") ||
+      pathname === "/security" ||
+      pathname.startsWith("/security/") ||
+      pathname.startsWith("/dashboard")
+    ) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("redirect", pathname);
-      return NextResponse.redirect(url);
-    }
-  }
-
-  // ── Redirect logged-in users away from /login ──
-  if (pathname === "/login" && user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profile) {
-      const url = request.nextUrl.clone();
-      if (profile.role === "admin") {
-        url.pathname = "/admin";
-      } else if (profile.role === "security") {
-        url.pathname = "/admin/security";
-      } else {
-        url.pathname = "/dashboard";
-      }
-      url.search = "";
       return NextResponse.redirect(url);
     }
   }

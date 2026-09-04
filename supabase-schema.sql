@@ -76,7 +76,10 @@ CREATE TABLE seminar_registrations (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     full_name           TEXT NOT NULL,
     email               TEXT NOT NULL,
+    phone               TEXT,
     institution         TEXT NOT NULL,
+    ig_proof_url        TEXT,
+    story_proof_url     TEXT,
     participant_type    participant_type NOT NULL DEFAULT 'general',
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -107,6 +110,9 @@ CREATE TABLE transactions (
     sub_event_type      sub_event_type NOT NULL,
     amount              NUMERIC(12, 2) NOT NULL DEFAULT 0,
     payment_proof_url   TEXT,
+    participant_category TEXT DEFAULT 'Umum',
+    student_id_number   TEXT,
+    student_card_url    TEXT,
     status              transaction_status NOT NULL DEFAULT 'Pending',
     verified_by         UUID REFERENCES profiles(id) ON DELETE SET NULL,
     verified_at         TIMESTAMPTZ,
@@ -166,10 +172,11 @@ CREATE TABLE sponsors (
     logo_url    TEXT NOT NULL,
     is_active   BOOLEAN NOT NULL DEFAULT TRUE,
     "order"     INTEGER NOT NULL DEFAULT 0,
+    category    TEXT NOT NULL DEFAULT 'sponsor',
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE sponsors IS 'Sponsor logos for landing page display.';
+COMMENT ON TABLE sponsors IS 'Sponsor and media partner logos for landing page display.';
 
 -- ============================================================
 -- 4. INDEXES
@@ -589,6 +596,7 @@ CREATE TRIGGER on_auth_user_created
 -- 9.1 CMS Settings defaults
 -- All registration toggles set to open; neutral closed message
 INSERT INTO cms_settings (key, value) VALUES
+    ('gateways', '{"bpc": true, "bcc": true, "seminar": true, "tenant": true, "cfr": true, "festival": true}'::jsonb),
     ('registration_open_festival', 'true'::jsonb),
     ('registration_open_cfr', 'true'::jsonb),
     ('registration_open_seminar', 'true'::jsonb),
@@ -598,7 +606,8 @@ INSERT INTO cms_settings (key, value) VALUES
     ('registration_closed_message', '"Pendaftaran telah ditutup. Terima kasih atas antusiasme Anda!"'::jsonb),
     ('event_details', 'true'::jsonb),
     ('countdown', 'true'::jsonb),
-    ('sponsors_list', 'true'::jsonb);
+    ('sponsors_list', 'true'::jsonb),
+    ('pricing_tiers', '{"festival": {"phase": "Presale 2", "price": 75000}, "colorfun": {"phase": "Normal Price", "price": 75000}, "seminar": {"phase": "Normal Price", "price": 10000}, "bcc": {"phase": "Batch 1", "price": 79000}, "bpc": {"phase": "Batch 1", "price": 79000}, "tenant": {"phase": "Regular", "price": 10000}}'::jsonb);
 
 -- 9.2 Seed Admin & Security accounts
 -- NOTE: These accounts must be created via Supabase Auth API (signUp) or

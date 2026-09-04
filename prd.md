@@ -414,8 +414,8 @@ Saat database pertama kali dibuat, jalankan seeding untuk memasukkan dua akun:
 
 | Email | Password (hash bcrypt) | Role | password_change_required |
 |---|---|---|---|
-| admin@voitsfest.id | (hash dari `VoitsAdmin2025!`) | admin | true |
-| security@voitsfest.id | (hash dari `V0itsSecurity!2025`) | security | true |
+| admin@voitsfest.id | (hash dari `VoitsAdmin2026!`) | admin | true |
+| security@voitsfest.id | (hash dari `V0itsSecurity!2026`) | security | true |
 
 Nilai CMS settings default juga diisi: semua `registration_open_*` di-set `true`, dan `registration_closed_message` berisi pesan netral.
 
