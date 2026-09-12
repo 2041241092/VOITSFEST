@@ -4,7 +4,7 @@ import { useRef } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Promo } from "@/types/database";
-import { formatWIB } from "@/lib/date";
+import { formatDateDisplay } from "@/lib/date";
 
 type PromoSliderProps = {
   promos: Promo[];
@@ -99,7 +99,7 @@ export default function PromoSlider({ promos }: PromoSliderProps) {
                     )}
                     {promo.end_date && (
                       <span className="px-2 py-0.5 text-xs font-mono font-semibold rounded border bg-white/5 border-white/10 text-slate-300">
-                        s/d: {formatWIB(promo.end_date)}
+                        s/d: {formatDateDisplay(promo.end_date)}
                       </span>
                     )}
                   </div>

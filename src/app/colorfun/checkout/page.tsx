@@ -38,7 +38,7 @@ import { itsDepartments } from "@/lib/departments";
 import { Promo } from "@/types/database";
 import { validatePromoForEvent, incrementPromoQuota, calculatePromoPrice } from "@/lib/promo";
 import { checkQuotaAvailability, fetchAllSubEventQuotas, dispatchQuotaRefresh, listenToQuotaRefresh } from "@/lib/quota";
-import { formatWIB } from "@/lib/date";
+import { formatDateDisplay, parseWibDate } from "@/lib/date";
 import { formatBIB } from "@/lib/bib";
 import imageCompression from "browser-image-compression";
 
@@ -1751,8 +1751,10 @@ export default function ColorFunCheckoutPage() {
                       const discountVal = calc.discountAmount ?? 0;
 
                       const nowMs = Date.now();
-                      const isDateStarted = !promo.start_date || new Date(promo.start_date).getTime() <= nowMs;
-                      const isDateEnded = Boolean(promo.end_date && !(new Date(promo.end_date).getTime() >= nowMs));
+                      const startDate = parseWibDate(promo.start_date);
+                      const endDate = parseWibDate(promo.end_date);
+                      const isDateStarted = !startDate || startDate.getTime() <= nowMs;
+                      const isDateEnded = Boolean(endDate && !(endDate.getTime() >= nowMs));
                       const isOutsideDateRange = !isDateStarted || isDateEnded;
 
                       const isUnlimited = promo.kuota_maksimal == null;
@@ -1870,7 +1872,7 @@ export default function ColorFunCheckoutPage() {
                             {promo.end_date && (
                               <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono mb-3 relative z-10">
                                 <Clock className="w-3 h-3 text-secondary shrink-0" />
-                                <span>Berlaku s/d: {formatWIB(promo.end_date)}</span>
+                                <span>Berlaku s/d: {formatDateDisplay(promo.end_date)}</span>
                               </div>
                             )}
                           </div>

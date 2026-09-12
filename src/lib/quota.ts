@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { fetchPricingTiers, PricingEvent, DEFAULT_PRICING_TIERS } from "@/lib/pricing";
 import { Promo } from "@/types/database";
+import { parseWibDate } from "@/lib/date";
 
 export interface QuotaStatus {
   maxQuota: number;
@@ -317,8 +318,10 @@ export async function fetchPromoQuotas(): Promise<PromoQuotaStatus[]> {
       const isFull = !isUnlimited && usedQuota >= (maxQuota as number);
 
       const nowMs = Date.now();
-      const isDateStarted = !promo.start_date || new Date(promo.start_date).getTime() <= nowMs;
-      const isDateEnded = Boolean(promo.end_date && !(new Date(promo.end_date).getTime() >= nowMs));
+      const startDate = parseWibDate(promo.start_date);
+      const endDate = parseWibDate(promo.end_date);
+      const isDateStarted = !startDate || startDate.getTime() <= nowMs;
+      const isDateEnded = Boolean(endDate && !(endDate.getTime() >= nowMs));
       const isAvailable = promo.is_active && isDateStarted && !isDateEnded && !isFull;
 
       return {
@@ -380,7 +383,9 @@ export async function checkQuotaAvailability(
 
       // Condition 3: Date Range Check
       const nowMs = Date.now();
-      if (targetPromo.promo.start_date && new Date(targetPromo.promo.start_date).getTime() > nowMs) {
+      const startDate = parseWibDate(targetPromo.promo.start_date);
+      const endDate = parseWibDate(targetPromo.promo.end_date);
+      if (startDate && startDate.getTime() > nowMs) {
         return {
           available: false,
           error: `Periode promo/bundling "${targetPromo.promo.title}" belum dimulai.`,
@@ -389,7 +394,7 @@ export async function checkQuotaAvailability(
         };
       }
 
-      if (targetPromo.promo.end_date && !(new Date(targetPromo.promo.end_date).getTime() >= nowMs)) {
+      if (endDate && !(endDate.getTime() >= nowMs)) {
         return {
           available: false,
           error: `Periode promo/bundling "${targetPromo.promo.title}" telah berakhir.`,

@@ -20,9 +20,11 @@ import {
   dispatchQuotaRefresh,
 } from "@/lib/quota";
 import {
-  toLocalISOString,
-  toWibDatetimeLocal,
-  wibDatetimeLocalToIso,
+  formatForSupabase,
+  formatForInput,
+  getLocalDatetimeString,
+  parseWibDate,
+  formatDateDisplay,
   formatWIB,
   formatWibDateTime,
   formatWibDateRange,
@@ -85,8 +87,8 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
     kuota_maksimal: "",
     kapasitas: "1",
     kategori_peserta: "Semua",
-    start_date: toLocalISOString(new Date().toISOString()),
-    end_date: toLocalISOString(new Date(Date.now() + 30 * 86400000).toISOString()),
+    start_date: getLocalDatetimeString(new Date()),
+    end_date: getLocalDatetimeString(new Date(Date.now() + 30 * 86400000)),
     is_active: true,
   });
 
@@ -281,9 +283,9 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
       return;
     }
 
-    const startIso = wibDatetimeLocalToIso(form.start_date);
-    const endIso = wibDatetimeLocalToIso(form.end_date);
-    if (!startIso || !endIso || new Date(endIso).getTime() <= new Date(startIso).getTime()) {
+    const formattedStartDate = formatForSupabase(form.start_date);
+    const formattedEndDate = formatForSupabase(form.end_date);
+    if (!formattedStartDate || !formattedEndDate || formattedEndDate <= formattedStartDate) {
       onToast?.("error", "Tanggal berakhir harus setelah tanggal mulai!");
       return;
     }
@@ -310,8 +312,8 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
         kuota_terpakai: 0,
         kapasitas: parseInt(form.kapasitas, 10) || 1,
         kategori_peserta: form.kategori_peserta || "Semua",
-        start_date: startIso,
-        end_date: endIso,
+        start_date: formattedStartDate,
+        end_date: formattedEndDate,
         is_active: form.is_active,
       };
 
@@ -351,8 +353,8 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
           kuota_maksimal: "",
           kapasitas: "1",
           kategori_peserta: "Semua",
-          start_date: toLocalISOString(new Date().toISOString()),
-          end_date: toLocalISOString(new Date(Date.now() + 30 * 86400000).toISOString()),
+          start_date: getLocalDatetimeString(new Date()),
+          end_date: getLocalDatetimeString(new Date(Date.now() + 30 * 86400000)),
           is_active: true,
         });
         await fetchQuotas();
@@ -379,8 +381,8 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
       kuota_maksimal: isUnlimited ? "" : String(promo.kuota_maksimal ?? ""),
       kapasitas: String(promo.kapasitas || 1),
       kategori_peserta: promo.kategori_peserta || "Semua",
-      start_date: toLocalISOString(promo.start_date),
-      end_date: toLocalISOString(promo.end_date),
+      start_date: formatForInput(promo.start_date),
+      end_date: formatForInput(promo.end_date),
       is_active: promo.is_active ?? true,
     });
     setEditModalOpen(true);
@@ -401,9 +403,9 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
       return;
     }
 
-    const startIso = wibDatetimeLocalToIso(editForm.start_date);
-    const endIso = wibDatetimeLocalToIso(editForm.end_date);
-    if (!startIso || !endIso || new Date(endIso).getTime() <= new Date(startIso).getTime()) {
+    const formattedStartDate = formatForSupabase(editForm.start_date);
+    const formattedEndDate = formatForSupabase(editForm.end_date);
+    if (!formattedStartDate || !formattedEndDate || formattedEndDate <= formattedStartDate) {
       onToast?.("error", "Tanggal berakhir harus setelah tanggal mulai!");
       return;
     }
@@ -429,8 +431,8 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
         kuota_maksimal: kuotaVal,
         kapasitas: parseInt(editForm.kapasitas, 10) || 1,
         kategori_peserta: editForm.kategori_peserta || "Semua",
-        start_date: startIso,
-        end_date: endIso,
+        start_date: formattedStartDate,
+        end_date: formattedEndDate,
         is_active: editForm.is_active,
       };
 
@@ -689,8 +691,10 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                 const isPromoFull = !isUnlimited && liveUsed >= (maxQuota as number);
 
                 const nowMs = Date.now();
-                const isDateStarted = !promo.start_date || new Date(promo.start_date).getTime() <= nowMs;
-                const isDateEnded = Boolean(promo.end_date && !(new Date(promo.end_date).getTime() >= nowMs));
+                const startDate = parseWibDate(promo.start_date);
+                const endDate = parseWibDate(promo.end_date);
+                const isDateStarted = !startDate || startDate.getTime() <= nowMs;
+                const isDateEnded = Boolean(endDate && !(endDate.getTime() >= nowMs));
                 const isExpired = !isDateStarted || isDateEnded;
 
                 return (
@@ -728,11 +732,11 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                       <div className="flex items-center gap-1.5 text-slate-200 font-mono text-[11px]">
                         <Calendar className="w-3.5 h-3.5 text-secondary shrink-0" />
                         <span>
-                          {formatWIB(promo.start_date)}
+                          {formatDateDisplay(promo.start_date)}
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-400 ml-5 font-mono mt-0.5">
-                        s/d {formatWIB(promo.end_date)}
+                        s/d {formatDateDisplay(promo.end_date)}
                       </div>
                     </td>
                     <td className="py-3.5 px-4 text-center">
@@ -1290,7 +1294,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   />
                   {form.start_date && (
                     <span className="text-[10px] text-slate-400 font-mono mt-1 block">
-                      {formatWIB(wibDatetimeLocalToIso(form.start_date))}
+                      {formatDateDisplay(form.start_date)}
                     </span>
                   )}
                 </div>
@@ -1312,7 +1316,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   />
                   {form.end_date && (
                     <span className="text-[10px] text-secondary font-mono mt-1 block font-medium">
-                      {formatWIB(wibDatetimeLocalToIso(form.end_date))}
+                      {formatDateDisplay(form.end_date)}
                     </span>
                   )}
                 </div>
@@ -1419,7 +1423,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   />
                   {editForm.start_date && (
                     <span className="text-[10px] text-slate-400 font-mono mt-1 block">
-                      {formatWIB(wibDatetimeLocalToIso(editForm.start_date))}
+                      {formatDateDisplay(editForm.start_date)}
                     </span>
                   )}
                 </div>
@@ -1441,7 +1445,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   />
                   {editForm.end_date && (
                     <span className="text-[10px] text-secondary font-mono mt-1 block font-medium">
-                      {formatWIB(wibDatetimeLocalToIso(editForm.end_date))}
+                      {formatDateDisplay(editForm.end_date)}
                     </span>
                   )}
                 </div>

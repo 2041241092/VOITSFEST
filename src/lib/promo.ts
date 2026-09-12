@@ -1,4 +1,5 @@
 import { Promo } from "@/types/database";
+import { parseWibDate } from "@/lib/date";
 
 export interface PromoValidationResult {
   valid: boolean;
@@ -77,10 +78,12 @@ export function validatePromoForEvent(
 
   // 2. Condition 3: Date-based validity check
   const nowMs = Date.now();
-  if (promo.start_date && new Date(promo.start_date).getTime() > nowMs) {
+  const startDate = parseWibDate(promo.start_date);
+  const endDate = parseWibDate(promo.end_date);
+  if (startDate && startDate.getTime() > nowMs) {
     return { valid: false, error: "Periode promo belum dimulai.", isExpired: true, discountAmount, finalPrice, isUnlimited };
   }
-  if (promo.end_date && !(new Date(promo.end_date).getTime() >= nowMs)) {
+  if (endDate && !(endDate.getTime() >= nowMs)) {
     return { valid: false, error: "Periode promo telah berakhir.", isExpired: true, discountAmount, finalPrice, isUnlimited };
   }
 
