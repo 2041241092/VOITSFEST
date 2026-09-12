@@ -71,13 +71,16 @@ export default function RegisterPage() {
       <Navbar />
       <main className="flex-grow pt-[120px] pb-20 px-4 md:px-12 max-w-[1280px] mx-auto w-full relative z-10 font-poppins">
         <div className="text-center mb-12">
-          <CustomHeading text="Buat Akun Cosmic" className="text-4xl md:text-[72px] text-on-background mb-4 justify-center" />
-          <p className="text-lg text-primary-fixed-dim max-w-2xl mx-auto">
+          <CustomHeading 
+            text="Buat Akun Cosmic" 
+            className="text-4xl md:text-[72px] text-on-background mb-4 justify-center drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)] [text-shadow:0_3px_12px_rgba(0,0,0,0.85),0_0_20px_rgba(0,0,0,0.6)]" 
+          />
+          <p className="text-lg text-primary-fixed-dim max-w-2xl mx-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] [text-shadow:0_2px_8px_rgba(0,0,0,0.9)]">
             Bergabunglah dalam perjalanan kosmik VOITSFEST 2026. Lengkapi data diri Anda untuk memulai.
           </p>
         </div>
 
-        <div className="bg-surface/10 backdrop-blur-xl border border-white/20 shadow-[inset_0_0_20px_rgba(176,198,255,0.05)] rounded-xl p-6 md:p-12 w-full max-w-2xl mx-auto">
+        <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 shadow-[0_4px_25px_rgba(0,0,0,0.5)] rounded-2xl p-6 md:p-12 w-full max-w-2xl mx-auto">
           <form onSubmit={handleRegister} className="space-y-8 max-w-md mx-auto">
             
             {error && (
@@ -93,74 +96,74 @@ export default function RegisterPage() {
             )}
 
             <div className="space-y-2">
-              <label className="font-semibold text-sm text-primary-fixed-dim uppercase tracking-wider">Nama Lengkap</label>
+              <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider">Nama Lengkap</label>
               <input 
                 type="text" 
                 required
                 value={formData.fullName}
                 onChange={e => setFormData({...formData, fullName: e.target.value})}
-                className="w-full bg-surface-container-low/60 border border-primary-fixed-dim/50 rounded-lg px-6 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary focus:outline-none transition-all"
+                className="w-full bg-black/30 border border-white/10 rounded-lg px-6 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary focus:outline-none transition-all"
                 placeholder="Masukkan nama lengkap" 
               />
-              <p className="text-[12px] text-on-surface-variant opacity-70">
+              <p className="text-[12px] text-slate-400">
                 Gunakan nama asli sesuai KTP/KTM. Nama ini akan tertera pada tiket Anda.
               </p>
             </div>
 
             <div className="space-y-2">
-              <label className="font-semibold text-sm text-primary-fixed-dim uppercase tracking-wider">Email Aktif</label>
+              <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider">Email Aktif</label>
               <input 
                 type="email" 
                 required
                 value={formData.email}
                 onChange={e => setFormData({...formData, email: e.target.value})}
-                className="w-full bg-surface-container-low/60 border border-primary-fixed-dim/50 rounded-lg px-6 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary focus:outline-none transition-all"
+                className="w-full bg-black/30 border border-white/10 rounded-lg px-6 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary focus:outline-none transition-all"
                 placeholder="contoh@email.com" 
               />
             </div>
 
             <div className="space-y-2">
-              <label className="font-semibold text-sm text-primary-fixed-dim uppercase tracking-wider">Nomor WhatsApp Aktif</label>
+              <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider">Nomor WhatsApp Aktif</label>
               <input 
                 type="tel" 
                 required
                 value={formData.whatsapp}
                 onChange={e => setFormData({...formData, whatsapp: e.target.value})}
-                className="w-full bg-surface-container-low/60 border border-primary-fixed-dim/50 rounded-lg px-6 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary focus:outline-none transition-all"
+                className="w-full bg-black/30 border border-white/10 rounded-lg px-6 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary focus:outline-none transition-all"
                 placeholder="08xxxxxxxxxx" 
               />
             </div>
 
             <div className="space-y-2">
-              <label className="font-semibold text-sm text-primary-fixed-dim uppercase tracking-wider">Kata Sandi (Password)</label>
+              <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider">Kata Sandi (Password)</label>
               <div className="relative">
                 <input 
                   type={showPassword ? "text" : "password"} 
                   required
                   value={formData.password}
                   onChange={e => setFormData({...formData, password: e.target.value})}
-                  className="w-full bg-surface-container-low/60 border border-primary-fixed-dim/50 rounded-lg px-6 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary focus:outline-none transition-all pr-12"
+                  className="w-full bg-black/30 border border-white/10 rounded-lg px-6 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary focus:outline-none transition-all pr-12"
                   placeholder="••••••••" 
                 />
                 <button 
                   type="button" 
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-white transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              <p className="text-[12px] text-on-surface-variant opacity-70">Minimal 8 karakter</p>
+              <p className="text-[12px] text-slate-400">Minimal 8 karakter</p>
             </div>
 
             <div className="space-y-2">
-              <label className="font-semibold text-sm text-primary-fixed-dim uppercase tracking-wider">Konfirmasi Kata Sandi</label>
+              <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider">Konfirmasi Kata Sandi</label>
               <input 
                 type={showPassword ? "text" : "password"} 
                 required
                 value={formData.confirmPassword}
                 onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
-                className="w-full bg-surface-container-low/60 border border-primary-fixed-dim/50 rounded-lg px-6 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary focus:outline-none transition-all"
+                className="w-full bg-black/30 border border-white/10 rounded-lg px-6 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary focus:outline-none transition-all"
                 placeholder="••••••••" 
               />
             </div>

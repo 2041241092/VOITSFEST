@@ -171,7 +171,7 @@ export default function SponsorsList({
         <CustomHeading 
           as="h2" 
           text="Sponsors & Media Partners" 
-          className="font-headline-lg text-headline-lg text-primary-fixed mb-stack-lg text-center text-glow" 
+          className="font-headline-lg text-headline-lg text-amber-400 mb-stack-lg text-center drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] [text-shadow:0_3px_12px_rgba(0,0,0,0.9),0_0_20px_rgba(245,158,11,0.4)]" 
         />
         <div className="flex flex-col items-center justify-center p-8 rounded-2xl bg-neutral-900/50 border border-white/10 max-w-md mx-auto text-center backdrop-blur-md shadow-lg">
           <Handshake className="w-10 h-10 text-on-surface-variant/40 mb-3" />
@@ -217,7 +217,7 @@ export default function SponsorsList({
       <CustomHeading 
         as="h2" 
         text="Sponsors & Media Partners" 
-        className="font-headline-lg text-headline-lg text-primary-fixed mb-stack-lg text-center text-glow" 
+        className="font-headline-lg text-headline-lg text-amber-400 mb-stack-lg text-center drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] [text-shadow:0_3px_12px_rgba(0,0,0,0.9),0_0_20px_rgba(245,158,11,0.4)]" 
       />
 
       <div className="flex flex-col gap-12 w-full">

@@ -24,6 +24,11 @@ import AmbientComets from "@/components/effects/AmbientComets";
 export const metadata: Metadata = {
   title: "VOITSFEST 2026",
   description: "Cosmic Parade of The Stars",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

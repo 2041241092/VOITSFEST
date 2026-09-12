@@ -214,7 +214,7 @@ export default function SeminarRegisterPage() {
       <div className="text-on-background font-body-md overflow-x-hidden relative min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-grow flex items-center justify-center pt-24 pb-12 px-4 relative z-10">
-          <div className="glass-card max-w-md w-full p-8 rounded-2xl text-center border-t-4 border-t-secondary-fixed">
+          <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 border-t-4 border-t-secondary-fixed shadow-[0_4px_25px_rgba(0,0,0,0.5)] max-w-md w-full p-8 rounded-2xl text-center">
             <CheckCircle className="w-20 h-20 text-secondary-fixed mx-auto mb-6" />
             <h1 className="font-display-lg-mobile text-3xl text-white mb-4">Pendaftaran Berhasil</h1>
             <p className="text-on-surface-variant mb-8">
@@ -240,9 +240,9 @@ export default function SeminarRegisterPage() {
           <CustomHeading 
             as="h1" 
             text="Seminar Registration" 
-            className="text-4xl md:text-6xl text-white mb-4 drop-shadow-md tracking-tight text-center" 
+            className="text-4xl md:text-6xl text-white mb-4 drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)] [text-shadow:0_3px_12px_rgba(0,0,0,0.85),0_0_20px_rgba(0,0,0,0.6)] tracking-tight text-center" 
           />
-          <p className="font-body-lg text-lg text-secondary-fixed-dim max-w-2xl mx-auto">
+          <p className="font-body-lg text-lg text-secondary-fixed-dim max-w-2xl mx-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] [text-shadow:0_2px_8px_rgba(0,0,0,0.9)]">
             Daftarkan diri Anda untuk mengikuti Seminar VOITSFEST.
           </p>
         </div>
@@ -256,50 +256,50 @@ export default function SeminarRegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-12 max-w-3xl mx-auto">
           {/* SECTION 1: DATA DIRI PESERTA */}
-          <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden">
+          <div className="bg-slate-950/60 backdrop-blur-xl rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-[0_4px_25px_rgba(0,0,0,0.5)] border border-white/10">
             <div className="mb-8">
               <CustomHeading as="h2" text="Data Diri Peserta" className="text-2xl md:text-3xl text-primary-fixed flex items-center gap-3" />
             </div>
             
             <div className="space-y-6">
               <div className="space-y-2">
-                <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Nama Lengkap *</label>
-                <input required type="text" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium" placeholder="Masukkan nama lengkap" />
+                <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block">Nama Lengkap *</label>
+                <input required type="text" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium" placeholder="Masukkan nama lengkap" />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Nomor WhatsApp *</label>
-                  <input required type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium" placeholder="08xxxxxxxxxx" />
+                  <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block">Nomor WhatsApp *</label>
+                  <input required type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium" placeholder="08xxxxxxxxxx" />
                 </div>
                 <div className="space-y-2">
-                  <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Email Aktif *</label>
-                  <input required type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium" placeholder="email@contoh.com" />
+                  <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block">Email Aktif *</label>
+                  <input required type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium" placeholder="email@contoh.com" />
                 </div>
               </div>
 
               <div className="space-y-4 pt-4 border-t border-white/10">
-                <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Kategori Peserta *</label>
+                <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block">Kategori Peserta *</label>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <label className={`cursor-pointer rounded-xl p-4 border flex items-center gap-3 transition-all ${category === 'bpc_bcc' ? 'bg-secondary/20 border-secondary' : 'bg-surface-container-highest/30 border-outline-variant hover:bg-surface-container-highest/60'}`}>
+                  <label className={`cursor-pointer rounded-xl p-4 border flex items-center gap-3 transition-all ${category === 'bpc_bcc' ? 'bg-secondary/20 border-secondary' : 'bg-black/30 border-white/10 hover:border-white/20'}`}>
                     <input type="radio" name="category" value="bpc_bcc" checked={category === 'bpc_bcc'} onChange={() => setCategory('bpc_bcc')} className="hidden" />
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${category === 'bpc_bcc' ? 'border-secondary' : 'border-on-surface-variant'}`}>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${category === 'bpc_bcc' ? 'border-secondary' : 'border-slate-400'}`}>
                       {category === 'bpc_bcc' && <div className="w-2.5 h-2.5 rounded-full bg-secondary"></div>}
                     </div>
                     <span className="text-white font-medium text-sm">BPC & BCC Participant</span>
                   </label>
                   
-                  <label className={`cursor-pointer rounded-xl p-4 border flex items-center gap-3 transition-all ${category === 'vokasi_its' ? 'bg-secondary/20 border-secondary' : 'bg-surface-container-highest/30 border-outline-variant hover:bg-surface-container-highest/60'}`}>
+                  <label className={`cursor-pointer rounded-xl p-4 border flex items-center gap-3 transition-all ${category === 'vokasi_its' ? 'bg-secondary/20 border-secondary' : 'bg-black/30 border-white/10 hover:border-white/20'}`}>
                     <input type="radio" name="category" value="vokasi_its" checked={category === 'vokasi_its'} onChange={() => setCategory('vokasi_its')} className="hidden" />
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${category === 'vokasi_its' ? 'border-secondary' : 'border-on-surface-variant'}`}>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${category === 'vokasi_its' ? 'border-secondary' : 'border-slate-400'}`}>
                       {category === 'vokasi_its' && <div className="w-2.5 h-2.5 rounded-full bg-secondary"></div>}
                     </div>
                     <span className="text-white font-medium text-sm">Mahasiswa Fakultas Vokasi ITS</span>
                   </label>
                   
-                  <label className={`cursor-pointer rounded-xl p-4 border flex items-center gap-3 transition-all ${category === 'umum' ? 'bg-secondary/20 border-secondary' : 'bg-surface-container-highest/30 border-outline-variant hover:bg-surface-container-highest/60'}`}>
+                  <label className={`cursor-pointer rounded-xl p-4 border flex items-center gap-3 transition-all ${category === 'umum' ? 'bg-secondary/20 border-secondary' : 'bg-black/30 border-white/10 hover:border-white/20'}`}>
                     <input type="radio" name="category" value="umum" checked={category === 'umum'} onChange={() => setCategory('umum')} className="hidden" />
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${category === 'umum' ? 'border-secondary' : 'border-on-surface-variant'}`}>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${category === 'umum' ? 'border-secondary' : 'border-slate-400'}`}>
                       {category === 'umum' && <div className="w-2.5 h-2.5 rounded-full bg-secondary"></div>}
                     </div>
                     <span className="text-white font-medium text-sm">Umum & Mahasiswa Luar Vokasi</span>
@@ -311,15 +311,15 @@ export default function SeminarRegisterPage() {
               {category === "vokasi_its" && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
                   <div className="space-y-2">
-                    <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">NRP *</label>
-                    <input required type="text" value={nrp} onChange={e => setNrp(e.target.value)} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium" placeholder="Masukkan NRP" />
+                    <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block">NRP *</label>
+                    <input required type="text" value={nrp} onChange={e => setNrp(e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium" placeholder="Masukkan NRP" />
                   </div>
                   <div className="space-y-2">
-                    <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Upload Scan Kartu Pelajar/KTM (PDF) *</label>
+                    <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">Upload Scan Kartu Pelajar/KTM (PDF) *</label>
                     <div className="relative w-full mt-2">
                       <input required accept=".pdf" type="file" onChange={e => setKtmProof(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                      <div className="w-full border-2 border-dashed border-outline-variant rounded-lg py-6 flex flex-col items-center justify-center bg-surface-container-highest/30 hover:bg-surface-container-highest/60 transition-colors">
-                        <UploadCloud className="w-6 h-6 text-on-surface-variant mb-2" />
+                      <div className="w-full border-2 border-dashed border-white/15 rounded-lg py-6 flex flex-col items-center justify-center bg-white/5 hover:bg-white/10 transition-colors">
+                        <UploadCloud className="w-6 h-6 text-slate-300 mb-2" />
                         <span className="text-white font-medium text-sm">{ktmProof ? ktmProof.name : "Pilih File (.pdf)"}</span>
                       </div>
                     </div>
@@ -329,15 +329,15 @@ export default function SeminarRegisterPage() {
 
               {category === "umum" && (
                 <div className="space-y-2 animate-in fade-in slide-in-from-top-4 duration-300">
-                  <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Asal Instansi/Universitas *</label>
-                  <input required type="text" value={asalInstansi} onChange={e => setAsalInstansi(e.target.value)} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium" placeholder="Contoh: Universitas Brawijaya" />
+                  <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block">Asal Instansi/Universitas *</label>
+                  <input required type="text" value={asalInstansi} onChange={e => setAsalInstansi(e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium" placeholder="Contoh: Universitas Brawijaya" />
                 </div>
               )}
             </div>
           </div>
 
           {/* SECTION 2: PEMBAYARAN */}
-          <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden">
+          <div className="bg-slate-950/60 backdrop-blur-xl rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-[0_4px_25px_rgba(0,0,0,0.5)] border border-white/10">
             <div className="mb-8">
               <CustomHeading as="h2" text="Pembayaran" className="text-2xl md:text-3xl text-primary-fixed flex items-center gap-3" />
             </div>
@@ -346,15 +346,15 @@ export default function SeminarRegisterPage() {
               <div className="p-6 rounded-xl border border-secondary/30 bg-secondary/10 flex items-center gap-4">
                 <CheckCircle className="w-8 h-8 text-secondary" />
                 <div>
-                  <h3 className="font-medium text-lg text-white">Harga Tiket: GRATIS (Rp 0)</h3>
-                  <p className="text-sm text-on-surface-variant">Tidak perlu melakukan pembayaran untuk kategori Anda.</p>
+                  <h3 className="font-semibold text-lg text-white">Harga Tiket: GRATIS (Rp 0)</h3>
+                  <p className="text-sm text-slate-300">Tidak perlu melakukan pembayaran untuk kategori Anda.</p>
                 </div>
               </div>
             ) : (
               <div className="space-y-8 animate-in fade-in duration-300">
                 <div className="p-4 rounded-xl border border-secondary/50 bg-secondary/10 flex justify-between items-center">
                   <div>
-                    <h3 className="font-medium text-xs uppercase text-secondary tracking-wider">
+                    <h3 className="font-semibold text-xs uppercase text-secondary tracking-wider">
                       Tiket Seminar Umum (Fase: {cmsPricing.phase})
                     </h3>
                     <p className="font-headline-md text-2xl text-white font-bold mt-1">
@@ -364,14 +364,14 @@ export default function SeminarRegisterPage() {
                 </div>
 
                 <div className="space-y-4">
-                  <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Metode Pembayaran *</label>
+                  <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block">Metode Pembayaran *</label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Option 1: Bank Transfer (BNI) */}
                     <label 
                       className={`cursor-pointer rounded-xl p-4 border flex items-center gap-3.5 transition-all duration-300 ${
                         paymentMethod === 'bni' 
                           ? 'bg-secondary/20 border-secondary shadow-[0_0_15px_rgba(176,198,255,0.15)]' 
-                          : 'bg-neutral-900/60 border-neutral-800 hover:border-neutral-700'
+                          : 'bg-black/30 border-white/10 hover:border-white/20'
                       }`}
                     >
                       <input 
@@ -382,7 +382,7 @@ export default function SeminarRegisterPage() {
                         onChange={() => setPaymentMethod('bni')} 
                         className="hidden" 
                       />
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${paymentMethod === 'bni' ? 'border-secondary' : 'border-neutral-600'}`}>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${paymentMethod === 'bni' ? 'border-secondary' : 'border-slate-400'}`}>
                         {paymentMethod === 'bni' && <div className="w-2.5 h-2.5 rounded-full bg-secondary" />}
                       </div>
                       <CreditCard className="w-5 h-5 text-secondary" />
@@ -394,7 +394,7 @@ export default function SeminarRegisterPage() {
                       className={`cursor-pointer rounded-xl p-4 border flex items-center justify-between gap-3.5 transition-all duration-300 ${
                         paymentMethod === 'qris' 
                           ? 'bg-secondary/20 border-secondary shadow-[0_0_15px_rgba(176,198,255,0.15)]' 
-                          : 'bg-neutral-900/60 border-neutral-800 hover:border-neutral-700'
+                          : 'bg-black/30 border-white/10 hover:border-white/20'
                       }`}
                     >
                       <div className="flex items-center gap-3.5">
@@ -406,7 +406,7 @@ export default function SeminarRegisterPage() {
                           onChange={() => setPaymentMethod('qris')} 
                           className="hidden" 
                         />
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${paymentMethod === 'qris' ? 'border-secondary' : 'border-neutral-600'}`}>
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${paymentMethod === 'qris' ? 'border-secondary' : 'border-slate-400'}`}>
                           {paymentMethod === 'qris' && <div className="w-2.5 h-2.5 rounded-full bg-secondary" />}
                         </div>
                         <QrCode className="w-5 h-5 text-secondary" />
@@ -421,7 +421,7 @@ export default function SeminarRegisterPage() {
                   {/* Transfer Destination Details / QRIS Notice */}
                   <div className="mt-4 transition-all duration-300">
                     {paymentMethod === 'bni' ? (
-                      <div className="p-6 rounded-xl border-l-4 border-l-secondary bg-surface-container-highest/50 border border-white/5 animate-in fade-in duration-300">
+                      <div className="p-6 rounded-xl border-l-4 border-l-secondary bg-black/30 border border-white/10 animate-in fade-in duration-300">
                         <h4 className="text-secondary mb-2 text-xs uppercase tracking-wider font-semibold">Tujuan Transfer:</h4>
                         <p className="text-white text-base font-medium mb-1">BNI (Bank Negara Indonesia)</p>
                         <div className="flex items-center gap-3 mb-1">
@@ -435,7 +435,7 @@ export default function SeminarRegisterPage() {
                             <span>{copied ? "Tersalin" : "Salin"}</span>
                           </button>
                         </div>
-                        <p className="text-on-surface-variant text-sm font-medium">a.n Amalia Fitria Damaiyanti</p>
+                        <p className="text-slate-300 text-sm font-medium">a.n Amalia Fitria Damaiyanti</p>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center justify-center p-6 md:p-8 text-center rounded-xl bg-amber-500/10 border border-amber-500/30 animate-in fade-in duration-300">
@@ -454,16 +454,16 @@ export default function SeminarRegisterPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Nama Pemilik Rekening / Akun E-Wallet *</label>
-                  <input required type="text" value={accountName} onChange={e => setAccountName(e.target.value)} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium" placeholder="Nama yang tertera pada rekening pengirim" />
+                  <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block">Nama Pemilik Rekening / Akun E-Wallet *</label>
+                  <input required type="text" value={accountName} onChange={e => setAccountName(e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium" placeholder="Nama yang tertera pada rekening pengirim" />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Upload Bukti Transfer *</label>
+                  <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block">Upload Bukti Transfer *</label>
                   <div className="relative w-full">
                     <input required accept="image/*" type="file" onChange={e => setPaymentProof(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                    <div className="w-full border-2 border-dashed border-outline-variant rounded-lg py-8 flex flex-col items-center justify-center bg-surface-container-highest/30 hover:bg-surface-container-highest/60 transition-colors">
-                      <UploadCloud className="w-8 h-8 text-on-surface-variant mb-2" />
+                    <div className="w-full border-2 border-dashed border-white/15 rounded-lg py-8 flex flex-col items-center justify-center bg-white/5 hover:bg-white/10 transition-colors">
+                      <UploadCloud className="w-8 h-8 text-slate-300 mb-2" />
                       <span className="text-white font-medium">{paymentProof ? paymentProof.name : "Unggah Bukti Transfer (JPG/PNG/PDF)"}</span>
                     </div>
                   </div>
@@ -473,34 +473,34 @@ export default function SeminarRegisterPage() {
           </div>
 
           {/* SECTION 3: PERSYARATAN */}
-          <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden">
+          <div className="bg-slate-950/60 backdrop-blur-xl rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-[0_4px_25px_rgba(0,0,0,0.5)] border border-white/10">
             <div className="mb-8">
               <CustomHeading as="h2" text="Persyaratan" className="text-2xl md:text-3xl text-primary-fixed flex items-center gap-3" />
             </div>
             
             <div className="space-y-8">
               <div className="space-y-2">
-                <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4" /> Upload Bukti Follow IG (@voitsfest) *
+                <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-secondary" /> Upload Bukti Follow IG (@voitsfest) *
                 </label>
                 <div className="relative w-full mt-2">
                   <input required accept="image/*" type="file" onChange={e => setIgProof(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                  <div className="w-full border-2 border-dashed border-outline-variant rounded-lg py-6 flex flex-col items-center justify-center bg-surface-container-highest/30 hover:bg-surface-container-highest/60 transition-colors">
-                    <UploadCloud className="w-6 h-6 text-on-surface-variant mb-2" />
+                  <div className="w-full border-2 border-dashed border-white/15 rounded-lg py-6 flex flex-col items-center justify-center bg-white/5 hover:bg-white/10 transition-colors">
+                    <UploadCloud className="w-6 h-6 text-slate-300 mb-2" />
                     <span className="text-white font-medium text-sm">{igProof ? igProof.name : "Pilih File Gambar (JPG/PNG)"}</span>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4" /> Upload Screenshot Repost Story *
+                <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-secondary" /> Upload Screenshot Repost Story *
                 </label>
-                <p className="text-xs text-secondary-fixed mb-2 font-medium">Pastikan mention @voitsfest & 3 teman</p>
+                <p className="text-xs text-slate-300 mb-2 font-medium">Pastikan mention @voitsfest & 3 teman</p>
                 <div className="relative w-full mt-2">
                   <input required accept="image/*" type="file" onChange={e => setStoryProof(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                  <div className="w-full border-2 border-dashed border-outline-variant rounded-lg py-6 flex flex-col items-center justify-center bg-surface-container-highest/30 hover:bg-surface-container-highest/60 transition-colors">
-                    <UploadCloud className="w-6 h-6 text-on-surface-variant mb-2" />
+                  <div className="w-full border-2 border-dashed border-white/15 rounded-lg py-6 flex flex-col items-center justify-center bg-white/5 hover:bg-white/10 transition-colors">
+                    <UploadCloud className="w-6 h-6 text-slate-300 mb-2" />
                     <span className="text-white font-medium text-sm">{storyProof ? storyProof.name : "Pilih File Gambar (JPG/PNG)"}</span>
                   </div>
                 </div>

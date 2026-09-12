@@ -116,7 +116,7 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
 
   if (ticketList.length === 0) {
     return (
-      <div className="glass-card rounded-xl p-8 text-center text-on-surface-variant border-dashed border-white/20 border-2">
+      <div className="bg-slate-950/60 backdrop-blur-xl rounded-2xl p-8 text-center text-slate-300 border-dashed border-white/15 border-2 shadow-[0_4px_25px_rgba(0,0,0,0.5)]">
         You don't have any active tickets yet. Get yours from the Hot Deals below!
       </div>
     );
@@ -159,7 +159,7 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
           return (
             <div
               key={ticket.id}
-              className="glass-card rounded-xl overflow-hidden relative group min-w-full md:min-w-[calc(100%-24px)] snap-center flex-shrink-0"
+              className="bg-slate-950/60 backdrop-blur-xl border border-white/10 shadow-[0_4px_25px_rgba(0,0,0,0.5)] rounded-2xl overflow-hidden relative group min-w-full md:min-w-[calc(100%-24px)] snap-center flex-shrink-0"
             >
               <div className="absolute top-1/2 -left-3 w-6 h-6 bg-[#0d1228] rounded-full -translate-y-1/2 border-r border-white/20"></div>
               <div className="absolute top-1/2 -right-3 w-6 h-6 bg-[#0d1228] rounded-full -translate-y-1/2 border-l border-white/20"></div>
@@ -340,7 +340,7 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
           onClick={() => setModalTicket(null)}
         >
           <div 
-            className="bg-[#0b1026]/95 border border-white/20 rounded-2xl p-6 md:p-8 max-w-sm w-full shadow-[0_0_60px_rgba(0,0,0,0.9)] relative flex flex-col items-center text-center animate-in zoom-in-95 duration-200"
+            className="bg-slate-950/80 backdrop-blur-xl border border-white/15 rounded-2xl p-6 md:p-8 max-w-sm w-full shadow-[0_4px_25px_rgba(0,0,0,0.7)] relative flex flex-col items-center text-center animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <button

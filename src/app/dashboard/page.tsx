@@ -119,12 +119,12 @@ export default async function DashboardPage() {
         
         {/* Welcome Banner */}
         <section>
-          <div className="bg-surface/50 backdrop-blur-xl border border-white/20 rounded-xl p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-[0_4px_25px_rgba(0,0,0,0.5)] flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold mb-2">
                 Welcome back, <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#ffd700] to-[#ffb4ab]">{firstName}!</span>
               </h2>
-              <p className="text-on-surface-variant text-lg">Ready for the cosmic journey?</p>
+              <p className="text-slate-300 text-lg">Ready for the cosmic journey?</p>
             </div>
           </div>
         </section>
@@ -149,7 +149,7 @@ export default async function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* CFR Card */}
-            <div className="bg-surface/50 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden group flex flex-col">
+            <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden group flex flex-col shadow-[0_4px_25px_rgba(0,0,0,0.5)]">
               <div className="h-44 w-full relative overflow-hidden bg-surface-dim">
                 <Image 
                   src="/Bintang-Bintang Presisi.png" 
@@ -165,7 +165,7 @@ export default async function DashboardPage() {
                 <h4 className="text-xl font-bold text-white mb-4">ColorFun Run</h4>
                 <Link 
                   href="/colorfun/checkout" 
-                  className="w-full text-center py-2.5 border border-white/20 hover:bg-white/10 rounded-lg font-bold transition-colors mt-auto text-sm"
+                  className="w-full text-center py-2.5 bg-black/30 border border-white/10 hover:bg-black/50 text-white rounded-lg font-bold transition-colors mt-auto text-sm"
                 >
                   Buy Ticket
                 </Link>
@@ -173,7 +173,7 @@ export default async function DashboardPage() {
             </div>
 
             {/* Festival Card */}
-            <div className="bg-surface/50 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden group flex flex-col">
+            <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden group flex flex-col shadow-[0_4px_25px_rgba(0,0,0,0.5)]">
               <div className="h-44 w-full relative overflow-hidden bg-surface-dim">
                 <Image 
                   src="/Bintang-Bintang Presisi.png" 
@@ -189,7 +189,7 @@ export default async function DashboardPage() {
                 <h4 className="text-xl font-bold text-white mb-4">VOITSFEST Main Festival</h4>
                 <Link 
                   href="/festival/checkout" 
-                  className="w-full text-center py-2.5 border border-white/20 hover:bg-white/10 rounded-lg font-bold transition-colors mt-auto text-sm"
+                  className="w-full text-center py-2.5 bg-black/30 border border-white/10 hover:bg-black/50 text-white rounded-lg font-bold transition-colors mt-auto text-sm"
                 >
                   Buy Ticket
                 </Link>

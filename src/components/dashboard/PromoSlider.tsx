@@ -28,7 +28,7 @@ export default function PromoSlider({ promos }: PromoSliderProps) {
 
   if (promos.length === 0) {
     return (
-      <div className="glass-card rounded-xl p-8 text-center text-on-surface-variant border-dashed border-white/20 border-2">
+      <div className="bg-slate-950/60 backdrop-blur-xl rounded-2xl p-8 text-center text-slate-300 border-dashed border-white/15 border-2 shadow-[0_4px_25px_rgba(0,0,0,0.5)]">
         No active promos at the moment. Check back later!
       </div>
     );
@@ -73,7 +73,7 @@ export default function PromoSlider({ promos }: PromoSliderProps) {
           return (
             <div
               key={promo.id}
-              className="glass-card rounded-xl p-6 glow-effect relative overflow-hidden min-w-full md:min-w-[calc(100%-24px)] snap-center flex-shrink-0"
+              className="bg-slate-950/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6 glow-effect relative overflow-hidden min-w-full md:min-w-[calc(100%-24px)] snap-center flex-shrink-0 shadow-[0_4px_25px_rgba(0,0,0,0.5)]"
             >
               <div className={`absolute -right-20 -top-20 w-64 h-64 ${bgGlow} rounded-full blur-3xl pointer-events-none`}></div>
               <div className="flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">

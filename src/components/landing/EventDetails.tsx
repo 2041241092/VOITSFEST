@@ -34,54 +34,54 @@ export default function EventDetails() {
       </div>
 
       {/* Theme Section */}
-      <div className="glass-card p-stack-lg rounded-2xl border-primary/20 max-w-4xl mx-auto text-center w-full">
+      <div className="bg-slate-950/45 backdrop-blur-lg p-stack-lg rounded-2xl border border-white/10 shadow-[0_4px_25px_rgba(0,0,0,0.4)] max-w-4xl mx-auto text-center w-full">
         <CustomHeading 
           as="h2" 
           text="Cosmic: Parade of The Stars" 
-          className="font-headline-lg text-headline-lg text-primary-fixed mb-4 text-glow" 
+          className="font-headline-lg text-headline-lg text-amber-400 mb-4 text-glow drop-shadow-md" 
         />
-        <p className="font-body-lg text-body-lg text-on-surface/80 leading-relaxed mb-12 max-w-3xl mx-auto">
+        <p className="font-body-lg text-body-lg text-slate-100/90 leading-relaxed mb-12 max-w-3xl mx-auto">
           Mengonseptualisasikan VOITSFEST 2026 sebagai ekosistem festival vokasi yang menyatukan semangat kewirausahaan mahasiswa, showcase inovasi keilmiahan, dan pengalaman interaktif dalam satu harmoni.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter mb-12">
-          <div className="glass-card p-6 rounded-2xl border-primary/20 flex flex-col items-center">
-            <div className="w-16 h-16 rounded-full bg-on-surface/10 flex items-center justify-center mb-6">
-              <Infinity className="w-8 h-8 text-primary-fixed" />
+          <div className="bg-slate-900/50 backdrop-blur-md p-6 rounded-2xl border border-white/10 hover:border-white/20 transition-all flex flex-col items-center shadow-lg">
+            <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-6">
+              <Infinity className="w-8 h-8 text-amber-400" />
             </div>
-            <h3 className="font-headline-md text-primary-fixed mb-4">Cosmic</h3>
-            <p className="font-body-md text-on-surface/70">Melambangkan ruang kolaborasi tanpa batas yang dinamis.</p>
+            <h3 className="font-headline-md text-amber-300 font-bold mb-4 drop-shadow-sm">Cosmic</h3>
+            <p className="font-body-md text-slate-200/90 leading-relaxed">Melambangkan ruang kolaborasi tanpa batas yang dinamis.</p>
           </div>
-          <div className="glass-card p-6 rounded-2xl border-primary/20 flex flex-col items-center">
-            <div className="w-16 h-16 rounded-full bg-on-surface/10 flex items-center justify-center mb-6">
-              <Users className="w-8 h-8 text-primary-fixed" />
+          <div className="bg-slate-900/50 backdrop-blur-md p-6 rounded-2xl border border-white/10 hover:border-white/20 transition-all flex flex-col items-center shadow-lg">
+            <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-6">
+              <Users className="w-8 h-8 text-amber-400" />
             </div>
-            <h3 className="font-headline-md text-primary-fixed mb-4">Parade</h3>
-            <p className="font-body-md text-on-surface/70">Merepresentasikan gerak kolektif lintas departemen yang saling mengisi.</p>
+            <h3 className="font-headline-md text-amber-300 font-bold mb-4 drop-shadow-sm">Parade</h3>
+            <p className="font-body-md text-slate-200/90 leading-relaxed">Merepresentasikan gerak kolektif lintas departemen yang saling mengisi.</p>
           </div>
-          <div className="glass-card p-6 rounded-2xl border-primary/20 flex flex-col items-center">
-            <div className="w-16 h-16 rounded-full bg-on-surface/10 flex items-center justify-center mb-6">
-              <Sparkles className="w-8 h-8 text-primary-fixed" />
+          <div className="bg-slate-900/50 backdrop-blur-md p-6 rounded-2xl border border-white/10 hover:border-white/20 transition-all flex flex-col items-center shadow-lg">
+            <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-6">
+              <Sparkles className="w-8 h-8 text-amber-400" />
             </div>
-            <h3 className="font-headline-md text-primary-fixed mb-4">Stars</h3>
-            <p className="font-body-md text-on-surface/70">Menegaskan bahwa setiap mahasiswa, tenant, serta karya inovatif adalah cahaya unik yang berkontribusi pada kesatuan acara.</p>
+            <h3 className="font-headline-md text-amber-300 font-bold mb-4 drop-shadow-sm">Stars</h3>
+            <p className="font-body-md text-slate-200/90 leading-relaxed">Menegaskan bahwa setiap mahasiswa, tenant, serta karya inovatif adalah cahaya unik yang berkontribusi pada kesatuan acara.</p>
           </div>
         </div>
-        <div className="relative pt-12 border-t border-primary/10">
-          <Quote className="w-10 h-10 text-primary/30 absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-1" />
-          <p className="font-body-lg italic text-on-surface/90 max-w-3xl mx-auto leading-relaxed">
+        <div className="relative pt-12 border-t border-white/10">
+          <Quote className="w-10 h-10 text-amber-400/50 absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-950/80 rounded-full p-2 border border-white/15" />
+          <p className="font-body-lg italic text-slate-100 max-w-3xl mx-auto leading-relaxed">
             VOITSFEST sebagai platform strategis yang mengarahkan engagement pengunjung langsung ke aktivitas ekonomi tenant, sekaligus mengukuhkan positioning Fakultas Vokasi ITS sebagai event unggulan yang berkelanjutan, terkelola profesional, dan berdampak nyata bagi ekosistem kreatif kampus.
           </p>
         </div>
       </div>
       
       {/* About VOITSFEST */}
-      <div className="glass-card p-stack-lg rounded-2xl border-primary/20 max-w-4xl mx-auto text-center w-full py-12">
+      <div className="bg-slate-950/45 backdrop-blur-lg p-stack-lg rounded-2xl border border-white/10 shadow-[0_4px_25px_rgba(0,0,0,0.4)] max-w-4xl mx-auto text-center w-full py-12">
         <CustomHeading 
           as="h2" 
           text="About VOITSFEST" 
-          className="font-headline-lg text-headline-lg text-primary-fixed mb-6 text-glow" 
+          className="font-headline-lg text-headline-lg text-amber-400 mb-6 text-glow drop-shadow-md" 
         />
-        <p className="font-body-lg text-body-lg text-on-surface/80 leading-relaxed">
+        <p className="font-body-lg text-body-lg text-slate-100/90 leading-relaxed">
           VOITSFEST 2026 hadir kembali sebagai signature event unggulan dari Fakultas Vokasi Institut Teknologi Sepuluh Nopember. Festival ini dirancang sebagai ekosistem yang menyatukan inovasi keilmiahan, kreativitas mahasiswa, serta pengembangan ekonomi kreatif yang berkelanjutan. Lebih dari sekadar festival biasa, VOITSFEST 2026 merupakan ruang kolaborasi tanpa batas, tempat berkumpulnya ribuan pasang mata untuk menikmati perpaduan antara edukasi, aksi olahraga, dan hiburan spektakuler.
         </p>
       </div>

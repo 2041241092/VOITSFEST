@@ -83,17 +83,17 @@ export default function Hero() {
             <CustomHeading 
               as="h1" 
               text="VOITSFEST" 
-              className="font-headline-lg text-5xl sm:text-7xl lg:text-8xl xl:text-9xl uppercase font-bold tracking-tighter text-primary-container text-glow leading-none" 
+              className="font-headline-lg text-5xl sm:text-7xl lg:text-8xl xl:text-9xl uppercase font-bold tracking-tighter text-primary-container drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)] drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)] [text-shadow:0_4px_16px_rgba(0,0,0,0.95),0_0_25px_rgba(240,192,77,0.5)] leading-none" 
             />
 
             {/* Subtitle / Tagline */}
-            <p className="font-headline-md text-2xl sm:text-3xl lg:text-4xl uppercase font-bold tracking-wider text-primary-container text-glow">
+            <p className="font-headline-md text-2xl sm:text-3xl lg:text-4xl uppercase font-bold tracking-wider text-primary-container drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] [text-shadow:0_3px_12px_rgba(0,0,0,0.9),0_0_20px_rgba(240,192,77,0.4)]">
               Shine Loud, Glow Together
             </p>
             
             {/* Milestone Label */}
             <div className="pt-2 w-full flex flex-col items-center lg:items-start">
-              <p className="font-headline-md text-sm sm:text-base text-secondary font-medium tracking-wide uppercase mb-3 text-glow">
+              <p className="font-headline-md text-sm sm:text-base text-secondary font-medium tracking-wide uppercase mb-3 drop-shadow-[0_3px_10px_rgba(0,0,0,0.95)] drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] [text-shadow:0_2px_8px_rgba(0,0,0,0.9),0_0_16px_rgba(176,198,255,0.4)]">
                 {countdownLabel || "The Next Milestone"}
               </p>
               

@@ -23,15 +23,33 @@ export default function Footer() {
             VOITSFEST adalah signature event unggulan dari Fakultas Vokasi ITS. Ajang kolaborasi inovasi, kreativitas, dan ekonomi kreatif yang berkelanjutan bagi seluruh civitas akademika dan masyarakat umum.
           </p>
           <div className="flex space-x-4">
-            <div className="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-on-surface/10 hover:border-primary border-primary/50 bg-on-surface/5">
+            <a 
+              href="https://www.instagram.com/voitsfest?stkn=MTZpbGt5Mm1vMmJoZw=="
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="VOITSFEST on Instagram"
+              className="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-on-surface/10 hover:border-primary border-primary/50 bg-on-surface/5"
+            >
               <img alt="Instagram" className="w-full h-full object-contain p-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBTl2UmqpxIGwKZRj4YRh0VfCk0rzWtcTEDRTABCFuE3PDWh6v-8oYCCthi8glenQHMm6XTLpxa5a4cB9Qc8lzNVq-o2nuXDpIuMpjfBYSkdgs-4l5JQbsX98TXCdsb7UPRJVCIHSVtYsa4jQhNOfinSwpp9cRchV3q8yv0_kXM_acM6RdVSl2qAJqcBbcAxKlYMjWJ3mes6H3BV2LhZPQ38jL2ALBlTPZEny0AmoLOlC_RUhdzXR7L-JBugVZwvI6jXpY" />
-            </div>
-            <div className="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-on-surface/10 hover:border-primary border-primary/50 bg-on-surface/5">
+            </a>
+            <a 
+              href="https://www.linkedin.com/company/vocation-its-festival/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="VOITSFEST on LinkedIn"
+              className="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-on-surface/10 hover:border-primary border-primary/50 bg-on-surface/5"
+            >
               <img alt="LinkedIn" className="w-full h-full object-contain p-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuChtDlwwC1tu3mFI1n0MivSKcB_MeEneaMMfmazYFYn3N5c80VPBz2LzJToWpSctvnrDsAZwXr3Dyt20RERGdmGYmoM7UVqVp35X95w4qiAOlRZrGir5ut1BwL71Z4fEUAZ1VZhwp5K09MvQYMbkLGELQ5FVx0hQFt4GS2ViAYtvqoLE2GEAmtFAkoa2y3cxoXOIacf29nig3UPi5tmTPqDtzcHtwtZZ4Hr5yb8kRPW3NtUyuPoNdAzbvZ6V54TjchqwOk" />
-            </div>
-            <div className="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-on-surface/10 hover:border-primary border-primary/50 bg-on-surface/5">
+            </a>
+            <a 
+              href="https://www.tiktok.com/@voitsfest?_r=1&_t=ZS-99fVr9UI30P"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="VOITSFEST on TikTok"
+              className="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-all hover:bg-on-surface/10 hover:border-primary border-primary/50 bg-on-surface/5"
+            >
               <img alt="TikTok" className="w-full h-full object-contain p-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMh7hiA86g1A5Yr-MNdOUAHmdXwoQhMtF3aHS4_jOsOLv6C1F0PweAe_s7qFTBwAJhfXCU1bCdCXMyrtgVEO9QGE_4HznGv7JYHTeYkgygfffgSqjEsYVko14LB3MB5KsGhelKDMi3q9WohafBNokWkb6FZ_hQPASYs7RWO-cv6gu110Q52ClnBaPBWtPo1MpX82g6-3Ef4V4qvSk2bm6PV7Sr-g_NwVW1lHisW9wv5lo26nazT1g8V2rEIfGVoYIeGRg" />
-            </div>
+            </a>
           </div>
         </div>
         

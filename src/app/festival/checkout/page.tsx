@@ -25,7 +25,10 @@ import {
   Tag,
   Sparkles,
   Users,
-  UserPlus
+  UserPlus,
+  Download,
+  Maximize2,
+  X
 } from "lucide-react";
 import { fetchPricingTiers, EventPricing, DEFAULT_PRICING_TIERS } from "@/lib/pricing";
 import { itsDepartments } from "@/lib/departments";
@@ -97,6 +100,10 @@ export default function FestivalCheckoutPage() {
   const [paymentProofPreview, setPaymentProofPreview] = useState<string | null>(null);
   const [persetujuanAturan, setPersetujuanAturan] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isQrisModalOpen, setIsQrisModalOpen] = useState(false);
+  const [copiedNmid, setCopiedNmid] = useState(false);
+  const [copiedAmount, setCopiedAmount] = useState(false);
+  const [isCompressingProof, setIsCompressingProof] = useState(false);
 
   // Promo State
   const [promoCode, setPromoCode] = useState("");
@@ -476,24 +483,50 @@ export default function FestivalCheckoutPage() {
 
   // Handle File Change with Image Compression (maxSizeMB: 0.2, maxWidthOrHeight: 1024)
   const handleFileChange = async (file: File | null) => {
-    if (!file) return;
+    if (!file) {
+      setPaymentProofFile(null);
+      setPaymentProofPreview(null);
+      return;
+    }
+
+    const isImage = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+
+    if (!isImage && !isPdf) {
+      setError("File bukti transfer harus berformat JPG, PNG, atau PDF.");
+      return;
+    }
+
+    if (isPdf && file.size > 2 * 1024 * 1024) {
+      setError("Ukuran file PDF bukti transfer maksimal 2MB.");
+      return;
+    }
+
+    if (file.size > 15 * 1024 * 1024) {
+      setError("Ukuran file bukti transfer maksimal 15MB sebelum kompresi.");
+      return;
+    }
+
     setError(null);
 
-    try {
-      let processedFile = file;
-      if (file.type.startsWith("image/")) {
+    if (isImage) {
+      setIsCompressingProof(true);
+      try {
         const compressed = await compressImage(file);
-        processedFile = compressed;
+        setPaymentProofFile(compressed);
+        const objectUrl = URL.createObjectURL(compressed);
+        setPaymentProofPreview(objectUrl);
+      } catch (err: any) {
+        console.warn("Kompresi gambar gagal, menggunakan file asli:", err);
+        setPaymentProofFile(file);
+        const objectUrl = URL.createObjectURL(file);
+        setPaymentProofPreview(objectUrl);
+      } finally {
+        setIsCompressingProof(false);
       }
-
-      setPaymentProofFile(processedFile);
-      const objectUrl = URL.createObjectURL(processedFile);
-      setPaymentProofPreview(objectUrl);
-    } catch (err: any) {
-      console.warn("Kompresi gambar gagal, menggunakan file asli:", err);
+    } else {
       setPaymentProofFile(file);
-      const objectUrl = URL.createObjectURL(file);
-      setPaymentProofPreview(objectUrl);
+      setPaymentProofPreview(null);
     }
   };
 
@@ -576,10 +609,24 @@ export default function FestivalCheckoutPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Copy QRIS NMID
+  const handleCopyNmid = () => {
+    navigator.clipboard.writeText("ID1026592450039");
+    setCopiedNmid(true);
+    setTimeout(() => setCopiedNmid(false), 2000);
+  };
+
+  // Copy Total Amount
+  const handleCopyAmount = () => {
+    navigator.clipboard.writeText(finalAmount.toString());
+    setCopiedAmount(true);
+    setTimeout(() => setCopiedAmount(false), 2000);
+  };
+
   // Comprehensive Form Validation Check
   const isFormValid = useMemo(() => {
-    if (loading || !user || isCompressingKtm) return false;
-    if (metodeBayar !== "bni") return false;
+    if (loading || !user || isCompressingKtm || isCompressingProof) return false;
+    if (metodeBayar !== "bni" && metodeBayar !== "qris") return false;
     if (!paymentProofFile) return false;
     if (!namaPemilikRekening.trim()) return false;
     if (!persetujuanAturan) return false;
@@ -609,6 +656,7 @@ export default function FestivalCheckoutPage() {
     loading, 
     user, 
     isCompressingKtm, 
+    isCompressingProof,
     metodeBayar, 
     paymentProofFile, 
     namaPemilikRekening, 
@@ -985,7 +1033,7 @@ export default function FestivalCheckoutPage() {
       <div className="text-on-background font-poppins overflow-x-hidden relative min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-grow flex items-center justify-center pt-28 pb-16 px-4 relative z-10">
-          <div className="glass-card max-w-sm w-full p-8 rounded-2xl text-center border border-white/10 shadow-2xl flex flex-col items-center">
+          <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 shadow-[0_4px_25px_rgba(0,0,0,0.5)] rounded-2xl max-w-sm w-full p-8 text-center flex flex-col items-center">
             <div className="relative mb-4">
               <div className="w-14 h-14 rounded-full border-2 border-secondary/20 border-t-secondary animate-spin" />
               <div className="absolute inset-0 flex items-center justify-center">
@@ -993,7 +1041,7 @@ export default function FestivalCheckoutPage() {
               </div>
             </div>
             <h3 className="font-semibold text-lg text-white mb-1">Memeriksa Sesi Akun</h3>
-            <p className="text-xs text-on-surface-variant font-medium">
+            <p className="text-xs text-slate-400 font-medium">
               Memverifikasi otentikasi login Anda...
             </p>
           </div>
@@ -1009,23 +1057,23 @@ export default function FestivalCheckoutPage() {
       <div className="text-on-background font-poppins overflow-x-hidden relative min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-grow flex items-center justify-center pt-28 pb-16 px-4 relative z-10">
-          <div className="glass-card max-w-md w-full p-8 rounded-2xl text-center border-t-4 border-t-secondary-fixed shadow-2xl animate-in fade-in duration-300">
+          <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 border-t-4 border-t-secondary-fixed shadow-[0_4px_25px_rgba(0,0,0,0.5)] rounded-2xl max-w-md w-full p-8 text-center animate-in fade-in duration-300">
             <CheckCircle className="w-20 h-20 text-secondary-fixed mx-auto mb-6 drop-shadow-[0_0_15px_rgba(176,198,255,0.5)]" />
             <CustomHeading as="h1" text="Pembayaran Berhasil Dikirim" className="text-2xl md:text-3xl text-white mb-4" />
-            <p className="text-on-surface-variant font-poppins mb-6 leading-relaxed text-sm">
+            <p className="text-slate-300 font-poppins mb-6 leading-relaxed text-sm">
               Bukti pembayaran tiket Festival Anda telah tercatat dengan status{" "}
               <span className="text-secondary font-bold">Pending</span>. Anda akan dialihkan ke Dashboard untuk memantau proses verifikasi tiket.
             </p>
-            <div className="bg-surface-container-highest/50 border border-outline-variant/40 rounded-xl p-4 mb-6 text-left text-xs space-y-1.5">
-              <div className="flex justify-between text-on-surface-variant">
+            <div className="bg-black/30 border border-white/10 rounded-xl p-4 mb-6 text-left text-xs space-y-1.5">
+              <div className="flex justify-between text-slate-400">
                 <span>Sub-Event</span>
                 <span className="text-white font-semibold">FESTIVAL 2026</span>
               </div>
-              <div className="flex justify-between text-on-surface-variant">
+              <div className="flex justify-between text-slate-400">
                 <span>Fase Tiket</span>
                 <span className="text-white font-semibold uppercase">{cmsPricing.phase}</span>
               </div>
-              <div className="flex justify-between text-on-surface-variant">
+              <div className="flex justify-between text-slate-400">
                 <span>Total Nominal</span>
                 <span className="text-secondary font-bold">
                   Rp {(submittedRegistrations[0]?.amount_paid ?? finalAmount).toLocaleString("id-ID")}
@@ -1034,7 +1082,7 @@ export default function FestivalCheckoutPage() {
 
               {submittedRegistrations.length > 0 && (
                 <div className="pt-2.5 border-t border-white/10 space-y-1.5">
-                  <div className="flex justify-between items-center text-on-surface-variant">
+                  <div className="flex justify-between items-center text-slate-400">
                     <span className="text-white font-semibold">Nomor BIB Peserta</span>
                     <span className="text-[10px] uppercase tracking-wider text-amber-300 font-mono">Menunggu Verifikasi</span>
                   </div>
@@ -1045,7 +1093,7 @@ export default function FestivalCheckoutPage() {
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-300 font-mono text-xs font-bold"
                       >
                         <span>{reg.nomor_bib != null ? `BIB #${formatBIB(reg.nomor_bib)}` : "BIB: Menunggu Verifikasi"}</span>
-                        <span className="text-[10px] font-sans font-normal text-on-surface-variant">
+                        <span className="text-[10px] font-sans font-normal text-slate-400">
                           ({reg.is_primary ? "Utama" : `Anggota ${idx}`})
                         </span>
                       </div>
@@ -1081,9 +1129,9 @@ export default function FestivalCheckoutPage() {
             <CustomHeading 
               as="h1" 
               text="Festival Registration" 
-              className="text-4xl md:text-6xl text-white mb-4 drop-shadow-md tracking-tight text-center" 
+              className="text-4xl md:text-6xl text-white mb-4 drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)] [text-shadow:0_3px_12px_rgba(0,0,0,0.85),0_0_20px_rgba(0,0,0,0.6)] tracking-tight text-center" 
             />
-            <p className="font-body-lg text-base md:text-lg text-secondary-fixed-dim max-w-2xl mx-auto">
+            <p className="font-body-lg text-base md:text-lg text-secondary-fixed-dim max-w-2xl mx-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] [text-shadow:0_2px_8px_rgba(0,0,0,0.9)]">
               Secure your spot for the grand finale of VOITSFEST 2026. Lengkapi formulir pembayaran di bawah ini.
             </p>
           </div>
@@ -1102,14 +1150,14 @@ export default function FestivalCheckoutPage() {
             {/* ======================================================== */}
             {/* SECTION 1: KONFIRMASI DATA PESERTA */}
             {/* ======================================================== */}
-            <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-xl border border-white/10">
+            <div className="bg-slate-950/60 backdrop-blur-xl rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-[0_4px_25px_rgba(0,0,0,0.5)] border border-white/10">
               <div className="mb-6 pb-4 border-b border-white/10">
                 <CustomHeading 
                   as="h2" 
                   text="Konfirmasi Data Peserta" 
                   className="text-2xl md:text-3xl text-primary-fixed flex items-center gap-3" 
                 />
-                <p className="text-xs text-on-surface-variant/70 mt-1">
+                <p className="text-xs text-slate-300 mt-1">
                   Data ini diambil secara otomatis dari akun profil terdaftar Anda
                 </p>
               </div>
@@ -1117,7 +1165,7 @@ export default function FestivalCheckoutPage() {
               <div className="space-y-6">
                 {/* Nama Lengkap */}
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block">
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                     Nama Lengkap
                   </label>
                   <div className="relative">
@@ -1125,16 +1173,16 @@ export default function FestivalCheckoutPage() {
                       type="text" 
                       value={userData.fullName || ''} 
                       readOnly 
-                      className="text-white bg-neutral-800/80 border border-neutral-700 cursor-not-allowed z-10 relative px-4 py-3 w-full rounded-lg outline-none font-poppins pr-10" 
+                      className="text-white bg-black/20 border border-white/10 cursor-not-allowed z-10 relative px-4 py-3 w-full rounded-lg outline-none font-poppins pr-10" 
                     />
-                    <Lock className="w-4 h-4 text-on-surface-variant absolute right-4 top-1/2 -translate-y-1/2 z-20 pointer-events-none" />
+                    <Lock className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 z-20 pointer-events-none" />
                   </div>
                 </div>
 
                 {/* WhatsApp & Email */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block">
+                    <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                       Nomor WhatsApp
                     </label>
                     <div className="relative">
@@ -1142,14 +1190,14 @@ export default function FestivalCheckoutPage() {
                         type="text" 
                         value={userData.phone || ''} 
                         readOnly 
-                        className="text-white bg-neutral-800/80 border border-neutral-700 cursor-not-allowed z-10 relative px-4 py-3 w-full rounded-lg outline-none font-poppins pr-10" 
+                        className="text-white bg-black/20 border border-white/10 cursor-not-allowed z-10 relative px-4 py-3 w-full rounded-lg outline-none font-poppins pr-10" 
                       />
-                      <Lock className="w-4 h-4 text-on-surface-variant absolute right-4 top-1/2 -translate-y-1/2 z-20 pointer-events-none" />
+                      <Lock className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 z-20 pointer-events-none" />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block">
+                    <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                       Email Aktif
                     </label>
                     <div className="relative">
@@ -1157,9 +1205,9 @@ export default function FestivalCheckoutPage() {
                         type="email" 
                         value={userData.email || ''} 
                         readOnly 
-                        className="text-white bg-neutral-800/80 border border-neutral-700 cursor-not-allowed z-10 relative px-4 py-3 w-full rounded-lg outline-none font-poppins pr-10" 
+                        className="text-white bg-black/20 border border-white/10 cursor-not-allowed z-10 relative px-4 py-3 w-full rounded-lg outline-none font-poppins pr-10" 
                       />
-                      <Lock className="w-4 h-4 text-on-surface-variant absolute right-4 top-1/2 -translate-y-1/2 z-20 pointer-events-none" />
+                      <Lock className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 z-20 pointer-events-none" />
                     </div>
                   </div>
                 </div>
@@ -1167,7 +1215,7 @@ export default function FestivalCheckoutPage() {
                 {/* Kategori Peserta */}
                 <div className="space-y-2 pt-2">
                   <div className="flex items-center justify-between">
-                    <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block">
+                    <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                       Kategori Peserta *
                     </label>
                     {isKategoriLocked && (
@@ -1182,12 +1230,12 @@ export default function FestivalCheckoutPage() {
                       value={kategoriPeserta}
                       disabled={isKategoriLocked}
                       onChange={(e) => handleKategoriChange(e.target.value as "Umum" | "Mahasiswa ITS")}
-                      className={`w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins ${
-                        isKategoriLocked ? "opacity-75 cursor-not-allowed bg-neutral-900/80 pr-10" : "cursor-pointer"
+                      className={`w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins ${
+                        isKategoriLocked ? "opacity-75 cursor-not-allowed bg-black/20 pr-10" : "cursor-pointer"
                       }`}
                     >
-                      <option value="Umum" className="bg-[#101415] text-white">Umum</option>
-                      <option value="Mahasiswa ITS" className="bg-[#101415] text-white">Mahasiswa ITS</option>
+                      <option value="Umum" className="bg-slate-900 text-white">Umum</option>
+                      <option value="Mahasiswa ITS" className="bg-slate-900 text-white">Mahasiswa ITS</option>
                     </select>
                     {isKategoriLocked && (
                       <Lock className="w-4 h-4 text-amber-300/80 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1200,20 +1248,20 @@ export default function FestivalCheckoutPage() {
                   <div className="space-y-6 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
                     {/* Departemen (New Dropdown) */}
                     <div className="space-y-2">
-                      <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block">
+                      <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                         Departemen *
                       </label>
                       <select
                         required
                         value={departemen}
                         onChange={(e) => setDepartemen(e.target.value)}
-                        className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins cursor-pointer"
+                        className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins cursor-pointer"
                       >
-                        <option value="" disabled className="bg-[#101415] text-on-surface-variant/70">
+                        <option value="" disabled className="bg-slate-900 text-slate-400">
                           -- Pilih Departemen --
                         </option>
                         {itsDepartments.map((dept) => (
-                          <option key={dept} value={dept} className="bg-[#101415] text-white">
+                          <option key={dept} value={dept} className="bg-slate-900 text-white">
                             {dept}
                           </option>
                         ))}
@@ -1222,7 +1270,7 @@ export default function FestivalCheckoutPage() {
 
                     {/* NRP */}
                     <div className="space-y-2">
-                      <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block">
+                      <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                         NRP (Nomor Pokok Mahasiswa) *
                       </label>
                       <input
@@ -1231,13 +1279,13 @@ export default function FestivalCheckoutPage() {
                         value={nrp}
                         onChange={(e) => setNrp(e.target.value)}
                         placeholder="e.g. 5001211001"
-                        className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50"
+                        className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins"
                       />
                     </div>
 
                     {/* Scan Kartu Pelajar / KTM (Gambar/PDF) */}
                     <div className="space-y-2">
-                      <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block">
+                      <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                         Scan Kartu Pelajar / KTM (JPG/PNG/PDF) *
                       </label>
                       <div className="relative w-full">
@@ -1253,7 +1301,7 @@ export default function FestivalCheckoutPage() {
                           className={`w-full border-2 border-dashed rounded-lg py-6 px-4 flex flex-col items-center justify-center transition-colors ${
                             ktmFile
                               ? "border-secondary bg-secondary/10"
-                              : "border-outline-variant bg-surface-container-highest/30 hover:bg-surface-container-highest/60"
+                              : "border-white/15 bg-white/5 hover:bg-white/10"
                           }`}
                         >
                           {ktmFile ? (
@@ -1268,11 +1316,11 @@ export default function FestivalCheckoutPage() {
                             </div>
                           ) : (
                             <>
-                              <UploadCloud className="w-8 h-8 mb-2 text-on-surface-variant" />
+                              <UploadCloud className="w-8 h-8 mb-2 text-slate-400" />
                               <span className="text-white font-medium text-sm text-center">
                                 {isCompressingKtm ? "Mengompresi file KTM..." : "Unggah Scan Kartu Pelajar / KTM (JPG/PNG/PDF)"}
                               </span>
-                              <span className="text-xs text-on-surface-variant/70 mt-1">Klik atau seret file ke sini</span>
+                              <span className="text-xs text-slate-400 mt-1">Klik atau seret file ke sini</span>
                             </>
                           )}
                         </div>
@@ -1295,7 +1343,7 @@ export default function FestivalCheckoutPage() {
                             {extraMembers.length} Peserta
                           </span>
                         </h3>
-                        <p className="text-xs text-on-surface-variant/70 mt-0.5">
+                        <p className="text-xs text-slate-300 mt-0.5">
                           Lengkapi data anggota rombongan/bundle paket yang Anda daftarkan
                         </p>
                       </div>
@@ -1304,7 +1352,7 @@ export default function FestivalCheckoutPage() {
                     {extraMembers.map((member, idx) => (
                       <div
                         key={idx}
-                        className="p-5 md:p-6 rounded-2xl bg-surface-container-highest/20 border border-white/15 space-y-5 relative backdrop-blur-md shadow-lg"
+                        className="p-5 md:p-6 rounded-2xl bg-black/30 border border-white/10 space-y-5 relative backdrop-blur-xl shadow-xl"
                       >
                         <div className="flex items-center justify-between pb-3 border-b border-white/10">
                           <h4 className="font-poppins font-semibold text-sm text-primary-fixed flex items-center gap-2">
@@ -1313,14 +1361,14 @@ export default function FestivalCheckoutPage() {
                             </span>
                             Data Anggota {idx + 1}
                           </h4>
-                          <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-white/5 text-on-surface-variant border border-white/10">
+                          <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-white/5 text-slate-300 border border-white/10">
                             Anggota {idx + 1} dari {extraMembers.length}
                           </span>
                         </div>
 
                         {/* Nama Lengkap */}
                         <div className="space-y-2">
-                          <label className="font-poppins font-medium text-xs text-primary-fixed-dim uppercase tracking-wider block">
+                          <label className="font-poppins font-semibold text-xs text-slate-200 uppercase tracking-wider block">
                             Nama Lengkap *
                           </label>
                           <input
@@ -1329,14 +1377,14 @@ export default function FestivalCheckoutPage() {
                             value={member.nama_lengkap}
                             onChange={(e) => handleExtraMemberChange(idx, "nama_lengkap", e.target.value)}
                             placeholder="Masukkan nama lengkap sesuai kartu identitas"
-                            className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-2.5 text-sm text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50"
+                            className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins"
                           />
                         </div>
 
                         {/* Nomor WhatsApp & Email */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <label className="font-poppins font-medium text-xs text-primary-fixed-dim uppercase tracking-wider block">
+                            <label className="font-poppins font-semibold text-xs text-slate-200 uppercase tracking-wider block">
                               Nomor WhatsApp *
                             </label>
                             <input
@@ -1345,12 +1393,12 @@ export default function FestivalCheckoutPage() {
                               value={member.whatsapp}
                               onChange={(e) => handleExtraMemberChange(idx, "whatsapp", e.target.value)}
                               placeholder="e.g. 081234567890"
-                              className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-2.5 text-sm text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50"
+                              className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins"
                             />
                           </div>
 
                           <div className="space-y-2">
-                            <label className="font-poppins font-medium text-xs text-primary-fixed-dim uppercase tracking-wider block">
+                            <label className="font-poppins font-semibold text-xs text-slate-200 uppercase tracking-wider block">
                               Email *
                             </label>
                             <input
@@ -1359,14 +1407,14 @@ export default function FestivalCheckoutPage() {
                               value={member.email}
                               onChange={(e) => handleExtraMemberChange(idx, "email", e.target.value)}
                               placeholder="e.g. email@example.com"
-                              className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-2.5 text-sm text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50"
+                              className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins"
                             />
                           </div>
                         </div>
 
                         {/* Kategori Peserta */}
                         <div className="space-y-2">
-                          <label className="font-poppins font-medium text-xs text-primary-fixed-dim uppercase tracking-wider block">
+                          <label className="font-poppins font-semibold text-xs text-slate-200 uppercase tracking-wider block">
                             Kategori Peserta *
                           </label>
                           <select
@@ -1378,12 +1426,12 @@ export default function FestivalCheckoutPage() {
                                 e.target.value as "Umum" | "Mahasiswa ITS"
                               )
                             }
-                            className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-2.5 text-sm text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins cursor-pointer"
+                            className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins cursor-pointer"
                           >
-                            <option value="Umum" className="bg-[#101415] text-white">
+                            <option value="Umum" className="bg-slate-900 text-white">
                               Umum
                             </option>
-                            <option value="Mahasiswa ITS" className="bg-[#101415] text-white">
+                            <option value="Mahasiswa ITS" className="bg-slate-900 text-white">
                               Mahasiswa ITS
                             </option>
                           </select>
@@ -1394,20 +1442,20 @@ export default function FestivalCheckoutPage() {
                           <div className="space-y-4 pt-3 border-t border-white/5 animate-in fade-in slide-in-from-top-2 duration-300">
                             {/* Departemen */}
                             <div className="space-y-2">
-                              <label className="font-poppins font-medium text-xs text-primary-fixed-dim uppercase tracking-wider block">
+                              <label className="font-poppins font-semibold text-xs text-slate-200 uppercase tracking-wider block">
                                 Departemen *
                               </label>
                               <select
                                 required
                                 value={member.departemen}
                                 onChange={(e) => handleExtraMemberChange(idx, "departemen", e.target.value)}
-                                className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-2.5 text-sm text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins cursor-pointer"
+                                className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins cursor-pointer"
                               >
-                                <option value="" disabled className="bg-[#101415] text-on-surface-variant/70">
+                                <option value="" disabled className="bg-slate-900 text-slate-400">
                                   -- Pilih Departemen --
                                 </option>
                                 {itsDepartments.map((dept) => (
-                                  <option key={dept} value={dept} className="bg-[#101415] text-white">
+                                  <option key={dept} value={dept} className="bg-slate-900 text-white">
                                     {dept}
                                   </option>
                                 ))}
@@ -1416,7 +1464,7 @@ export default function FestivalCheckoutPage() {
 
                             {/* NRP */}
                             <div className="space-y-2">
-                              <label className="font-poppins font-medium text-xs text-primary-fixed-dim uppercase tracking-wider block">
+                              <label className="font-poppins font-semibold text-xs text-slate-200 uppercase tracking-wider block">
                                 NRP (Nomor Pokok Mahasiswa) *
                               </label>
                               <input
@@ -1425,13 +1473,13 @@ export default function FestivalCheckoutPage() {
                                 value={member.nrp}
                                 onChange={(e) => handleExtraMemberChange(idx, "nrp", e.target.value)}
                                 placeholder="e.g. 5001211001"
-                                className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-2.5 text-sm text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50"
+                                className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins"
                               />
                             </div>
 
                             {/* Scan KTM */}
                             <div className="space-y-2">
-                              <label className="font-poppins font-medium text-xs text-primary-fixed-dim uppercase tracking-wider block">
+                              <label className="font-poppins font-semibold text-xs text-slate-200 uppercase tracking-wider block">
                                 Scan Kartu Pelajar / KTM (JPG/PNG/PDF) *
                               </label>
                               <div className="relative w-full">
@@ -1446,7 +1494,7 @@ export default function FestivalCheckoutPage() {
                                   className={`w-full border-2 border-dashed rounded-lg py-4 px-4 flex flex-col items-center justify-center transition-colors ${
                                     member.ktm_file
                                       ? "border-secondary bg-secondary/10"
-                                      : "border-outline-variant bg-surface-container-highest/30 hover:bg-surface-container-highest/60"
+                                      : "border-white/15 bg-white/5 hover:bg-white/10"
                                   }`}
                                 >
                                   {member.ktm_file ? (
@@ -1461,11 +1509,11 @@ export default function FestivalCheckoutPage() {
                                     </div>
                                   ) : (
                                     <>
-                                      <UploadCloud className="w-6 h-6 mb-1 text-on-surface-variant" />
+                                      <UploadCloud className="w-6 h-6 mb-1 text-slate-400" />
                                       <span className="text-white font-medium text-xs text-center">
                                         {member.is_compressing_ktm ? "Mengompresi KTM..." : `Unggah Scan KTM Anggota ${idx + 1} (JPG/PNG/PDF)`}
                                       </span>
-                                      <span className="text-[10px] text-on-surface-variant/70 mt-0.5">Klik atau seret file ke sini</span>
+                                      <span className="text-[10px] text-slate-400 mt-0.5">Klik atau seret file ke sini</span>
                                     </>
                                   )}
                                 </div>
@@ -1483,14 +1531,14 @@ export default function FestivalCheckoutPage() {
             {/* ======================================================== */}
             {/* SECTION 2: PEMBAYARAN & FINALISASI */}
             {/* ======================================================== */}
-            <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-xl border border-white/10">
+            <div className="bg-slate-950/60 backdrop-blur-xl rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-[0_4px_25px_rgba(0,0,0,0.5)] border border-white/10">
               <div className="mb-6 pb-4 border-b border-white/10">
                 <CustomHeading 
                   as="h2" 
                   text="Pembayaran &amp; Finalisasi" 
                   className="text-2xl md:text-3xl text-primary-fixed flex items-center gap-3" 
                 />
-                <p className="text-xs text-on-surface-variant/70 mt-1">
+                <p className="text-xs text-slate-300 mt-1">
                   Biaya tiket Festival Musik &amp; Pameran Seni VOITSFEST 2026
                 </p>
               </div>
@@ -1510,19 +1558,19 @@ export default function FestivalCheckoutPage() {
                 </div>
 
                 {loadingPromos ? (
-                  <div className="p-6 rounded-2xl bg-surface-container-highest/30 border border-white/10 animate-pulse flex items-center justify-center">
+                  <div className="p-6 rounded-2xl bg-black/30 border border-white/10 animate-pulse flex items-center justify-center">
                     <Loader2 className="w-5 h-5 text-secondary animate-spin" />
                   </div>
                 ) : activePromos.length === 0 ? (
                   /* Scenario A: No Active Promos -> Dynamic Base Price Card */
-                  <div className="p-5 md:p-6 rounded-2xl bg-gradient-to-r from-secondary/15 via-surface-container-highest/60 to-primary/10 border-2 border-secondary/40 shadow-[0_0_25px_rgba(176,198,255,0.15)] flex items-center justify-between gap-4">
+                  <div className="p-5 md:p-6 rounded-2xl bg-gradient-to-r from-secondary/15 via-slate-800/80 to-primary/15 border-2 border-secondary/50 shadow-[0_0_25px_rgba(176,198,255,0.15)] flex items-center justify-between gap-4">
                     <div>
                       <h3 className="text-xl md:text-2xl font-bold text-white tracking-wide">
                         {cmsPricing?.phase?.trim() || "Tiket Reguler"}
                       </h3>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-[11px] uppercase tracking-wider text-on-surface-variant font-medium">Total</p>
+                      <p className="text-[11px] uppercase tracking-wider text-slate-400 font-medium">Total</p>
                       <p className="text-2xl md:text-3xl font-headline-md font-bold text-white">
                         Rp {totalAmount.toLocaleString("id-ID")}
                       </p>
@@ -1540,7 +1588,7 @@ export default function FestivalCheckoutPage() {
                       className={`relative cursor-pointer rounded-2xl p-5 border-2 transition-all duration-300 flex flex-col justify-between select-none ${
                         selectedPricingId === "standard"
                           ? "bg-secondary/15 border-secondary shadow-[0_0_25px_rgba(176,198,255,0.2)] ring-1 ring-secondary/50"
-                          : "bg-surface-container-highest/30 border-white/10 hover:border-white/25 hover:bg-surface-container-highest/50 opacity-85 hover:opacity-100"
+                          : "bg-black/30 border-white/10 hover:border-white/20 hover:bg-black/40 opacity-90 hover:opacity-100"
                       }`}
                     >
                       <div>
@@ -1564,7 +1612,7 @@ export default function FestivalCheckoutPage() {
                       </div>
 
                       <div className="pt-3 border-t border-white/10 flex items-baseline justify-between">
-                        <span className="text-[11px] text-on-surface-variant uppercase tracking-wider">Total</span>
+                        <span className="text-[11px] text-slate-400 uppercase tracking-wider">Total</span>
                         <span className="text-xl font-bold font-headline-md text-white">
                           Rp {totalAmount.toLocaleString("id-ID")}
                         </span>
@@ -1589,7 +1637,7 @@ export default function FestivalCheckoutPage() {
                           className={`relative cursor-pointer rounded-2xl p-5 border-2 transition-all duration-300 flex flex-col justify-between select-none overflow-hidden ${
                             isSelected
                               ? "bg-[#ffd700]/15 border-[#ffd700] shadow-[0_0_25px_rgba(255,215,0,0.25)] ring-1 ring-[#ffd700]/60"
-                              : "bg-surface-container-highest/30 border-[#ffd700]/30 hover:border-[#ffd700]/60 hover:bg-surface-container-highest/50"
+                              : "bg-black/30 border-[#ffd700]/30 hover:border-[#ffd700]/60 hover:bg-black/40"
                           }`}
                         >
                           <div className="absolute -top-10 -right-10 w-24 h-24 bg-[#ffd700]/10 rounded-full blur-2xl pointer-events-none" />
@@ -1607,7 +1655,7 @@ export default function FestivalCheckoutPage() {
                                   </span>
                                 )}
                                 {remainingQuota != null && (
-                                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-white/5 text-on-surface-variant border border-white/10">
+                                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10">
                                     Sisa: {remainingQuota}
                                   </span>
                                 )}
@@ -1625,7 +1673,7 @@ export default function FestivalCheckoutPage() {
                             <h4 className="font-bold text-base text-white mb-1 relative z-10">
                               {promo.title}
                             </h4>
-                            <p className="text-xs text-on-surface-variant/85 mb-4 line-clamp-2 relative z-10 font-poppins">
+                            <p className="text-xs text-slate-300 mb-4 line-clamp-2 relative z-10 font-poppins">
                               {promo.description || "Penawaran promo terbatas untuk Festival."}
                             </p>
                           </div>
@@ -1642,7 +1690,7 @@ export default function FestivalCheckoutPage() {
                             </div>
                             <div className="text-right">
                               <div className="flex items-baseline gap-1.5 justify-end">
-                                <span className="text-xs text-on-surface-variant line-through font-mono">
+                                <span className="text-xs text-slate-400 line-through font-mono">
                                   Rp {(totalAmount * (promo.kapasitas || 1)).toLocaleString("id-ID")}
                                 </span>
                                 <span className="text-xl font-bold font-headline-md text-[#ffd700]">
@@ -1659,8 +1707,8 @@ export default function FestivalCheckoutPage() {
               </div>
 
               {/* Promo Code Input & Summary */}
-              <div className="mb-6 p-4 rounded-xl bg-surface-container-highest/40 border border-white/10 space-y-3">
-                <label className="font-medium text-xs text-primary-fixed uppercase tracking-wider flex items-center gap-1.5">
+              <div className="mb-6 p-5 rounded-xl bg-black/30 border border-white/10 space-y-3">
+                <label className="font-semibold text-xs text-primary-fixed uppercase tracking-wider flex items-center gap-1.5">
                   <Tag className="w-3.5 h-3.5 text-secondary" />
                   Kupon Promo / Diskon
                 </label>
@@ -1707,7 +1755,7 @@ export default function FestivalCheckoutPage() {
                           if (promoError) setPromoError(null);
                         }}
                         placeholder="Masukkan kode promo (cth: FESTIVALHEBOH)"
-                        className="flex-1 bg-surface-container-highest/60 border border-outline-variant rounded-lg px-4 py-2.5 text-white font-mono text-sm tracking-wider placeholder:text-on-surface-variant/50 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none uppercase"
+                        className="flex-1 bg-black/30 border border-white/10 rounded-lg px-4 py-2.5 text-white font-mono text-sm tracking-wider placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none uppercase"
                       />
                       <button
                         type="button"
@@ -1736,9 +1784,9 @@ export default function FestivalCheckoutPage() {
               </div>
 
               {/* Total Payment Bar */}
-              <div className="p-4 rounded-xl border border-secondary/50 bg-secondary/10 flex justify-between items-center mb-8">
+              <div className="p-5 rounded-xl border border-secondary/50 bg-secondary/10 flex justify-between items-center mb-8">
                 <div>
-                  <h3 className="font-medium text-xs uppercase text-secondary tracking-wider">
+                  <h3 className="font-semibold text-xs uppercase text-secondary tracking-wider">
                     Total Biaya (Fase: {cmsPricing.phase}{kapasitas > 1 ? ` • ${kapasitas} Peserta` : ""})
                   </h3>
                   <div className="flex items-baseline gap-2.5 mt-1">
@@ -1746,7 +1794,7 @@ export default function FestivalCheckoutPage() {
                       Rp {finalAmount.toLocaleString("id-ID")}
                     </p>
                     {discountAmount > 0 && (
-                      <p className="text-xs text-on-surface-variant line-through font-mono">
+                      <p className="text-xs text-slate-400 line-through font-mono">
                         Rp {totalBasePrice.toLocaleString("id-ID")}
                       </p>
                     )}
@@ -1761,7 +1809,7 @@ export default function FestivalCheckoutPage() {
 
               {/* Payment Method */}
               <div className="space-y-4 mb-6">
-                <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                   Metode Pembayaran *
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1770,7 +1818,7 @@ export default function FestivalCheckoutPage() {
                     className={`cursor-pointer rounded-xl p-4 border flex items-center gap-3.5 transition-all duration-300 ${
                       metodeBayar === "bni" 
                         ? "bg-secondary/20 border-secondary shadow-[0_0_15px_rgba(176,198,255,0.15)]" 
-                        : "bg-neutral-900/60 border-neutral-800 hover:border-neutral-700"
+                        : "bg-black/30 border-white/10 hover:border-white/20"
                     }`}
                   >
                     <input 
@@ -1793,7 +1841,7 @@ export default function FestivalCheckoutPage() {
                     className={`cursor-pointer rounded-xl p-4 border flex items-center justify-between gap-3.5 transition-all duration-300 ${
                       metodeBayar === "qris" 
                         ? "bg-secondary/20 border-secondary shadow-[0_0_15px_rgba(176,198,255,0.15)]" 
-                        : "bg-neutral-900/60 border-neutral-800 hover:border-neutral-700"
+                        : "bg-black/30 border-white/10 hover:border-white/20"
                     }`}
                   >
                     <div className="flex items-center gap-3.5">
@@ -1811,16 +1859,16 @@ export default function FestivalCheckoutPage() {
                       <QrCode className="w-5 h-5 text-secondary" />
                       <span className="text-white font-medium text-sm">QRIS Digital</span>
                     </div>
-                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                      Belum Tersedia
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      Instant &amp; Otomatis
                     </span>
                   </label>
                 </div>
 
-                {/* Transfer Destination Details / QRIS Notice */}
-                <div className="mt-4 transition-all duration-300">
+                {/* Transfer Destination Details / QRIS Details */}
+                <div className="mt-5 transition-all duration-300">
                   {metodeBayar === "bni" ? (
-                    <div className="p-6 rounded-xl border-l-4 border-l-secondary bg-surface-container-highest/50 border border-white/5 animate-in fade-in duration-300">
+                    <div className="p-6 rounded-xl border-l-4 border-l-secondary bg-black/30 border border-white/10 animate-in fade-in duration-300">
                       <h4 className="text-secondary mb-2 text-xs uppercase tracking-wider font-semibold">Tujuan Transfer:</h4>
                       <p className="text-white text-base font-medium mb-1">BNI (Bank Negara Indonesia)</p>
                       <div className="flex items-center gap-3 mb-1">
@@ -1834,19 +1882,121 @@ export default function FestivalCheckoutPage() {
                           <span>{copied ? "Tersalin" : "Salin"}</span>
                         </button>
                       </div>
-                      <p className="text-on-surface-variant text-sm font-medium">a.n Amalia Fitria Damaiyanti</p>
+                      <p className="text-slate-300 text-sm font-medium">a.n Amalia Fitria Damaiyanti</p>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center p-6 md:p-8 text-center rounded-xl bg-amber-500/10 border border-amber-500/30 animate-in fade-in duration-300">
-                      <div className="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center mb-3">
-                        <AlertCircle className="w-6 h-6 text-amber-400" />
+                    /* Dedicated QRIS Card Layout with Frosted Glass Styling */
+                    <div className="p-6 md:p-8 rounded-2xl bg-slate-950/60 backdrop-blur-xl border border-white/10 shadow-[0_4px_25px_rgba(0,0,0,0.5)] animate-in fade-in duration-300 space-y-6">
+                      {/* Merchant Header */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/10">
+                        <div>
+                          <span className="text-[11px] font-semibold text-secondary uppercase tracking-wider block mb-1">
+                            Merchant Resmi QRIS
+                          </span>
+                          <h4 className="text-white font-bold text-lg md:text-xl tracking-wide">
+                            AMALIA FITRIA - BOOK &amp; STATIONERY
+                          </h4>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className="text-xs text-slate-400 font-mono">NMID:</span>
+                            <span className="text-xs font-mono font-bold text-slate-200">ID1026592450039</span>
+                            <button
+                              type="button"
+                              onClick={handleCopyNmid}
+                              className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-slate-300 text-[10px] font-medium flex items-center gap-1 transition-colors border border-white/10"
+                            >
+                              {copiedNmid ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                              <span>{copiedNmid ? "Tersalin" : "Salin NMID"}</span>
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 self-start sm:self-auto">
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-secondary/20 text-secondary border border-secondary/30">
+                            QRIS Standar Nasional
+                          </span>
+                        </div>
                       </div>
-                      <h4 className="text-amber-300 font-semibold text-base mb-1.5">
-                        Untuk Saat Ini Layanan QRIS Belum Tersedia
-                      </h4>
-                      <p className="text-xs text-neutral-300 max-w-md leading-relaxed">
-                        Mohon gunakan metode pembayaran <strong className="text-white">Bank Transfer (BNI)</strong> untuk menyelesaikan transaksi Anda.
-                      </p>
+
+                      {/* Order Summary / Total Amount Due */}
+                      <div className="p-4 rounded-xl bg-black/40 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <span className="text-xs text-slate-400 font-medium uppercase tracking-wider block">
+                            Total Tagihan Pembayaran
+                          </span>
+                          <div className="text-2xl md:text-3xl font-bold font-mono text-emerald-400 mt-0.5">
+                            Rp {finalAmount.toLocaleString("id-ID")}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleCopyAmount}
+                          className="self-start sm:self-auto px-3.5 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors border border-white/10"
+                        >
+                          {copiedAmount ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-secondary" />}
+                          <span>{copiedAmount ? "Nominal Tersalin" : "Salin Nominal"}</span>
+                        </button>
+                      </div>
+
+                      {/* QR Code Container */}
+                      <div className="flex flex-col items-center">
+                        <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-2xl border-4 border-white/20 max-w-[260px] sm:max-w-[280px] w-full text-center">
+                          <div 
+                            onClick={() => setIsQrisModalOpen(true)} 
+                            className="relative group cursor-pointer overflow-hidden rounded-xl bg-white"
+                          >
+                            <img 
+                              src="/qris-voitsfest.jpg" 
+                              alt="QRIS VOITSFEST 2026 - AMALIA FITRIA" 
+                              className="w-full h-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-semibold backdrop-blur-[2px]">
+                              <Maximize2 className="w-4 h-4 text-secondary" />
+                              <span>Klik untuk Perbesar</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons: Download & Enlarge */}
+                        <div className="flex items-center gap-3 mt-4 w-full max-w-[280px]">
+                          <a
+                            href="/qris-voitsfest.jpg"
+                            download="QRIS-VOITSFEST-2026.jpg"
+                            className="flex-1 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-white/10 shadow-sm"
+                          >
+                            <Download className="w-3.5 h-3.5 text-secondary" />
+                            <span>Unduh QR</span>
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => setIsQrisModalOpen(true)}
+                            className="flex-1 py-2.5 px-3 rounded-xl bg-secondary/20 hover:bg-secondary/30 text-secondary text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-secondary/30"
+                          >
+                            <Maximize2 className="w-3.5 h-3.5" />
+                            <span>Perbesar</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 3-Step Guide */}
+                      <div className="p-4 rounded-xl bg-black/30 border border-white/10 space-y-2.5">
+                        <h5 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                          <Info className="w-4 h-4 text-secondary shrink-0" />
+                          Panduan Pembayaran QRIS (3 Langkah)
+                        </h5>
+                        <ol className="text-xs text-slate-300 space-y-2 leading-relaxed">
+                          <li className="flex items-start gap-2">
+                            <span className="w-5 h-5 rounded-full bg-secondary/20 text-secondary flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">1</span>
+                            <span>Pindai / Scan QRIS menggunakan aplikasi e-wallet (GoPay, OVO, DANA, ShopeePay) atau m-Banking pilihan Anda.</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="w-5 h-5 rounded-full bg-secondary/20 text-secondary flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">2</span>
+                            <span>Pastikan nama penerima tertera <strong className="text-emerald-400 font-semibold">AMALIA FITRIA - BOOK &amp; STATIONERY</strong> dengan nominal tepat.</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="w-5 h-5 rounded-full bg-secondary/20 text-secondary flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">3</span>
+                            <span>Unggah bukti transfer/pembayaran di kolom bawah ini setelah transaksi berhasil.</span>
+                          </li>
+                        </ol>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1854,46 +2004,59 @@ export default function FestivalCheckoutPage() {
 
               {/* Sender Account Name */}
               <div className="space-y-2 mb-6">
-                <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
-                  Nama Pemilik Rekening Pengirim *
+                <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block">
+                  {metodeBayar === "bni" ? "Nama Pemilik Rekening Pengirim *" : "Nama Akun Pengirim (E-Wallet / Bank) *"}
                 </label>
                 <input 
                   required 
                   type="text" 
                   value={namaPemilikRekening} 
                   onChange={e => setNamaPemilikRekening(e.target.value)} 
-                  className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium" 
-                  placeholder="Nama yang tertera pada rekening pengirim" 
+                  className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium font-poppins" 
+                  placeholder={metodeBayar === "bni" ? "Nama yang tertera pada rekening pengirim" : "Nama akun e-wallet atau bank pengirim"} 
                 />
               </div>
 
               {/* Upload Proof */}
               <div className="space-y-2">
-                <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
-                  Upload Bukti Transfer *
+                <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block">
+                  Upload Bukti Transfer / Pembayaran *
                 </label>
                 <div className="relative w-full">
                   <input 
                     required 
                     ref={fileInputRef}
-                    accept="image/*" 
+                    accept=".png,.jpg,.jpeg,.pdf,image/*" 
                     type="file" 
                     onChange={e => handleFileChange(e.target.files?.[0] || null)} 
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                   />
-                  <div className="w-full border-2 border-dashed border-outline-variant rounded-lg py-8 flex flex-col items-center justify-center bg-surface-container-highest/30 hover:bg-surface-container-highest/60 transition-colors">
-                    <UploadCloud className="w-8 h-8 text-on-surface-variant mb-2" />
-                    <span className="text-white font-medium">
-                      {paymentProofFile ? paymentProofFile.name : "Unggah Bukti Transfer (JPG/PNG/PDF)"}
+                  <div className="w-full border-2 border-dashed border-white/15 rounded-lg py-8 flex flex-col items-center justify-center bg-white/5 hover:bg-white/10 transition-colors">
+                    <UploadCloud className="w-8 h-8 text-slate-400 mb-2" />
+                    <span className="text-white font-medium text-center px-4">
+                      {isCompressingProof
+                        ? "Mengompresi gambar..."
+                        : paymentProofFile
+                        ? paymentProofFile.name
+                        : "Unggah Bukti Pembayaran (JPG, PNG, PDF maks. 2MB)"}
                     </span>
                   </div>
                 </div>
-                {paymentProofPreview && (
-                  <img 
-                    src={paymentProofPreview} 
-                    alt="Preview Bukti Transfer" 
-                    className="mt-3 w-24 h-24 object-cover rounded-lg border border-white/20 shadow-md" 
-                  />
+                {paymentProofFile && (
+                  <div className="mt-3">
+                    {paymentProofPreview ? (
+                      <img 
+                        src={paymentProofPreview} 
+                        alt="Preview Bukti Transfer" 
+                        className="w-24 h-24 object-cover rounded-lg border border-white/20 shadow-md" 
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2.5 p-3 rounded-lg bg-black/40 border border-white/15 w-fit">
+                        <FileText className="w-5 h-5 text-secondary shrink-0" />
+                        <span className="text-xs text-slate-200 font-medium">{paymentProofFile.name}</span>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -1901,7 +2064,7 @@ export default function FestivalCheckoutPage() {
             {/* ======================================================== */}
             {/* SECTION 3: PERSETUJUAN & FINALISASI */}
             {/* ======================================================== */}
-            <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-xl border border-white/10">
+            <div className="bg-slate-950/60 backdrop-blur-xl rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-[0_4px_25px_rgba(0,0,0,0.5)] border border-white/10">
               <div className="mb-6 pb-4 border-b border-white/10">
                 <CustomHeading 
                   as="h2" 
@@ -1910,14 +2073,14 @@ export default function FestivalCheckoutPage() {
                 />
               </div>
 
-              <label className="flex items-start gap-4 p-4 rounded-xl bg-surface-container-highest/30 border border-outline-variant cursor-pointer hover:bg-surface-container-highest/50 transition-colors">
+              <label className="flex items-start gap-4 p-4 rounded-xl bg-black/30 border border-white/10 cursor-pointer hover:bg-black/40 transition-colors">
                 <div className="flex items-center h-5 mt-0.5">
                   <input 
                     required 
                     type="checkbox" 
                     checked={persetujuanAturan} 
                     onChange={e => setPersetujuanAturan(e.target.checked)} 
-                    className="w-5 h-5 rounded border-outline-variant text-secondary focus:ring-secondary bg-surface-container-highest" 
+                    className="w-5 h-5 rounded border-white/20 text-secondary focus:ring-secondary bg-black/40" 
                   />
                 </div>
                 <span className="text-sm font-poppins text-white/90 leading-relaxed">
@@ -1947,6 +2110,59 @@ export default function FestivalCheckoutPage() {
               )}
             </div>
           </form>
+
+          {/* QRIS Enlarge Modal */}
+          {isQrisModalOpen && (
+            <div 
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+              onClick={() => setIsQrisModalOpen(false)}
+            >
+              <div 
+                className="relative bg-slate-950/90 border border-white/15 rounded-2xl max-w-sm w-full p-5 sm:p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <div>
+                    <h4 className="text-sm font-bold text-white">QRIS VOITSFEST 2026</h4>
+                    <p className="text-[11px] text-slate-400">AMALIA FITRIA - BOOK &amp; STATIONERY</p>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setIsQrisModalOpen(false)} 
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="bg-white rounded-xl p-3 flex items-center justify-center shadow-inner">
+                  <img 
+                    src="/qris-voitsfest.jpg" 
+                    alt="QRIS Enlarged" 
+                    className="w-full h-auto object-contain rounded-lg max-h-[55vh]" 
+                  />
+                </div>
+
+                <div className="text-center space-y-1">
+                  <div className="text-xs text-slate-300 font-mono">NMID: ID1026592450039</div>
+                  <div className="text-base text-emerald-400 font-bold font-mono">
+                    Total: Rp {finalAmount.toLocaleString("id-ID")}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <a 
+                    href="/qris-voitsfest.jpg" 
+                    download="QRIS-VOITSFEST-2026.jpg" 
+                    className="w-full py-2.5 px-4 rounded-xl bg-secondary text-slate-950 font-bold text-xs flex items-center justify-center gap-2 hover:bg-secondary/90 transition-colors shadow-lg"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Unduh Gambar QRIS</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
 
         <Footer />

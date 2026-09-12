@@ -158,13 +158,13 @@ export default function TenantRegistrationPage() {
       <div className="text-on-background font-poppins overflow-x-hidden relative min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-grow flex items-center justify-center pt-28 pb-16 px-4 relative z-10">
-          <div className="glass-card max-w-lg w-full p-8 md:p-10 rounded-2xl text-center border-t-4 border-t-secondary-fixed shadow-2xl animate-in fade-in zoom-in-95 duration-500">
+          <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 border-t-4 border-t-secondary-fixed shadow-[0_4px_25px_rgba(0,0,0,0.5)] max-w-lg w-full p-8 md:p-10 rounded-2xl text-center animate-in fade-in zoom-in-95 duration-500">
             <CheckCircle className="w-20 h-20 text-secondary-fixed mx-auto mb-6 drop-shadow-[0_0_15px_rgba(176,198,255,0.5)]" />
             <h1 className="text-3xl font-bold text-white mb-4 tracking-tight">Pendaftaran Berhasil</h1>
-            <p className="text-on-surface-variant font-poppins text-base md:text-lg mb-8 leading-relaxed">
+            <p className="text-slate-300 font-poppins text-base md:text-lg mb-8 leading-relaxed">
               Your response has been recorded.
             </p>
-            <div className="p-4 rounded-xl bg-surface-container-highest/30 border border-outline-variant/50 text-xs md:text-sm text-on-surface-variant font-poppins mb-8">
+            <div className="p-4 rounded-xl bg-black/30 border border-white/10 text-xs md:text-sm text-slate-300 font-poppins mb-8">
               Data pendaftaran tenant Anda telah masuk ke sistem dan akan diseleksi oleh panitia VOITSFEST.
             </div>
             <Link 
@@ -206,9 +206,9 @@ export default function TenantRegistrationPage() {
           <CustomHeading 
             as="h1" 
             text="Tenant Registration" 
-            className="text-4xl md:text-6xl text-white mb-4 drop-shadow-md tracking-tight text-center" 
+            className="text-4xl md:text-6xl text-white mb-4 drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)] [text-shadow:0_3px_12px_rgba(0,0,0,0.85),0_0_20px_rgba(0,0,0,0.6)] tracking-tight text-center" 
           />
-          <p className="font-poppins text-base md:text-lg text-secondary-fixed-dim max-w-2xl mx-auto leading-relaxed">
+          <p className="font-poppins text-base md:text-lg text-secondary-fixed-dim max-w-2xl mx-auto leading-relaxed drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] [text-shadow:0_2px_8px_rgba(0,0,0,0.9)]">
             Daftarkan tenant usaha atau brand Anda untuk menjadi bagian dari kemeriahan VOITSFEST.
           </p>
         </div>
@@ -226,14 +226,14 @@ export default function TenantRegistrationPage() {
           {/* ======================================================== */}
           {/* SECTION 1: PROFIL PENANGGUNG JAWAB & USAHA */}
           {/* ======================================================== */}
-          <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-xl border border-white/10">
+          <div className="bg-slate-950/60 backdrop-blur-xl rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-[0_4px_25px_rgba(0,0,0,0.5)] border border-white/10">
             <div className="mb-8 pb-4 border-b border-white/10">
               <CustomHeading 
                 as="h2" 
                 text="Profil Penanggung Jawab & Usaha" 
                 className="text-2xl md:text-3xl text-primary-fixed flex items-center gap-3" 
               />
-              <p className="font-poppins text-sm text-on-surface-variant mt-2">
+              <p className="font-poppins text-sm text-slate-300 mt-2">
                 Informasi identitas penanggung jawab dan profil legalitas dasar usaha.
               </p>
             </div>
@@ -242,7 +242,7 @@ export default function TenantRegistrationPage() {
               {/* Nama Lengkap & WhatsApp */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                     Nama Lengkap Penanggung Jawab *
                   </label>
                   <input 
@@ -250,12 +250,12 @@ export default function TenantRegistrationPage() {
                     type="text" 
                     value={namaLengkap} 
                     onChange={e => setNamaLengkap(e.target.value)} 
-                    className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" 
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-slate-400" 
                     placeholder="Masukkan nama lengkap penanggung jawab" 
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                     Nomor WhatsApp Aktif *
                   </label>
                   <input 
@@ -263,7 +263,7 @@ export default function TenantRegistrationPage() {
                     type="tel" 
                     value={phone} 
                     onChange={e => setPhone(e.target.value)} 
-                    className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" 
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-slate-400" 
                     placeholder="Contoh: 081234567890" 
                   />
                 </div>
@@ -272,7 +272,7 @@ export default function TenantRegistrationPage() {
               {/* Email & Alamat Domisili */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                     Email Aktif *
                   </label>
                   <input 
@@ -280,12 +280,12 @@ export default function TenantRegistrationPage() {
                     type="email" 
                     value={email} 
                     onChange={e => setEmail(e.target.value)} 
-                    className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" 
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-slate-400" 
                     placeholder="email@contoh.com" 
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                     Alamat Domisili *
                   </label>
                   <input 
@@ -293,7 +293,7 @@ export default function TenantRegistrationPage() {
                     type="text" 
                     value={alamatDomisili} 
                     onChange={e => setAlamatDomisili(e.target.value)} 
-                    className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" 
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-slate-400" 
                     placeholder="Masukkan alamat domisili lengkap" 
                   />
                 </div>
@@ -302,7 +302,7 @@ export default function TenantRegistrationPage() {
               {/* Nama Usaha & Rentang Harga */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                     Nama Usaha / Brand *
                   </label>
                   <input 
@@ -310,12 +310,12 @@ export default function TenantRegistrationPage() {
                     type="text" 
                     value={namaUsaha} 
                     onChange={e => setNamaUsaha(e.target.value)} 
-                    className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" 
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-slate-400" 
                     placeholder="Masukkan nama usaha atau brand" 
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                     Rentang Harga Produk *
                   </label>
                   <input 
@@ -323,7 +323,7 @@ export default function TenantRegistrationPage() {
                     type="text" 
                     value={rentangHarga} 
                     onChange={e => setRentangHarga(e.target.value)} 
-                    className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" 
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-slate-400" 
                     placeholder="Contoh: Rp 15.000 - Rp 35.000" 
                   />
                 </div>
@@ -331,7 +331,7 @@ export default function TenantRegistrationPage() {
 
               {/* Akun Media Sosial */}
               <div className="space-y-2">
-                <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                   Akun Media Sosial *
                 </label>
                 <input 
@@ -339,14 +339,14 @@ export default function TenantRegistrationPage() {
                   type="text" 
                   value={akunMedsos} 
                   onChange={e => setAkunMedsos(e.target.value)} 
-                  className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" 
+                  className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-slate-400" 
                   placeholder="Contoh: Instagram @namausaha / TikTok @namausaha" 
                 />
               </div>
 
               {/* Deskripsi Singkat Usaha */}
               <div className="space-y-2">
-                <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                   Deskripsi Singkat Usaha *
                 </label>
                 <textarea 
@@ -354,27 +354,27 @@ export default function TenantRegistrationPage() {
                   rows={4}
                   value={deskripsiUsaha} 
                   onChange={e => setDeskripsiUsaha(e.target.value)} 
-                  className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50 resize-y" 
+                  className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-slate-400 resize-y" 
                   placeholder="Jelaskan secara singkat profil usaha, keunggulan produk, atau konsep jualan Anda..." 
                 />
               </div>
 
               {/* Dropdown Kategori Usaha */}
               <div className="space-y-2">
-                <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                   Kategori Usaha *
                 </label>
                 <select 
                   required 
                   value={kategoriUsaha} 
                   onChange={e => setKategoriUsaha(e.target.value)} 
-                  className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins cursor-pointer"
+                  className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins cursor-pointer"
                 >
-                  <option value="" disabled className="bg-surface-container-high text-on-surface-variant">
+                  <option value="" disabled className="bg-slate-900 text-slate-400">
                     Pilih Kategori Usaha
                   </option>
                   {kategoriOptions.map(kat => (
-                    <option key={kat} value={kat} className="bg-surface-container-high text-white">
+                    <option key={kat} value={kat} className="bg-slate-900 text-white">
                       {kat}
                     </option>
                   ))}
@@ -383,7 +383,7 @@ export default function TenantRegistrationPage() {
 
               {/* File Upload: Scan KTM/KTP (PDF) */}
               <div className="space-y-2 pt-2">
-                <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                   Scan KTM/KTP (PDF) *
                 </label>
                 <div className="relative w-full">
@@ -397,13 +397,13 @@ export default function TenantRegistrationPage() {
                   <div className={`w-full border-2 border-dashed rounded-lg py-6 px-4 flex flex-col items-center justify-center transition-all ${
                     scanKtm 
                       ? "border-secondary bg-secondary/15" 
-                      : "border-outline-variant bg-surface-container-highest/30 hover:bg-surface-container-highest/50"
+                      : "border-white/15 bg-white/5 hover:bg-white/10"
                   }`}>
-                    <FileText className={`w-8 h-8 mb-2 ${scanKtm ? "text-secondary" : "text-on-surface-variant"}`} />
+                    <FileText className={`w-8 h-8 mb-2 ${scanKtm ? "text-secondary" : "text-slate-300"}`} />
                     <span className="text-white font-poppins font-medium text-sm text-center truncate max-w-full px-4">
                       {scanKtm ? scanKtm.name : "Unggah Scan KTM atau KTP (.pdf)"}
                     </span>
-                    <span className="text-xs text-on-surface-variant/70 font-poppins mt-1">
+                    <span className="text-xs text-slate-300 font-poppins mt-1">
                       Hanya format .PDF yang didukung (Maksimal 5MB)
                     </span>
                   </div>
@@ -425,14 +425,14 @@ export default function TenantRegistrationPage() {
           {/* ======================================================== */}
           {/* SECTION 2: OPERASIONAL & PEMBERKASAN */}
           {/* ======================================================== */}
-          <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-xl border border-white/10">
+          <div className="bg-slate-950/60 backdrop-blur-xl rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-[0_4px_25px_rgba(0,0,0,0.5)] border border-white/10">
             <div className="mb-8 pb-4 border-b border-white/10">
               <CustomHeading 
                 as="h2" 
                 text="Operasional & Pemberkasan" 
                 className="text-2xl md:text-3xl text-primary-fixed flex items-center gap-3" 
               />
-              <p className="font-poppins text-sm text-on-surface-variant mt-2">
+              <p className="font-poppins text-sm text-slate-300 mt-2">
                 Kebutuhan operasional di stand serta kelengkapan berkas visual dan menu produk.
               </p>
             </div>
@@ -441,7 +441,7 @@ export default function TenantRegistrationPage() {
               
               {/* Radio: Metode Persiapan / Pemasakan di Stand */}
               <div className="space-y-3">
-                <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                   Metode Persiapan / Pemasakan di Stand *
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -451,7 +451,7 @@ export default function TenantRegistrationPage() {
                       className={`cursor-pointer rounded-xl p-4 border flex items-center gap-3.5 transition-all ${
                         metodePersiapan === option 
                           ? "bg-secondary/20 border-secondary ring-1 ring-secondary shadow-[0_0_12px_rgba(176,198,255,0.2)]" 
-                          : "bg-surface-container-highest/30 border-outline-variant hover:bg-surface-container-highest/60"
+                          : "bg-black/30 border-white/10 hover:border-white/20"
                       }`}
                     >
                       <input 
@@ -463,7 +463,7 @@ export default function TenantRegistrationPage() {
                         className="hidden" 
                       />
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                        metodePersiapan === option ? "border-secondary" : "border-on-surface-variant"
+                        metodePersiapan === option ? "border-secondary" : "border-slate-400"
                       }`}>
                         {metodePersiapan === option && (
                           <div className="w-2.5 h-2.5 rounded-full bg-secondary"></div>
@@ -482,7 +482,7 @@ export default function TenantRegistrationPage() {
                 
                 {/* Logo Usaha */}
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                     Upload Logo Usaha *
                   </label>
                   <div className="relative w-full">
@@ -496,13 +496,13 @@ export default function TenantRegistrationPage() {
                     <div className={`w-full border-2 border-dashed rounded-lg py-6 px-4 flex flex-col items-center justify-center transition-all ${
                       logoUsaha 
                         ? "border-secondary bg-secondary/15" 
-                        : "border-outline-variant bg-surface-container-highest/30 hover:bg-surface-container-highest/50"
+                        : "border-white/15 bg-white/5 hover:bg-white/10"
                     }`}>
-                      <UploadCloud className={`w-7 h-7 mb-2 ${logoUsaha ? "text-secondary" : "text-on-surface-variant"}`} />
+                      <UploadCloud className={`w-7 h-7 mb-2 ${logoUsaha ? "text-secondary" : "text-slate-300"}`} />
                       <span className="text-white font-poppins font-medium text-sm text-center truncate max-w-full px-2">
                         {logoUsaha ? logoUsaha.name : "Unggah Logo Usaha"}
                       </span>
-                      <span className="text-xs text-on-surface-variant/70 font-poppins mt-1">
+                      <span className="text-xs text-slate-300 font-poppins mt-1">
                         Format JPG, PNG, atau PDF
                       </span>
                     </div>
@@ -520,7 +520,7 @@ export default function TenantRegistrationPage() {
 
                 {/* Foto Produk */}
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                     Upload Foto Produk *
                   </label>
                   <div className="relative w-full">
@@ -534,13 +534,13 @@ export default function TenantRegistrationPage() {
                     <div className={`w-full border-2 border-dashed rounded-lg py-6 px-4 flex flex-col items-center justify-center transition-all ${
                       fotoProduk 
                         ? "border-secondary bg-secondary/15" 
-                        : "border-outline-variant bg-surface-container-highest/30 hover:bg-surface-container-highest/50"
+                        : "border-white/15 bg-white/5 hover:bg-white/10"
                     }`}>
-                      <UploadCloud className={`w-7 h-7 mb-2 ${fotoProduk ? "text-secondary" : "text-on-surface-variant"}`} />
+                      <UploadCloud className={`w-7 h-7 mb-2 ${fotoProduk ? "text-secondary" : "text-slate-300"}`} />
                       <span className="text-white font-poppins font-medium text-sm text-center truncate max-w-full px-2">
                         {fotoProduk ? fotoProduk.name : "Unggah Foto Produk"}
                       </span>
-                      <span className="text-xs text-on-surface-variant/70 font-poppins mt-1">
+                      <span className="text-xs text-slate-300 font-poppins mt-1">
                         Format JPG, PNG, atau PDF
                       </span>
                     </div>
@@ -564,7 +564,7 @@ export default function TenantRegistrationPage() {
                 {/* Foto Stand (Optional) */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                    <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                       Upload Foto Stand
                     </label>
                     <span className="text-xs font-poppins text-secondary-fixed bg-secondary-container/40 px-2.5 py-0.5 rounded-full uppercase tracking-wider font-semibold">
@@ -581,13 +581,13 @@ export default function TenantRegistrationPage() {
                     <div className={`w-full border-2 border-dashed rounded-lg py-6 px-4 flex flex-col items-center justify-center transition-all ${
                       fotoStand 
                         ? "border-secondary bg-secondary/15" 
-                        : "border-outline-variant bg-surface-container-highest/30 hover:bg-surface-container-highest/50"
+                        : "border-white/15 bg-white/5 hover:bg-white/10"
                     }`}>
-                      <UploadCloud className={`w-7 h-7 mb-2 ${fotoStand ? "text-secondary" : "text-on-surface-variant"}`} />
+                      <UploadCloud className={`w-7 h-7 mb-2 ${fotoStand ? "text-secondary" : "text-slate-300"}`} />
                       <span className="text-white font-poppins font-medium text-sm text-center truncate max-w-full px-2">
                         {fotoStand ? fotoStand.name : "Unggah Foto Booth/Stand (Bila Ada)"}
                       </span>
-                      <span className="text-xs text-on-surface-variant/70 font-poppins mt-1">
+                      <span className="text-xs text-slate-300 font-poppins mt-1">
                         Format JPG, PNG, atau PDF (Opsional)
                       </span>
                     </div>
@@ -605,7 +605,7 @@ export default function TenantRegistrationPage() {
 
                 {/* Katalog Produk / Daftar Menu */}
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                     Katalog Produk / Daftar Menu *
                   </label>
                   <div className="relative w-full">
@@ -619,13 +619,13 @@ export default function TenantRegistrationPage() {
                     <div className={`w-full border-2 border-dashed rounded-lg py-6 px-4 flex flex-col items-center justify-center transition-all ${
                       katalogProduk 
                         ? "border-secondary bg-secondary/15" 
-                        : "border-outline-variant bg-surface-container-highest/30 hover:bg-surface-container-highest/50"
+                        : "border-white/15 bg-white/5 hover:bg-white/10"
                     }`}>
-                      <FileSpreadsheet className={`w-7 h-7 mb-2 ${katalogProduk ? "text-secondary" : "text-on-surface-variant"}`} />
+                      <FileSpreadsheet className={`w-7 h-7 mb-2 ${katalogProduk ? "text-secondary" : "text-slate-300"}`} />
                       <span className="text-white font-poppins font-medium text-sm text-center truncate max-w-full px-2">
                         {katalogProduk ? katalogProduk.name : "Unggah Katalog Produk / Menu"}
                       </span>
-                      <span className="text-xs text-on-surface-variant/70 font-poppins mt-1">
+                      <span className="text-xs text-slate-300 font-poppins mt-1">
                         Format PDF atau Foto (JPG/PNG)
                       </span>
                     </div>
@@ -649,14 +649,14 @@ export default function TenantRegistrationPage() {
           {/* ======================================================== */}
           {/* SECTION 3: PERSETUJUAN & FINALISASI */}
           {/* ======================================================== */}
-          <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-xl border border-white/10">
+          <div className="bg-slate-950/60 backdrop-blur-xl rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-[0_4px_25px_rgba(0,0,0,0.5)] border border-white/10">
             <div className="mb-8 pb-4 border-b border-white/10">
               <CustomHeading 
                 as="h2" 
                 text="Persetujuan & Finalisasi" 
                 className="text-2xl md:text-3xl text-primary-fixed flex items-center gap-3" 
               />
-              <p className="font-poppins text-sm text-on-surface-variant mt-2">
+              <p className="font-poppins text-sm text-slate-300 mt-2">
                 Harap baca dan setujui seluruh ketentuan sebelum mengirimkan formulir pendaftaran.
               </p>
             </div>
@@ -667,14 +667,14 @@ export default function TenantRegistrationPage() {
               <label className={`flex items-start gap-4 p-5 rounded-xl border transition-all cursor-pointer ${
                 agreedRules 
                   ? "bg-secondary/10 border-secondary ring-1 ring-secondary/50" 
-                  : "bg-surface-container-highest/20 border-outline-variant hover:bg-surface-container-highest/40"
+                  : "bg-black/30 border-white/10 hover:border-white/20"
               }`}>
                 <input 
                   required
                   type="checkbox" 
                   checked={agreedRules} 
                   onChange={e => setAgreedRules(e.target.checked)} 
-                  className="mt-1 w-5 h-5 rounded border-outline-variant text-secondary focus:ring-secondary accent-secondary cursor-pointer flex-shrink-0" 
+                  className="mt-1 w-5 h-5 rounded border-white/20 text-secondary focus:ring-secondary accent-secondary cursor-pointer flex-shrink-0" 
                 />
                 <span className="font-poppins text-sm md:text-base text-white leading-relaxed select-none">
                   Apakah Anda bersedia mematuhi seluruh regulasi, SOP, dan jadwal loading/unloading yang ditetapkan oleh panitia? (Ya, saya bersedia) <span className="text-secondary">*</span>
@@ -685,14 +685,14 @@ export default function TenantRegistrationPage() {
               <label className={`flex items-start gap-4 p-5 rounded-xl border transition-all cursor-pointer ${
                 agreedSelection 
                   ? "bg-secondary/10 border-secondary ring-1 ring-secondary/50" 
-                  : "bg-surface-container-highest/20 border-outline-variant hover:bg-surface-container-highest/40"
+                  : "bg-black/30 border-white/10 hover:border-white/20"
               }`}>
                 <input 
                   required
                   type="checkbox" 
                   checked={agreedSelection} 
                   onChange={e => setAgreedSelection(e.target.checked)} 
-                  className="mt-1 w-5 h-5 rounded border-outline-variant text-secondary focus:ring-secondary accent-secondary cursor-pointer flex-shrink-0" 
+                  className="mt-1 w-5 h-5 rounded border-white/20 text-secondary focus:ring-secondary accent-secondary cursor-pointer flex-shrink-0" 
                 />
                 <span className="font-poppins text-sm md:text-base text-white leading-relaxed select-none">
                   Dengan mengisi formulir ini, saya menyatakan bahwa data yang diberikan adalah benar dan bersedia mengikuti seluruh alur seleksi yang ada <span className="text-secondary">*</span>

@@ -287,10 +287,10 @@ export default function BpcRegisterPage() {
       <div className="text-on-background font-poppins overflow-x-hidden relative min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-grow flex items-center justify-center pt-24 pb-12 px-4 relative z-10">
-          <div className="glass-card max-w-md w-full p-8 rounded-2xl text-center border-t-4 border-t-secondary-fixed shadow-2xl">
+          <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 border-t-4 border-t-secondary-fixed shadow-[0_4px_25px_rgba(0,0,0,0.5)] rounded-2xl max-w-md w-full p-8 text-center animate-in fade-in duration-300">
             <CheckCircle className="w-20 h-20 text-secondary-fixed mx-auto mb-6 drop-shadow-[0_0_15px_rgba(176,198,255,0.5)]" />
             <CustomHeading as="h1" text="Registration Successful" className="text-3xl text-white mb-4" />
-            <p className="text-on-surface-variant font-poppins mb-8 leading-relaxed">
+            <p className="text-slate-300 font-poppins mb-8 leading-relaxed">
               Your response has been recorded. Our team will verify your registration and payment shortly.
             </p>
             <Link href="/" className="inline-block bg-primary-container text-primary hover:bg-primary-container/80 px-6 py-3 rounded-full font-medium tracking-wider uppercase transition-colors font-poppins">
@@ -313,9 +313,9 @@ export default function BpcRegisterPage() {
           <CustomHeading 
             as="h1" 
             text="BPC Registration" 
-            className="text-4xl md:text-6xl text-white mb-4 drop-shadow-md tracking-tight text-center" 
+            className="text-4xl md:text-6xl text-white mb-4 drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)] [text-shadow:0_3px_12px_rgba(0,0,0,0.85),0_0_20px_rgba(0,0,0,0.6)] tracking-tight text-center" 
           />
-          <p className="font-poppins text-lg text-secondary-fixed-dim max-w-2xl mx-auto">
+          <p className="font-poppins text-lg text-secondary-fixed-dim max-w-2xl mx-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] [text-shadow:0_2px_8px_rgba(0,0,0,0.9)]">
             Complete your team details, business proposal, and payment in one seamless step.
           </p>
         </div>
@@ -329,7 +329,7 @@ export default function BpcRegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-12 max-w-4xl mx-auto">
           {/* SECTION 1: TEAM INFORMATION */}
-          <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden">
+          <div className="bg-slate-950/60 backdrop-blur-xl rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-[0_4px_25px_rgba(0,0,0,0.5)] border border-white/10">
             <div className="mb-8 flex items-center gap-3">
               <User className="w-8 h-8 text-primary-fixed" />
               <CustomHeading as="h2" text="Team Information" className="text-2xl md:text-3xl text-primary-fixed" />
@@ -337,16 +337,16 @@ export default function BpcRegisterPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
               <div className="space-y-2">
-                <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Nama Tim *</label>
-                <input required type="text" value={teamName} onChange={e => setTeamName(e.target.value)} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" placeholder="Masukkan nama tim" />
+                <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">Nama Tim *</label>
+                <input required type="text" value={teamName} onChange={e => setTeamName(e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins" placeholder="Masukkan nama tim" />
               </div>
               <div className="space-y-2">
-                <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Asal Instansi/Universitas *</label>
-                <input required type="text" value={institution} onChange={e => setInstitution(e.target.value)} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" placeholder="Contoh: Universitas Indonesia" />
+                <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">Asal Instansi/Universitas *</label>
+                <input required type="text" value={institution} onChange={e => setInstitution(e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins" placeholder="Contoh: Universitas Indonesia" />
               </div>
             </div>
 
-            <div className="w-full h-px bg-gradient-to-r from-transparent via-outline-variant to-transparent my-8"></div>
+            <div className="w-full h-px bg-white/10 my-8"></div>
 
             {/* LEADER */}
             <div className="mb-10">
@@ -356,42 +356,42 @@ export default function BpcRegisterPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase block">Nama Lengkap</label>
-                  <input required type="text" value={leader.name} onChange={e => setLeader({...leader, name: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" placeholder="Sesuai kartu identitas" />
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase block">Nama Lengkap</label>
+                  <input required type="text" value={leader.name} onChange={e => setLeader({...leader, name: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins" placeholder="Sesuai kartu identitas" />
                 </div>
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase block">WhatsApp</label>
-                  <input required type="tel" value={leader.whatsapp} onChange={e => setLeader({...leader, whatsapp: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" placeholder="08xx (13-15 digit)" />
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase block">WhatsApp</label>
+                  <input required type="tel" value={leader.whatsapp} onChange={e => setLeader({...leader, whatsapp: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins" placeholder="08xx (13-15 digit)" />
                 </div>
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase block">Email</label>
-                  <input required type="email" value={leader.email} onChange={e => setLeader({...leader, email: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" placeholder="Aktif dan sering diakses" />
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase block">Email</label>
+                  <input required type="email" value={leader.email} onChange={e => setLeader({...leader, email: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins" placeholder="Aktif dan sering diakses" />
                 </div>
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase block">Jenjang Pendidikan</label>
-                  <select required value={leader.jenjang} onChange={e => setLeader({...leader, jenjang: e.target.value})} className="w-full bg-surface-container-highest border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins cursor-pointer">
-                    <option value="" disabled className="bg-surface-container-high text-on-surface-variant">Pilih Jenjang</option>
-                    <option value="d1" className="bg-surface-container-high text-white">D1</option>
-                    <option value="d2" className="bg-surface-container-high text-white">D2</option>
-                    <option value="d3" className="bg-surface-container-high text-white">D3</option>
-                    <option value="d4" className="bg-surface-container-high text-white">D4</option>
-                    <option value="s1" className="bg-surface-container-high text-white">S1</option>
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase block">Jenjang Pendidikan</label>
+                  <select required value={leader.jenjang} onChange={e => setLeader({...leader, jenjang: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins cursor-pointer">
+                    <option value="" disabled className="bg-slate-900 text-slate-400">Pilih Jenjang</option>
+                    <option value="d1" className="bg-slate-900 text-white">D1</option>
+                    <option value="d2" className="bg-slate-900 text-white">D2</option>
+                    <option value="d3" className="bg-slate-900 text-white">D3</option>
+                    <option value="d4" className="bg-slate-900 text-white">D4</option>
+                    <option value="s1" className="bg-slate-900 text-white">S1</option>
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase block">Fakultas</label>
-                  <input required type="text" value={leader.fakultas} onChange={e => setLeader({...leader, fakultas: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" placeholder="Fakultas (Jika ada)" />
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase block">Fakultas</label>
+                  <input required type="text" value={leader.fakultas} onChange={e => setLeader({...leader, fakultas: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins" placeholder="Fakultas (Jika ada)" />
                 </div>
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase block">Jurusan</label>
-                  <input required type="text" value={leader.jurusan} onChange={e => setLeader({...leader, jurusan: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" placeholder="Jurusan" />
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase block">Jurusan</label>
+                  <input required type="text" value={leader.jurusan} onChange={e => setLeader({...leader, jurusan: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins" placeholder="Jurusan" />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase block">Scan Kartu Pelajar/KTM (PDF)</label>
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase block">Scan Kartu Pelajar/KTM (PDF)</label>
                   <div className="relative w-full">
                     <input required accept=".pdf" type="file" onChange={e => setLeaderKtm(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                    <div className="w-full border-2 border-dashed border-outline-variant rounded-lg py-8 flex flex-col items-center justify-center bg-surface-container-highest/30 hover:bg-surface-container-highest/60 transition-colors">
-                      <UploadCloud className="w-8 h-8 text-on-surface-variant mb-2" />
+                    <div className="w-full border-2 border-dashed border-white/15 rounded-lg py-8 flex flex-col items-center justify-center bg-white/5 hover:bg-white/10 transition-colors">
+                      <UploadCloud className="w-8 h-8 text-slate-400 mb-2" />
                       <span className="text-white font-poppins font-medium">{leaderKtm ? leaderKtm.name : "Klik atau seret untuk unggah PDF"}</span>
                     </div>
                   </div>
@@ -399,31 +399,31 @@ export default function BpcRegisterPage() {
               </div>
             </div>
 
-            <div className="w-full h-px bg-gradient-to-r from-transparent via-outline-variant to-transparent my-8"></div>
+            <div className="w-full h-px bg-white/10 my-8"></div>
 
             {/* MEMBERS */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Member 2 */}
-              <div className="p-6 border border-white/5 bg-white/5 rounded-xl">
-                <div className="flex items-center gap-2 mb-6">
+              <div className="p-6 border border-white/10 bg-black/30 rounded-xl space-y-4">
+                <div className="flex items-center gap-2 mb-2">
                   <User className="w-5 h-5 text-secondary" />
                   <h3 className="font-poppins font-semibold text-lg text-white">Member 2</h3>
                 </div>
                 <div className="space-y-4">
-                  <input type="text" value={member2.name} onChange={e => setMember2({...member2, name: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white outline-none font-poppins placeholder:text-on-surface-variant/50" placeholder="Nama Lengkap" />
-                  <select value={member2.jenjang} onChange={e => setMember2({...member2, jenjang: e.target.value})} className="w-full bg-surface-container-highest border border-outline-variant rounded-lg px-4 py-3 text-white outline-none font-poppins cursor-pointer">
-                    <option value="" disabled className="bg-surface-container-high text-on-surface-variant">Pilih Jenjang</option>
-                    <option value="d1" className="bg-surface-container-high text-white">D1</option>
-                    <option value="d2" className="bg-surface-container-high text-white">D2</option>
-                    <option value="d3" className="bg-surface-container-high text-white">D3</option>
-                    <option value="d4" className="bg-surface-container-high text-white">D4</option>
-                    <option value="s1" className="bg-surface-container-high text-white">S1</option>
+                  <input type="text" value={member2.name} onChange={e => setMember2({...member2, name: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none font-poppins" placeholder="Nama Lengkap" />
+                  <select value={member2.jenjang} onChange={e => setMember2({...member2, jenjang: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none font-poppins cursor-pointer">
+                    <option value="" disabled className="bg-slate-900 text-slate-400">Pilih Jenjang</option>
+                    <option value="d1" className="bg-slate-900 text-white">D1</option>
+                    <option value="d2" className="bg-slate-900 text-white">D2</option>
+                    <option value="d3" className="bg-slate-900 text-white">D3</option>
+                    <option value="d4" className="bg-slate-900 text-white">D4</option>
+                    <option value="s1" className="bg-slate-900 text-white">S1</option>
                   </select>
-                  <input type="text" value={member2.fakultas} onChange={e => setMember2({...member2, fakultas: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white outline-none font-poppins placeholder:text-on-surface-variant/50" placeholder="Fakultas" />
-                  <input type="text" value={member2.jurusan} onChange={e => setMember2({...member2, jurusan: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white outline-none font-poppins placeholder:text-on-surface-variant/50" placeholder="Jurusan" />
+                  <input type="text" value={member2.fakultas} onChange={e => setMember2({...member2, fakultas: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none font-poppins" placeholder="Fakultas" />
+                  <input type="text" value={member2.jurusan} onChange={e => setMember2({...member2, jurusan: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none font-poppins" placeholder="Jurusan" />
                   <div className="relative w-full">
                     <input accept=".pdf" type="file" onChange={e => setMember2Ktm(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                    <div className="w-full border-2 border-dashed border-outline-variant rounded-lg py-4 flex flex-col items-center justify-center bg-surface-container-highest/30">
+                    <div className="w-full border-2 border-dashed border-white/15 rounded-lg py-4 flex flex-col items-center justify-center bg-white/5 hover:bg-white/10 transition-colors">
                       <span className="text-white font-poppins text-sm truncate px-2">{member2Ktm ? member2Ktm.name : "Unggah KTM (PDF)"}</span>
                     </div>
                   </div>
@@ -431,29 +431,29 @@ export default function BpcRegisterPage() {
               </div>
 
               {/* Member 3 */}
-              <div className="p-6 border border-white/5 bg-white/5 rounded-xl">
-                <div className="flex items-center justify-between mb-6">
+              <div className="p-6 border border-white/10 bg-black/30 rounded-xl space-y-4">
+                <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <User className="w-5 h-5 text-secondary" />
                     <h3 className="font-poppins font-semibold text-lg text-white">Member 3</h3>
                   </div>
-                  <span className="text-[10px] bg-surface-variant text-on-surface px-2 py-1 rounded-full uppercase font-poppins">Optional</span>
+                  <span className="text-[10px] bg-white/10 border border-white/10 text-slate-300 px-2 py-1 rounded-full uppercase font-poppins">Optional</span>
                 </div>
                 <div className="space-y-4">
-                  <input type="text" value={member3.name} onChange={e => setMember3({...member3, name: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white outline-none font-poppins placeholder:text-on-surface-variant/50" placeholder="Nama Lengkap" />
-                  <select value={member3.jenjang} onChange={e => setMember3({...member3, jenjang: e.target.value})} className="w-full bg-surface-container-highest border border-outline-variant rounded-lg px-4 py-3 text-white outline-none font-poppins cursor-pointer">
-                    <option value="" disabled className="bg-surface-container-high text-on-surface-variant">Pilih Jenjang</option>
-                    <option value="d1" className="bg-surface-container-high text-white">D1</option>
-                    <option value="d2" className="bg-surface-container-high text-white">D2</option>
-                    <option value="d3" className="bg-surface-container-high text-white">D3</option>
-                    <option value="d4" className="bg-surface-container-high text-white">D4</option>
-                    <option value="s1" className="bg-surface-container-high text-white">S1</option>
+                  <input type="text" value={member3.name} onChange={e => setMember3({...member3, name: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none font-poppins" placeholder="Nama Lengkap" />
+                  <select value={member3.jenjang} onChange={e => setMember3({...member3, jenjang: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none font-poppins cursor-pointer">
+                    <option value="" disabled className="bg-slate-900 text-slate-400">Pilih Jenjang</option>
+                    <option value="d1" className="bg-slate-900 text-white">D1</option>
+                    <option value="d2" className="bg-slate-900 text-white">D2</option>
+                    <option value="d3" className="bg-slate-900 text-white">D3</option>
+                    <option value="d4" className="bg-slate-900 text-white">D4</option>
+                    <option value="s1" className="bg-slate-900 text-white">S1</option>
                   </select>
-                  <input type="text" value={member3.fakultas} onChange={e => setMember3({...member3, fakultas: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white outline-none font-poppins placeholder:text-on-surface-variant/50" placeholder="Fakultas" />
-                  <input type="text" value={member3.jurusan} onChange={e => setMember3({...member3, jurusan: e.target.value})} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white outline-none font-poppins placeholder:text-on-surface-variant/50" placeholder="Jurusan" />
+                  <input type="text" value={member3.fakultas} onChange={e => setMember3({...member3, fakultas: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none font-poppins" placeholder="Fakultas" />
+                  <input type="text" value={member3.jurusan} onChange={e => setMember3({...member3, jurusan: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none font-poppins" placeholder="Jurusan" />
                   <div className="relative w-full">
                     <input accept=".pdf" type="file" onChange={e => setMember3Ktm(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                    <div className="w-full border-2 border-dashed border-outline-variant rounded-lg py-4 flex flex-col items-center justify-center bg-surface-container-highest/30">
+                    <div className="w-full border-2 border-dashed border-white/15 rounded-lg py-4 flex flex-col items-center justify-center bg-white/5 hover:bg-white/10 transition-colors">
                       <span className="text-white font-poppins text-sm truncate px-2">{member3Ktm ? member3Ktm.name : "Unggah KTM (PDF)"}</span>
                     </div>
                   </div>
@@ -463,7 +463,7 @@ export default function BpcRegisterPage() {
           </div>
 
           {/* SECTION 2: PROPOSAL & DOCS */}
-          <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden">
+          <div className="bg-slate-950/60 backdrop-blur-xl rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-[0_4px_25px_rgba(0,0,0,0.5)] border border-white/10">
             <div className="mb-8 flex items-center gap-3">
               <FileText className="w-8 h-8 text-primary-fixed" />
               <CustomHeading as="h2" text="Documentation" className="text-2xl md:text-3xl text-primary-fixed" />
@@ -471,48 +471,48 @@ export default function BpcRegisterPage() {
             
             <div className="space-y-8">
               <div className="space-y-2">
-                <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Judul Ide Bisnis *</label>
-                <input required type="text" value={businessIdeaTitle} onChange={e => setBusinessIdeaTitle(e.target.value)} className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" placeholder="Masukkan judul ide bisnis tim Anda" />
+                <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">Judul Ide Bisnis *</label>
+                <input required type="text" value={businessIdeaTitle} onChange={e => setBusinessIdeaTitle(e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins" placeholder="Masukkan judul ide bisnis tim Anda" />
               </div>
 
               <div className="space-y-2">
-                <label className="font-poppins font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Upload File Business Model Canvas (BMC) *</label>
-                <p className="font-poppins text-xs text-on-surface-variant mb-2">Format Nama File: BMC_NamaTim_NamaKetuaTim. PDF (max. 1 file)</p>
+                <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">Upload File Business Model Canvas (BMC) *</label>
+                <p className="font-poppins text-xs text-slate-400 mb-2">Format Nama File: BMC_NamaTim_NamaKetuaTim. PDF (max. 1 file)</p>
                 <div className="relative w-full">
                   <input required accept=".pdf" type="file" onChange={e => setBmcFile(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                  <div className="w-full border-2 border-dashed border-outline-variant rounded-lg py-12 flex flex-col items-center justify-center bg-surface-container-highest/30 hover:bg-surface-container-highest/60 transition-colors">
-                    <UploadCloud className="w-10 h-10 text-on-surface-variant mb-3" />
+                  <div className="w-full border-2 border-dashed border-white/15 rounded-lg py-12 flex flex-col items-center justify-center bg-white/5 hover:bg-white/10 transition-colors">
+                    <UploadCloud className="w-10 h-10 text-slate-400 mb-3" />
                     <span className="text-white font-poppins font-medium">{bmcFile ? bmcFile.name : "Click to upload or drag and drop"}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="w-full h-px bg-gradient-to-r from-transparent via-outline-variant to-transparent my-6"></div>
+              <div className="w-full h-px bg-white/10 my-6"></div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-xs text-on-surface-variant uppercase tracking-wider block h-10">Bukti Follow IG (@voitsfest) *</label>
+                  <label className="font-poppins font-semibold text-xs text-slate-100 uppercase tracking-wider block h-10">Bukti Follow IG (@voitsfest) *</label>
                   <div className="relative w-full h-32">
                     <input required accept="image/*" multiple type="file" onChange={e => setIgProofs(e.target.files)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                    <div className="w-full h-full border-2 border-dashed border-outline-variant rounded-lg flex flex-col items-center justify-center bg-surface-container-highest/30">
+                    <div className="w-full h-full border-2 border-dashed border-white/15 rounded-lg flex flex-col items-center justify-center bg-white/5 hover:bg-white/10 transition-colors">
                       <span className="text-white font-poppins text-xs text-center px-2">{igProofs?.length ? `${igProofs.length} files selected` : "Upload Image(s)"}</span>
                     </div>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-xs text-on-surface-variant uppercase tracking-wider block h-10">Screenshot Repost Story *</label>
+                  <label className="font-poppins font-semibold text-xs text-slate-100 uppercase tracking-wider block h-10">Screenshot Repost Story *</label>
                   <div className="relative w-full h-32">
                     <input required accept="image/*" multiple type="file" onChange={e => setStoryProofs(e.target.files)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                    <div className="w-full h-full border-2 border-dashed border-outline-variant rounded-lg flex flex-col items-center justify-center bg-surface-container-highest/30">
+                    <div className="w-full h-full border-2 border-dashed border-white/15 rounded-lg flex flex-col items-center justify-center bg-white/5 hover:bg-white/10 transition-colors">
                       <span className="text-white font-poppins text-xs text-center px-2">{storyProofs?.length ? `${storyProofs.length} files selected` : "Upload Image(s)"}</span>
                     </div>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-xs text-on-surface-variant uppercase tracking-wider block h-10">Screenshot Komentar Feed *</label>
+                  <label className="font-poppins font-semibold text-xs text-slate-100 uppercase tracking-wider block h-10">Screenshot Komentar Feed *</label>
                   <div className="relative w-full h-32">
                     <input required accept="image/*" multiple type="file" onChange={e => setCommentProofs(e.target.files)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                    <div className="w-full h-full border-2 border-dashed border-outline-variant rounded-lg flex flex-col items-center justify-center bg-surface-container-highest/30">
+                    <div className="w-full h-full border-2 border-dashed border-white/15 rounded-lg flex flex-col items-center justify-center bg-white/5 hover:bg-white/10 transition-colors">
                       <span className="text-white font-poppins text-xs text-center px-2">{commentProofs?.length ? `${commentProofs.length} files selected` : "Upload Image(s)"}</span>
                     </div>
                   </div>
@@ -522,16 +522,16 @@ export default function BpcRegisterPage() {
           </div>
 
           {/* SECTION 3: PEMBAYARAN */}
-          <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden">
+          <div className="bg-slate-950/60 backdrop-blur-xl rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-[0_4px_25px_rgba(0,0,0,0.5)] border border-white/10">
             <div className="mb-8">
               <CustomHeading as="h2" text="Pembayaran" className="text-2xl md:text-3xl text-primary-fixed flex items-center gap-3" />
             </div>
             
             <div className="space-y-8 animate-in fade-in duration-300">
               {/* Total Price Banner */}
-              <div className="p-4 rounded-xl border border-secondary/50 bg-secondary/10 flex justify-between items-center">
+              <div className="p-5 rounded-xl border border-secondary/50 bg-secondary/10 flex justify-between items-center">
                 <div>
-                  <h3 className="font-medium text-xs uppercase text-secondary tracking-wider">
+                  <h3 className="font-semibold text-xs uppercase text-secondary tracking-wider">
                     Total Biaya Pendaftaran (Fase: {cmsPricing.phase})
                   </h3>
                   <p className="font-headline-md text-2xl text-white font-bold mt-1">
@@ -542,14 +542,14 @@ export default function BpcRegisterPage() {
 
               {/* Metode Pembayaran */}
               <div className="space-y-4">
-                <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Metode Pembayaran *</label>
+                <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block">Metode Pembayaran *</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Option 1: Bank Transfer (BNI) */}
                   <label 
                     className={`cursor-pointer rounded-xl p-4 border flex items-center gap-3.5 transition-all duration-300 ${
                       paymentMethod === 'bni' 
                         ? 'bg-secondary/20 border-secondary shadow-[0_0_15px_rgba(176,198,255,0.15)]' 
-                        : 'bg-neutral-900/60 border-neutral-800 hover:border-neutral-700'
+                        : 'bg-black/30 border-white/10 hover:border-white/20'
                     }`}
                   >
                     <input 
@@ -572,7 +572,7 @@ export default function BpcRegisterPage() {
                     className={`cursor-pointer rounded-xl p-4 border flex items-center justify-between gap-3.5 transition-all duration-300 ${
                       paymentMethod === 'qris' 
                         ? 'bg-secondary/20 border-secondary shadow-[0_0_15px_rgba(176,198,255,0.15)]' 
-                        : 'bg-neutral-900/60 border-neutral-800 hover:border-neutral-700'
+                        : 'bg-black/30 border-white/10 hover:border-white/20'
                     }`}
                   >
                     <div className="flex items-center gap-3.5">
@@ -599,7 +599,7 @@ export default function BpcRegisterPage() {
                 {/* Transfer Destination Details / QRIS Notice */}
                 <div className="mt-4 transition-all duration-300">
                   {paymentMethod === 'bni' ? (
-                    <div className="p-6 rounded-xl border-l-4 border-l-secondary bg-surface-container-highest/50 border border-white/5 animate-in fade-in duration-300">
+                    <div className="p-6 rounded-xl border-l-4 border-l-secondary bg-black/30 border border-white/10 animate-in fade-in duration-300">
                       <h4 className="text-secondary mb-2 text-xs uppercase tracking-wider font-semibold">Tujuan Transfer:</h4>
                       <p className="text-white text-base font-medium mb-1">BNI (Bank Negara Indonesia)</p>
                       <div className="flex items-center gap-3 mb-1">
@@ -613,7 +613,7 @@ export default function BpcRegisterPage() {
                           <span>{copied ? "Tersalin" : "Salin"}</span>
                         </button>
                       </div>
-                      <p className="text-on-surface-variant text-sm font-medium">a.n Amalia Fitria Damaiyanti</p>
+                      <p className="text-slate-300 text-sm font-medium">a.n Amalia Fitria Damaiyanti</p>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center p-6 md:p-8 text-center rounded-xl bg-amber-500/10 border border-amber-500/30 animate-in fade-in duration-300">
@@ -633,20 +633,20 @@ export default function BpcRegisterPage() {
 
               {/* Sender Account Name */}
               <div className="space-y-2">
-                <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Nama Pemilik Rekening Pengirim *</label>
+                <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block">Nama Pemilik Rekening Pengirim *</label>
                 <input 
                   required 
                   type="text" 
                   value={accountName} 
                   onChange={e => setAccountName(e.target.value)} 
-                  className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium" 
+                  className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-slate-400 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium font-poppins" 
                   placeholder="Nama yang tertera pada rekening pengirim" 
                 />
               </div>
 
               {/* Upload Proof */}
               <div className="space-y-2">
-                <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">Upload Bukti Transfer *</label>
+                <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block">Upload Bukti Transfer *</label>
                 <div className="relative w-full">
                   <input 
                     required 
@@ -655,8 +655,8 @@ export default function BpcRegisterPage() {
                     onChange={e => setPaymentProof(e.target.files?.[0] || null)} 
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                   />
-                  <div className="w-full border-2 border-dashed border-outline-variant rounded-lg py-8 flex flex-col items-center justify-center bg-surface-container-highest/30 hover:bg-surface-container-highest/60 transition-colors">
-                    <UploadCloud className="w-8 h-8 text-on-surface-variant mb-2" />
+                  <div className="w-full border-2 border-dashed border-white/15 rounded-lg py-8 flex flex-col items-center justify-center bg-white/5 hover:bg-white/10 transition-colors">
+                    <UploadCloud className="w-8 h-8 text-slate-400 mb-2" />
                     <span className="text-white font-medium">
                       {paymentProof ? paymentProof.name : "Unggah Bukti Transfer (JPG/PNG/PDF)"}
                     </span>

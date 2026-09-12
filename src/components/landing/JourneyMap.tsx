@@ -35,21 +35,21 @@ export default function JourneyMap() {
       <CustomHeading 
         as="h2" 
         text="Journey Map" 
-        className="font-headline-lg text-headline-lg text-primary-fixed mb-stack-lg text-center" 
+        className="font-headline-lg text-headline-lg text-amber-400 mb-stack-lg text-center drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] [text-shadow:0_3px_12px_rgba(0,0,0,0.9),0_0_20px_rgba(245,158,11,0.4)]" 
       />
       <div className="relative max-w-container-max mx-auto py-10">
-        <div className="absolute left-1/2 top-0 bottom-0 w-[2px] bg-primary/30 -translate-x-1/2 hidden md:block"></div>
+        <div className="absolute left-1/2 top-0 bottom-0 w-[2px] bg-primary/40 -translate-x-1/2 hidden md:block"></div>
         <div className="relative flex flex-col gap-16">
           {/* Tenant Registration (Left) */}
           <div className="flex flex-col md:flex-row items-center w-full relative group">
             <div className="w-full md:w-1/2 md:pr-12 flex justify-end">
-              <div className="glass-card p-6 rounded-xl border-primary/20 hover:border-primary/50 transition-all duration-300 text-center w-full md:w-[400px] h-[120px] flex flex-col justify-center">
-                <h4 className="font-headline-md text-primary mb-1">Tenant Registration</h4>
-                <p className="font-body-md text-tertiary text-sm">August - September 2026</p>
+              <div className="bg-slate-950/45 backdrop-blur-lg p-6 rounded-xl border border-white/10 hover:border-primary/40 shadow-[0_4px_20px_rgba(0,0,0,0.4)] transition-all duration-300 text-center w-full md:w-[400px] h-[120px] flex flex-col justify-center">
+                <h4 className="font-headline-md text-amber-300 font-bold mb-1 drop-shadow-sm">Tenant Registration</h4>
+                <p className="font-body-md text-slate-200/90 text-sm font-medium">August - September 2026</p>
               </div>
             </div>
             <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center justify-center top-1/2 -translate-y-1/2">
-              <div className="w-4 h-4 rounded-full bg-primary shadow-[0_0_15px_rgba(240,192,77,0.8)] z-10"></div>
+              <div className="w-4 h-4 rounded-full bg-primary shadow-[0_0_15px_rgba(240,192,77,0.9)] z-10"></div>
             </div>
             <div className="w-full md:w-1/2"></div>
           </div>
@@ -58,12 +58,12 @@ export default function JourneyMap() {
           <div className="flex flex-col md:flex-row items-center w-full relative group">
             <div className="w-full md:w-1/2"></div>
             <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center justify-center top-1/2 -translate-y-1/2">
-              <div className="w-4 h-4 rounded-full bg-primary shadow-[0_0_15px_rgba(240,192,77,0.8)] z-10"></div>
+              <div className="w-4 h-4 rounded-full bg-primary shadow-[0_0_15px_rgba(240,192,77,0.9)] z-10"></div>
             </div>
             <div className="w-full md:w-1/2 md:pl-12 flex justify-start">
-              <div className="glass-card p-6 rounded-xl border-primary/20 hover:border-primary/50 transition-all duration-300 text-center w-full md:w-[400px] h-[120px] flex flex-col justify-center">
-                <h4 className="font-headline-md text-primary mb-1">Entrepreneurship Seminar</h4>
-                <p className="font-body-md text-tertiary text-sm">September 2026</p>
+              <div className="bg-slate-950/45 backdrop-blur-lg p-6 rounded-xl border border-white/10 hover:border-primary/40 shadow-[0_4px_20px_rgba(0,0,0,0.4)] transition-all duration-300 text-center w-full md:w-[400px] h-[120px] flex flex-col justify-center">
+                <h4 className="font-headline-md text-amber-300 font-bold mb-1 drop-shadow-sm">Entrepreneurship Seminar</h4>
+                <p className="font-body-md text-slate-200/90 text-sm font-medium">September 2026</p>
               </div>
             </div>
           </div>
@@ -71,13 +71,13 @@ export default function JourneyMap() {
           {/* Final BPC & BCC (Left) */}
           <div className="flex flex-col md:flex-row items-center w-full relative group">
             <div className="w-full md:w-1/2 md:pr-12 flex justify-end">
-              <div className="glass-card p-6 rounded-xl border-primary/20 hover:border-primary/50 transition-all duration-300 text-center w-full md:w-[400px] h-[120px] flex flex-col justify-center">
-                <h4 className="font-headline-md text-primary mb-1">Final BPC &amp; BCC</h4>
-                <p className="font-body-md text-tertiary text-sm">September 2026</p>
+              <div className="bg-slate-950/45 backdrop-blur-lg p-6 rounded-xl border border-white/10 hover:border-primary/40 shadow-[0_4px_20px_rgba(0,0,0,0.4)] transition-all duration-300 text-center w-full md:w-[400px] h-[120px] flex flex-col justify-center">
+                <h4 className="font-headline-md text-amber-300 font-bold mb-1 drop-shadow-sm">Final BPC &amp; BCC</h4>
+                <p className="font-body-md text-slate-200/90 text-sm font-medium">September 2026</p>
               </div>
             </div>
             <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center justify-center top-1/2 -translate-y-1/2">
-              <div className="w-4 h-4 rounded-full bg-primary shadow-[0_0_15px_rgba(240,192,77,0.8)] z-10"></div>
+              <div className="w-4 h-4 rounded-full bg-primary shadow-[0_0_15px_rgba(240,192,77,0.9)] z-10"></div>
             </div>
             <div className="w-full md:w-1/2"></div>
           </div>
@@ -86,12 +86,12 @@ export default function JourneyMap() {
           <div className="flex flex-col md:flex-row items-center w-full relative group">
             <div className="w-full md:w-1/2"></div>
             <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center justify-center top-1/2 -translate-y-1/2">
-              <div className="w-4 h-4 rounded-full bg-primary shadow-[0_0_15px_rgba(240,192,77,0.8)] z-10"></div>
+              <div className="w-4 h-4 rounded-full bg-primary shadow-[0_0_15px_rgba(240,192,77,0.9)] z-10"></div>
             </div>
             <div className="w-full md:w-1/2 md:pl-12 flex justify-start">
-              <div className="glass-card p-6 rounded-xl border-primary/20 hover:border-primary/50 transition-all duration-300 text-center w-full md:w-[400px] h-[120px] flex flex-col justify-center">
-                <h4 className="font-headline-md text-primary mb-1">ColorFun Run</h4>
-                <p className="font-body-md text-tertiary text-sm">Oktober 2026</p>
+              <div className="bg-slate-950/45 backdrop-blur-lg p-6 rounded-xl border border-white/10 hover:border-primary/40 shadow-[0_4px_20px_rgba(0,0,0,0.4)] transition-all duration-300 text-center w-full md:w-[400px] h-[120px] flex flex-col justify-center">
+                <h4 className="font-headline-md text-amber-300 font-bold mb-1 drop-shadow-sm">ColorFun Run</h4>
+                <p className="font-body-md text-slate-200/90 text-sm font-medium">Oktober 2026</p>
               </div>
             </div>
           </div>
@@ -99,9 +99,9 @@ export default function JourneyMap() {
           {/* Festival (Left) */}
           <div className="flex flex-col md:flex-row items-center w-full relative group">
             <div className="w-full md:w-1/2 md:pr-12 flex justify-end">
-              <div className="glass-card p-6 rounded-xl border-primary/50 bg-primary/10 shadow-[0_0_25px_rgba(240,192,77,0.3)] text-center w-full md:w-[400px] h-[120px] flex flex-col justify-center">
-                <h4 className="font-headline-md text-primary-fixed mb-1">Festival</h4>
-                <p className="font-body-md text-tertiary text-sm">Oktober 2026</p>
+              <div className="bg-slate-950/60 backdrop-blur-lg p-6 rounded-xl border border-primary/40 hover:border-primary/70 shadow-[0_0_25px_rgba(240,192,77,0.35)] transition-all duration-300 text-center w-full md:w-[400px] h-[120px] flex flex-col justify-center">
+                <h4 className="font-headline-md text-amber-300 font-bold mb-1 text-glow drop-shadow-md">Festival</h4>
+                <p className="font-body-md text-slate-100 text-sm font-medium">Oktober 2026</p>
               </div>
             </div>
             <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center justify-center top-1/2 -translate-y-1/2">

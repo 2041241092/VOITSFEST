@@ -202,13 +202,13 @@ export default function TenantPaymentPage() {
       <div className="text-on-background font-poppins overflow-x-hidden relative min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-grow flex items-center justify-center pt-28 pb-16 px-4 relative z-10">
-          <div className="glass-card max-w-lg w-full p-8 md:p-10 rounded-2xl text-center border-t-4 border-t-secondary-fixed shadow-2xl animate-in fade-in zoom-in-95 duration-500">
+          <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 border-t-4 border-t-secondary-fixed shadow-[0_4px_25px_rgba(0,0,0,0.5)] max-w-lg w-full p-8 md:p-10 rounded-2xl text-center animate-in fade-in zoom-in-95 duration-500">
             <CheckCircle className="w-20 h-20 text-secondary-fixed mx-auto mb-6 drop-shadow-[0_0_15px_rgba(176,198,255,0.5)]" />
             <h1 className="text-3xl font-bold text-white mb-4 tracking-tight">Pembayaran Berhasil Dikirim</h1>
-            <p className="text-on-surface-variant font-poppins text-base md:text-lg mb-8 leading-relaxed">
+            <p className="text-slate-300 font-poppins text-base md:text-lg mb-8 leading-relaxed">
               Your response has been recorded.
             </p>
-            <div className="p-4 rounded-xl bg-surface-container-highest/30 border border-outline-variant/50 text-xs md:text-sm text-on-surface-variant font-poppins mb-8">
+            <div className="p-4 rounded-xl bg-black/30 border border-white/10 text-xs md:text-sm text-slate-300 font-poppins mb-8">
               Bukti pembayaran tenant Anda telah tersimpan dengan status <span className="text-secondary-fixed font-semibold">Pending</span> dan akan diverifikasi oleh tim panitia.
             </div>
             <Link 
@@ -256,7 +256,7 @@ export default function TenantPaymentPage() {
           {/* ======================================================== */}
           {/* SECTION 1: DATA DIRI PESERTA */}
           {/* ======================================================== */}
-          <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-xl border border-white/10">
+          <div className="bg-slate-950/60 backdrop-blur-xl rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-[0_4px_25px_rgba(0,0,0,0.5)] border border-white/10">
             <div className="mb-6 pb-4 border-b border-white/10">
               <CustomHeading 
                 as="h2" 
@@ -268,7 +268,7 @@ export default function TenantPaymentPage() {
             <div className="space-y-6">
               {/* Nama Lengkap */}
               <div className="space-y-2">
-                <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block" htmlFor="namaLengkap">
+                <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block" htmlFor="namaLengkap">
                   Nama Lengkap *
                 </label>
                 <input 
@@ -277,7 +277,7 @@ export default function TenantPaymentPage() {
                   id="namaLengkap" 
                   value={namaLengkap} 
                   onChange={e => setNamaLengkap(e.target.value)} 
-                  className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" 
+                  className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-slate-400" 
                   placeholder="Masukkan nama lengkap sesuai KTP/KTM" 
                 />
               </div>
@@ -285,7 +285,7 @@ export default function TenantPaymentPage() {
               {/* WhatsApp & Email */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block" htmlFor="nomorWA">
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block" htmlFor="nomorWA">
                     Nomor WhatsApp *
                   </label>
                   <input 
@@ -294,12 +294,12 @@ export default function TenantPaymentPage() {
                     id="nomorWA" 
                     value={nomorWA} 
                     onChange={e => setNomorWA(e.target.value)} 
-                    className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" 
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-slate-400" 
                     placeholder="081234567890" 
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block" htmlFor="email">
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block" htmlFor="email">
                     Email Aktif *
                   </label>
                   <input 
@@ -308,7 +308,7 @@ export default function TenantPaymentPage() {
                     id="email" 
                     value={email} 
                     onChange={e => setEmail(e.target.value)} 
-                    className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" 
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-slate-400" 
                     placeholder="email@contoh.com" 
                   />
                 </div>
@@ -316,7 +316,7 @@ export default function TenantPaymentPage() {
 
               {/* Kategori Peserta Dropdown */}
               <div className="space-y-2">
-                <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block" htmlFor="kategoriPeserta">
+                <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block" htmlFor="kategoriPeserta">
                   Kategori Peserta *
                 </label>
                 <select 
@@ -328,15 +328,15 @@ export default function TenantPaymentPage() {
                     setIdentitas("");
                     setKtmFile(null);
                   }} 
-                  className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins cursor-pointer"
+                  className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins cursor-pointer"
                 >
-                  <option value="" disabled className="bg-surface-container-high text-on-surface-variant">
+                  <option value="" disabled className="bg-slate-900 text-slate-400">
                     Pilih Kategori
                   </option>
-                  <option value="vokasi" className="bg-surface-container-high text-white">
+                  <option value="vokasi" className="bg-slate-900 text-white">
                     Mahasiswa Fakultas Vokasi ITS
                   </option>
-                  <option value="umum" className="bg-surface-container-high text-white">
+                  <option value="umum" className="bg-slate-900 text-white">
                     Umum & Mahasiswa Luar Vokasi
                   </option>
                 </select>
@@ -346,7 +346,7 @@ export default function TenantPaymentPage() {
               {kategoriPeserta === "vokasi" && (
                 <div className="space-y-6 pt-2 animate-in fade-in slide-in-from-top-3 duration-300">
                   <div className="space-y-2">
-                    <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block" htmlFor="inputNRP">
+                    <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block" htmlFor="inputNRP">
                       NRP *
                     </label>
                     <input 
@@ -355,13 +355,13 @@ export default function TenantPaymentPage() {
                       id="inputNRP" 
                       value={identitas} 
                       onChange={e => setIdentitas(e.target.value)} 
-                      className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" 
+                      className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-slate-400" 
                       placeholder="Masukkan Nomor Registrasi Pokok" 
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block">
+                    <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                       Upload Foto/Scan KTM *
                     </label>
                     <div className="relative w-full">
@@ -375,13 +375,13 @@ export default function TenantPaymentPage() {
                       <div className={`w-full border-2 border-dashed rounded-lg py-6 px-4 flex flex-col items-center justify-center transition-all ${
                         ktmFile 
                           ? "border-secondary bg-secondary/15" 
-                          : "border-outline-variant bg-surface-container-highest/30 hover:bg-surface-container-highest/50"
+                          : "border-white/15 bg-white/5 hover:bg-white/10"
                       }`}>
-                        <UploadCloud className={`w-8 h-8 mb-2 ${ktmFile ? "text-secondary" : "text-primary-fixed-dim"}`} />
+                        <UploadCloud className={`w-8 h-8 mb-2 ${ktmFile ? "text-secondary" : "text-slate-300"}`} />
                         <span className="text-white font-poppins font-medium text-sm text-center truncate max-w-full px-4">
                           {ktmFile ? ktmFile.name : "Upload a file or drag and drop"}
                         </span>
-                        <span className="text-xs text-on-surface-variant/70 font-poppins mt-1">
+                        <span className="text-xs text-slate-300 font-poppins mt-1">
                           PNG, JPG, PDF up to 5MB
                         </span>
                       </div>
@@ -401,7 +401,7 @@ export default function TenantPaymentPage() {
 
               {kategoriPeserta === "umum" && (
                 <div className="space-y-2 pt-2 animate-in fade-in slide-in-from-top-3 duration-300">
-                  <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block" htmlFor="inputInstansi">
+                  <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block" htmlFor="inputInstansi">
                     Asal Instansi/Universitas *
                   </label>
                   <input 
@@ -410,7 +410,7 @@ export default function TenantPaymentPage() {
                     id="inputInstansi" 
                     value={identitas} 
                     onChange={e => setIdentitas(e.target.value)} 
-                    className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50" 
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-slate-400" 
                     placeholder="Contoh: Universitas Indonesia / PT Sukses Makmur" 
                   />
                 </div>
@@ -419,7 +419,7 @@ export default function TenantPaymentPage() {
           </div>
 
           {/* SECTION 2: PEMBAYARAN */}
-          <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden">
+          <div className="bg-slate-950/60 backdrop-blur-xl rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-[0_4px_25px_rgba(0,0,0,0.5)] border border-white/10">
             <div className="mb-8">
               <CustomHeading 
                 as="h2" 
@@ -432,7 +432,7 @@ export default function TenantPaymentPage() {
               {/* Total Pembayaran Banner */}
               <div className="p-4 rounded-xl border border-secondary/50 bg-secondary/10 flex justify-between items-center">
                 <div>
-                  <h3 className="font-medium text-xs uppercase text-secondary tracking-wider">
+                  <h3 className="font-semibold text-xs uppercase text-secondary tracking-wider">
                     Total Biaya (Fase: {cmsPricing.phase})
                   </h3>
                   <p className="font-headline-md text-2xl text-white font-bold mt-1">
@@ -443,7 +443,7 @@ export default function TenantPaymentPage() {
 
               {/* Metode Pembayaran Selection */}
               <div className="space-y-4">
-                <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                   Metode Pembayaran *
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -452,7 +452,7 @@ export default function TenantPaymentPage() {
                     className={`cursor-pointer rounded-xl p-4 border flex items-center gap-3.5 transition-all duration-300 ${
                       metodeBayar === "bni" 
                         ? "bg-secondary/20 border-secondary shadow-[0_0_15px_rgba(176,198,255,0.15)]" 
-                        : "bg-neutral-900/60 border-neutral-800 hover:border-neutral-700"
+                        : "bg-black/30 border-white/10 hover:border-white/20"
                     }`}
                   >
                     <input 
@@ -463,7 +463,7 @@ export default function TenantPaymentPage() {
                       onChange={() => setMetodeBayar("bni")} 
                       className="hidden" 
                     />
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${metodeBayar === "bni" ? "border-secondary" : "border-neutral-600"}`}>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${metodeBayar === "bni" ? "border-secondary" : "border-slate-400"}`}>
                       {metodeBayar === "bni" && <div className="w-2.5 h-2.5 rounded-full bg-secondary" />}
                     </div>
                     <CreditCard className="w-5 h-5 text-secondary" />
@@ -477,7 +477,7 @@ export default function TenantPaymentPage() {
                     className={`cursor-pointer rounded-xl p-4 border flex items-center justify-between gap-3.5 transition-all duration-300 ${
                       metodeBayar === "qris" 
                         ? "bg-secondary/20 border-secondary shadow-[0_0_15px_rgba(176,198,255,0.15)]" 
-                        : "bg-neutral-900/60 border-neutral-800 hover:border-neutral-700"
+                        : "bg-black/30 border-white/10 hover:border-white/20"
                     }`}
                   >
                     <div className="flex items-center gap-3.5">
@@ -489,7 +489,7 @@ export default function TenantPaymentPage() {
                         onChange={() => setMetodeBayar("qris")} 
                         className="hidden" 
                       />
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${metodeBayar === "qris" ? "border-secondary" : "border-neutral-600"}`}>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${metodeBayar === "qris" ? "border-secondary" : "border-slate-400"}`}>
                         {metodeBayar === "qris" && <div className="w-2.5 h-2.5 rounded-full bg-secondary" />}
                       </div>
                       <QrCode className="w-5 h-5 text-secondary" />
@@ -506,7 +506,7 @@ export default function TenantPaymentPage() {
                 {/* Transfer Destination Details / QRIS Notice */}
                 <div className="mt-4 transition-all duration-300">
                   {metodeBayar === "bni" ? (
-                    <div className="p-6 rounded-xl border-l-4 border-l-secondary bg-surface-container-highest/50 border border-white/5 animate-in fade-in duration-300">
+                    <div className="p-6 rounded-xl border-l-4 border-l-secondary bg-black/30 border border-white/10 animate-in fade-in duration-300">
                       <h4 className="text-secondary mb-2 text-xs uppercase tracking-wider font-semibold">
                         Tujuan Transfer:
                       </h4>
@@ -527,7 +527,7 @@ export default function TenantPaymentPage() {
                           <span>{copied ? "Tersalin" : "Salin"}</span>
                         </button>
                       </div>
-                      <p className="text-on-surface-variant text-sm font-medium">
+                      <p className="text-slate-300 text-sm font-medium">
                         a.n Amalia Fitria Damaiyanti
                       </p>
                     </div>
@@ -549,7 +549,7 @@ export default function TenantPaymentPage() {
 
               {/* Nama Pemilik Rekening */}
               <div className="space-y-2">
-                <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block" htmlFor="namaPemilikRekening">
+                <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block" htmlFor="namaPemilikRekening">
                   Nama Pemilik Rekening / Akun E-Wallet *
                 </label>
                 <input 
@@ -558,14 +558,14 @@ export default function TenantPaymentPage() {
                   id="namaPemilikRekening" 
                   value={namaPemilikRekening} 
                   onChange={e => setNamaPemilikRekening(e.target.value)} 
-                  className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium" 
+                  className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-medium placeholder:text-slate-400" 
                   placeholder="Nama yang tertera pada rekening pengirim" 
                 />
               </div>
 
               {/* Upload Bukti Transfer */}
               <div className="space-y-2">
-                <label className="font-medium text-sm text-on-surface-variant uppercase tracking-wider block">
+                <label className="font-poppins font-semibold text-sm text-slate-100 uppercase tracking-wider block">
                   Upload Bukti Transfer *
                 </label>
                 <div className="relative w-full">
@@ -576,8 +576,8 @@ export default function TenantPaymentPage() {
                     onChange={e => setBuktiBayar(e.target.files?.[0] || null)} 
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                   />
-                  <div className="w-full border-2 border-dashed border-outline-variant rounded-lg py-8 flex flex-col items-center justify-center bg-surface-container-highest/30 hover:bg-surface-container-highest/60 transition-colors">
-                    <UploadCloud className="w-8 h-8 text-on-surface-variant mb-2" />
+                  <div className="w-full border-2 border-dashed border-white/15 rounded-lg py-8 flex flex-col items-center justify-center bg-white/5 hover:bg-white/10 transition-colors">
+                    <UploadCloud className="w-8 h-8 text-slate-300 mb-2" />
                     <span className="text-white font-medium">
                       {buktiBayar ? buktiBayar.name : "Unggah Bukti Transfer (JPG/PNG/PDF)"}
                     </span>
