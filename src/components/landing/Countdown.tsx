@@ -54,7 +54,7 @@ export default function Countdown({ className = "" }: { className?: string }) {
     if (!active || !targetDate) return;
 
     const calculateTime = () => {
-      const difference = +new Date(targetDate) - +new Date();
+      const difference = new Date(targetDate).getTime() - Date.now();
       if (difference > 0) {
         setTimeLeft({
           days: Math.floor(difference / (1000 * 60 * 60 * 24)),

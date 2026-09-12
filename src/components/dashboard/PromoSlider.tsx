@@ -4,6 +4,7 @@ import { useRef } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Promo } from "@/types/database";
+import { formatWIB } from "@/lib/date";
 
 type PromoSliderProps = {
   promos: Promo[];
@@ -87,9 +88,18 @@ export default function PromoSlider({ promos }: PromoSliderProps) {
                         Event: {promo.target_event}
                       </span>
                     )}
-                    {promo.kuota_maksimal != null && (
+                    {promo.kuota_maksimal != null ? (
                       <span className="px-2 py-0.5 text-xs font-mono font-semibold rounded border bg-white/5 border-white/10 text-on-surface-variant">
                         Quota: {promo.kuota_terpakai ?? 0}/{promo.kuota_maksimal}
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 text-xs font-mono font-semibold rounded border bg-cyan-500/15 border-cyan-500/30 text-cyan-300">
+                        Quota: Unlimited (∞)
+                      </span>
+                    )}
+                    {promo.end_date && (
+                      <span className="px-2 py-0.5 text-xs font-mono font-semibold rounded border bg-white/5 border-white/10 text-slate-300">
+                        s/d: {formatWIB(promo.end_date)}
                       </span>
                     )}
                   </div>

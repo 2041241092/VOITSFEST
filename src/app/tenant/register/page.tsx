@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import GatewayGuard from "@/components/gateway/GatewayGuard";
+import { checkQuotaAvailability, dispatchQuotaRefresh } from "@/lib/quota";
 
 export default function TenantRegistrationPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -116,6 +117,13 @@ export default function TenantRegistrationPage() {
       return;
     }
 
+    // Quota Availability Check
+    const quotaCheck = await checkQuotaAvailability("tenant", 1);
+    if (!quotaCheck.available) {
+      setError(quotaCheck.error || "Kuota pendaftaran tenant telah penuh. Silakan hubungi panitia.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -144,6 +152,9 @@ export default function TenantRegistrationPage() {
       if (insertError) {
         throw new Error(insertError.message || "Gagal menyimpan pendaftaran tenant.");
       }
+
+      // Real-time Quota Synchronization Dispatch
+      dispatchQuotaRefresh();
 
       setIsSuccess(true);
     } catch (err: any) {

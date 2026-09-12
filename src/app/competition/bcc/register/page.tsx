@@ -23,6 +23,7 @@ import {
 import Link from "next/link";
 import GatewayGuard from "@/components/gateway/GatewayGuard";
 import { fetchPricingTiers, EventPricing, DEFAULT_PRICING_TIERS } from "@/lib/pricing";
+import { checkQuotaAvailability, dispatchQuotaRefresh } from "@/lib/quota";
 
 export default function BccRegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -167,6 +168,14 @@ export default function BccRegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid || isSubmitting) return;
+
+    // Quota Availability Check
+    const quotaCheck = await checkQuotaAvailability("bcc", 1);
+    if (!quotaCheck.available) {
+      setError(quotaCheck.error || "Kuota pendaftaran BCC telah penuh. Silakan hubungi panitia.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
@@ -270,6 +279,9 @@ export default function BccRegisterPage() {
         });
 
       if (txError) throw txError;
+
+      // Real-time Quota Synchronization Dispatch
+      dispatchQuotaRefresh();
 
       setIsSuccess(true);
     } catch (err: any) {

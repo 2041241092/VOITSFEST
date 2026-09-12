@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Tag, Plus, Trash2, Calendar, Sparkles, X, Loader2, Banknote, Check } from "lucide-react";
+import { Tag, Plus, Trash2, Calendar, Sparkles, X, Loader2, Banknote, Check, Users, AlertCircle, RefreshCw, Edit, LayoutGrid, List } from "lucide-react";
 import { Promo, DiscountType } from "@/types/database";
 import {
   fetchPricingTiers,
@@ -12,6 +12,21 @@ import {
   PRICING_EVENT_NAMES,
   formatRupiah,
 } from "@/lib/pricing";
+import {
+  fetchAllSubEventQuotas,
+  fetchPromoQuotas,
+  SubEventQuotaMap,
+  PromoQuotaStatus,
+  dispatchQuotaRefresh,
+} from "@/lib/quota";
+import {
+  toLocalISOString,
+  toWibDatetimeLocal,
+  wibDatetimeLocalToIso,
+  formatWIB,
+  formatWibDateTime,
+  formatWibDateRange,
+} from "@/lib/date";
 
 interface PromoManagerProps {
   onToast?: (type: "success" | "error", message: string) => void;
@@ -33,6 +48,31 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+
+  // Dynamic real-time quota state across all 6 sub-events and promos
+  const [subEventQuotas, setSubEventQuotas] = useState<SubEventQuotaMap | null>(null);
+  const [promoQuotas, setPromoQuotas] = useState<PromoQuotaStatus[]>([]);
+  const [loadingQuotas, setLoadingQuotas] = useState(true);
+
+  // Edit Modal State
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingPromo, setEditingPromo] = useState<Promo | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    description: "",
+    discount_type: "percent" as DiscountType,
+    discount_value: "",
+    target_event: "ColorFun Run" as PromoTargetEvent,
+    is_unlimited: false,
+    kuota_maksimal: "",
+    kapasitas: "1",
+    kategori_peserta: "Semua",
+    start_date: "",
+    end_date: "",
+    is_active: true,
+  });
 
   // Form state for creating a new promo
   const [form, setForm] = useState({
@@ -41,11 +81,12 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
     discount_type: "percent" as DiscountType,
     discount_value: "",
     target_event: "ColorFun Run" as PromoTargetEvent,
+    is_unlimited: false,
     kuota_maksimal: "",
     kapasitas: "1",
     kategori_peserta: "Semua",
-    start_date: new Date().toISOString().split("T")[0],
-    end_date: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
+    start_date: toLocalISOString(new Date().toISOString()),
+    end_date: toLocalISOString(new Date(Date.now() + 30 * 86400000).toISOString()),
     is_active: true,
   });
 
@@ -56,6 +97,22 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
 
   const supabase = createClient();
 
+  // Load sub-event quotas and promo live calculations
+  const fetchQuotas = useCallback(async () => {
+    try {
+      const [subQuotas, pQuotas] = await Promise.all([
+        fetchAllSubEventQuotas(),
+        fetchPromoQuotas(),
+      ]);
+      setSubEventQuotas(subQuotas);
+      setPromoQuotas(pQuotas);
+    } catch (err) {
+      console.warn("Error fetching quota stats in PromoManager:", err);
+    } finally {
+      setLoadingQuotas(false);
+    }
+  }, []);
+
   useEffect(() => {
     async function loadPricing() {
       setLoadingPricing(true);
@@ -64,14 +121,24 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
       setLoadingPricing(false);
     }
     loadPricing();
-  }, []);
+    fetchQuotas();
+  }, [fetchQuotas]);
 
-  const handlePricingChange = (eventKey: PricingEvent, field: "phase" | "price", val: any) => {
+  const handlePricingChange = (
+    eventKey: PricingEvent,
+    field: "phase" | "price" | "max_quota",
+    val: any
+  ) => {
     setPricingTiers((prev) => ({
       ...prev,
       [eventKey]: {
         ...prev[eventKey],
-        [field]: field === "price" ? Math.max(0, parseInt(val, 10) || 0) : val,
+        [field]:
+          field === "price"
+            ? Math.max(0, parseInt(val, 10) || 0)
+            : field === "max_quota"
+            ? Math.max(1, parseInt(val, 10) || 1)
+            : val,
       },
     }));
   };
@@ -88,10 +155,12 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
         });
 
       if (error) throw error;
-      onToast?.("success", "Pengaturan harga & fase pendaftaran berhasil disimpan ke cms_settings!");
+      onToast?.("success", "Pengaturan kuota, harga & fase pendaftaran berhasil disimpan ke cms_settings!");
+      await fetchQuotas();
+      dispatchQuotaRefresh();
     } catch (err: any) {
       console.error("Save pricing error:", err);
-      onToast?.("error", `Gagal menyimpan harga: ${err.message}`);
+      onToast?.("error", `Gagal menyimpan harga & kuota: ${err.message}`);
     } finally {
       setSavingPricing(false);
     }
@@ -126,6 +195,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
   useEffect(() => {
     const handleRefresh = () => {
       fetchPromos(true);
+      fetchQuotas();
     };
 
     window.addEventListener("promo-quota-updated", handleRefresh);
@@ -133,13 +203,14 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
 
     const channel = supabase
       .channel("promo-manager-realtime-quota")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "promos" },
-        () => {
-          fetchPromos(true);
-        }
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "promos" }, handleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "festival_registrations" }, handleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "colorfun_registrations" }, handleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "bpc_registrations" }, handleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "bcc_registrations" }, handleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "seminar_registrations" }, handleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tenant_registrations" }, handleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, handleRefresh)
       .subscribe();
 
     return () => {
@@ -147,7 +218,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
       window.removeEventListener("admin-refresh-data", handleRefresh);
       supabase.removeChannel(channel);
     };
-  }, [fetchPromos, supabase]);
+  }, [fetchPromos, fetchQuotas, supabase]);
 
   // Handle Toggle Active Status
   const handleToggleActive = async (promo: Promo) => {
@@ -200,15 +271,31 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
   // Handle Create Promo Form Submit
   const handleCreatePromo = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title.trim() || !form.discount_value || !form.kuota_maksimal) {
+    if (!form.title.trim() || !form.discount_value) {
       onToast?.("error", "Harap isi semua kolom wajib!");
       return;
     }
 
-    const kuotaMax = parseInt(form.kuota_maksimal, 10);
-    if (isNaN(kuotaMax) || kuotaMax <= 0) {
-      onToast?.("error", "Maksimal kuota harus berupa angka positif lebih dari 0!");
+    if (!form.start_date || !form.end_date) {
+      onToast?.("error", "Harap tentukan tanggal mulai dan tanggal berakhir!");
       return;
+    }
+
+    const startIso = wibDatetimeLocalToIso(form.start_date);
+    const endIso = wibDatetimeLocalToIso(form.end_date);
+    if (!startIso || !endIso || new Date(endIso).getTime() <= new Date(startIso).getTime()) {
+      onToast?.("error", "Tanggal berakhir harus setelah tanggal mulai!");
+      return;
+    }
+
+    let kuotaMax: number | null = null;
+    if (!form.is_unlimited) {
+      const parsed = parseInt(form.kuota_maksimal, 10);
+      if (isNaN(parsed) || parsed <= 0) {
+        onToast?.("error", "Maksimal kuota harus berupa angka positif lebih dari 0 atau aktifkan 'Unlimited Kuota'!");
+        return;
+      }
+      kuotaMax = parsed;
     }
 
     setSubmitting(true);
@@ -223,8 +310,8 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
         kuota_terpakai: 0,
         kapasitas: parseInt(form.kapasitas, 10) || 1,
         kategori_peserta: form.kategori_peserta || "Semua",
-        start_date: new Date(form.start_date).toISOString(),
-        end_date: new Date(form.end_date).toISOString(),
+        start_date: startIso,
+        end_date: endIso,
         is_active: form.is_active,
       };
 
@@ -260,18 +347,116 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
           discount_type: "percent",
           discount_value: "",
           target_event: "ColorFun Run",
+          is_unlimited: false,
           kuota_maksimal: "",
           kapasitas: "1",
           kategori_peserta: "Semua",
-          start_date: new Date().toISOString().split("T")[0],
-          end_date: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
+          start_date: toLocalISOString(new Date().toISOString()),
+          end_date: toLocalISOString(new Date(Date.now() + 30 * 86400000).toISOString()),
           is_active: true,
         });
+        await fetchQuotas();
+        dispatchQuotaRefresh();
       }
     } catch (err: any) {
       onToast?.("error", `Gagal membuat promo: ${err.message}`);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Open Edit Modal for a promo
+  const openEditModal = (promo: Promo) => {
+    setEditingPromo(promo);
+    const isUnlimited = promo.kuota_maksimal === null || promo.kuota_maksimal === undefined;
+    setEditForm({
+      title: promo.title || "",
+      description: promo.description || "",
+      discount_type: promo.discount_type || "percent",
+      discount_value: String(promo.discount_value || ""),
+      target_event: (promo.target_event as PromoTargetEvent) || "Festival",
+      is_unlimited: isUnlimited,
+      kuota_maksimal: isUnlimited ? "" : String(promo.kuota_maksimal ?? ""),
+      kapasitas: String(promo.kapasitas || 1),
+      kategori_peserta: promo.kategori_peserta || "Semua",
+      start_date: toLocalISOString(promo.start_date),
+      end_date: toLocalISOString(promo.end_date),
+      is_active: promo.is_active ?? true,
+    });
+    setEditModalOpen(true);
+  };
+
+  // Handle Save Promo Edit
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPromo) return;
+
+    if (!editForm.title.trim()) {
+      onToast?.("error", "Judul promo wajib diisi!");
+      return;
+    }
+
+    if (!editForm.start_date || !editForm.end_date) {
+      onToast?.("error", "Tanggal mulai dan berakhir wajib ditentukan!");
+      return;
+    }
+
+    const startIso = wibDatetimeLocalToIso(editForm.start_date);
+    const endIso = wibDatetimeLocalToIso(editForm.end_date);
+    if (!startIso || !endIso || new Date(endIso).getTime() <= new Date(startIso).getTime()) {
+      onToast?.("error", "Tanggal berakhir harus setelah tanggal mulai!");
+      return;
+    }
+
+    let kuotaVal: number | null = null;
+    if (!editForm.is_unlimited) {
+      const parsed = parseInt(editForm.kuota_maksimal, 10);
+      if (isNaN(parsed) || parsed <= 0) {
+        onToast?.("error", "Maksimal kuota harus berupa angka positif lebih dari 0 atau aktifkan 'Unlimited Kuota'!");
+        return;
+      }
+      kuotaVal = parsed;
+    }
+
+    setSavingEdit(true);
+    try {
+      const updatePayload: Record<string, any> = {
+        title: editForm.title.trim(),
+        description: editForm.description.trim(),
+        discount_type: editForm.discount_type,
+        discount_value: parseFloat(editForm.discount_value) || 0,
+        target_event: editForm.target_event,
+        kuota_maksimal: kuotaVal,
+        kapasitas: parseInt(editForm.kapasitas, 10) || 1,
+        kategori_peserta: editForm.kategori_peserta || "Semua",
+        start_date: startIso,
+        end_date: endIso,
+        is_active: editForm.is_active,
+      };
+
+      const { data, error } = await supabase
+        .from("promos")
+        .update(updatePayload)
+        .eq("id", editingPromo.id)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      onToast?.("success", `Promo "${editForm.title}" berhasil diperbarui!`);
+      if (data) {
+        setPromos((prev) => prev.map((p) => (p.id === editingPromo.id ? (data as Promo) : p)));
+      }
+      setEditModalOpen(false);
+      await fetchQuotas();
+      dispatchQuotaRefresh();
+    } catch (err: any) {
+      console.error("Save promo edit error:", err);
+      onToast?.("error", `Gagal memperbarui promo: ${err.message}`);
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -302,7 +487,168 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
         </button>
       </div>
 
-      {/* Promo List */}
+      {/* ── REAL-TIME QUOTA & PROMO SYNCHRONIZATION TABLE ── */}
+      <div className="mb-8 p-5 rounded-2xl bg-surface-container-low/60 border border-white/15 shadow-xl">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4 pb-3 border-b border-white/10">
+          <div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <Users className="w-5 h-5 text-secondary" />
+              Tabel Kontrol Kuota Terpusat (Real-Time)
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 uppercase">
+                Live Formula: Pending + Approved
+              </span>
+            </h3>
+            <p className="text-xs text-on-surface-variant mt-0.5 font-poppins">
+              Menghitung seluruh pendaftaran <code className="text-secondary">status IN (&apos;pending&apos;, &apos;approved&apos;)</code>. Sisa Kuota = Total Kuota - Kuota Terpakai.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              fetchPromos(true);
+              fetchQuotas();
+            }}
+            disabled={loadingQuotas}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs border border-white/15 transition-all cursor-pointer disabled:opacity-50"
+            title="Refresh Live Quota Counts"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-secondary ${loadingQuotas ? "animate-spin" : ""}`} />
+            <span>Segarkan Data</span>
+          </button>
+        </div>
+
+        {/* Sub-Events Live Quota Table */}
+        <div className="overflow-x-auto rounded-xl border border-white/10 mb-5">
+          <table className="w-full text-left border-collapse text-xs font-poppins">
+            <thead>
+              <tr className="bg-surface-container-high text-on-surface-variant uppercase tracking-wider text-[11px] border-b border-white/10">
+                <th className="py-3 px-4 font-semibold">Sub-Event</th>
+                <th className="py-3 px-4 font-semibold">Fase &amp; Harga</th>
+                <th className="py-3 px-4 font-semibold text-center">Total Kuota</th>
+                <th className="py-3 px-4 font-semibold text-center">Terpakai (Pending + Approved)</th>
+                <th className="py-3 px-4 font-semibold text-center">Sisa Kuota Aktif</th>
+                <th className="py-3 px-4 font-semibold text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5 font-mono">
+              {(Object.keys(DEFAULT_PRICING_TIERS) as PricingEvent[]).map((eventKey) => {
+                const item = pricingTiers[eventKey] || DEFAULT_PRICING_TIERS[eventKey];
+                const eventName = PRICING_EVENT_NAMES[eventKey];
+                const q = subEventQuotas?.[eventKey];
+                const max = item.max_quota || q?.maxQuota || DEFAULT_PRICING_TIERS[eventKey].max_quota;
+                const used = q ? q.usedQuota : 0;
+                const remaining = q ? q.remainingQuota : max;
+                const isFull = q ? q.isFull : false;
+                const isLow = remaining > 0 && remaining <= 20;
+
+                return (
+                  <tr key={eventKey} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="py-3 px-4 font-sans font-medium text-white flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-secondary shrink-0" />
+                      <div>
+                        <p className="font-semibold text-xs">{eventName}</p>
+                        <p className="text-[10px] text-on-surface-variant font-mono uppercase">{eventKey}</p>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-on-surface font-sans">
+                      <span className="font-medium text-white">{item.phase}</span>
+                      <span className="block text-[11px] text-[#ffd700] font-mono">{formatRupiah(item.price)}</span>
+                    </td>
+                    <td className="py-3 px-4 text-center text-white font-bold text-sm">
+                      {max}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 font-bold text-white">
+                        <span>{used}</span>
+                        <span className="text-[10px] font-sans font-normal text-on-surface-variant">
+                          ({q?.pendingCount || 0} P / {q?.approvedCount || 0} A)
+                        </span>
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <span className={`inline-block px-2.5 py-1 rounded-md font-bold text-sm ${
+                        isFull
+                          ? "bg-error/15 text-error border border-error/30"
+                          : isLow
+                          ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                          : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                      }`}>
+                        {remaining}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right font-sans">
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
+                        isFull
+                          ? "bg-error/20 text-error"
+                          : isLow
+                          ? "bg-amber-500/20 text-amber-300"
+                          : "bg-emerald-500/20 text-emerald-300"
+                      }`}>
+                        {isFull ? "Habis / Penuh" : isLow ? "Hampir Penuh" : "Tersedia"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Promo List Header */}
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4">
+        <div>
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-tertiary" />
+            Katalog Promo &amp; Bundling Aktif
+          </h3>
+          <p className="text-xs text-on-surface-variant mt-0.5">
+            Daftar penawaran voucher &amp; paket bundling rombongan beserta sisa kuota aktif
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-black/40 border border-white/10 rounded-xl p-1">
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                viewMode === "table"
+                  ? "bg-secondary text-primary-container shadow"
+                  : "text-on-surface-variant hover:text-white"
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+              <span>Tabel</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("cards")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                viewMode === "cards"
+                  ? "bg-secondary text-primary-container shadow"
+                  : "text-on-surface-variant hover:text-white"
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Kartu</span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-tertiary text-primary-container font-bold text-xs uppercase tracking-wider hover:bg-tertiary-fixed transition-all cursor-pointer shadow-lg hover:shadow-tertiary/20"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Tambah Promo Baru</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Promo Content */}
       {loading ? (
         <div className="p-8 text-center text-on-surface-variant text-sm">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-secondary" />
@@ -316,121 +662,304 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
             Klik tombol &ldquo;Tambah Promo Baru&rdquo; untuk membuat voucher atau bundling diskon tiket.
           </p>
         </div>
+      ) : viewMode === "table" ? (
+        /* ── TABLE VIEW FOR BUNDLING & PROMO CONTROL ── */
+        <div className="overflow-x-auto rounded-xl border border-white/10 mb-5 shadow-lg bg-surface-container-lowest/40">
+          <table className="w-full text-left border-collapse text-xs font-poppins">
+            <thead>
+              <tr className="bg-surface-container-high text-on-surface-variant uppercase tracking-wider text-[11px] border-b border-white/10">
+                <th className="py-3.5 px-4 font-semibold">Promo / Bundle</th>
+                <th className="py-3.5 px-4 font-semibold">Event Target</th>
+                <th className="py-3.5 px-4 font-semibold">Diskon / Harga</th>
+                <th className="py-3.5 px-4 font-semibold">Periode Aktif</th>
+                <th className="py-3.5 px-4 font-semibold text-center">Kuota (Terpakai / Sisa)</th>
+                <th className="py-3.5 px-4 font-semibold text-center">Status</th>
+                <th className="py-3.5 px-4 font-semibold text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5 font-mono">
+              {promos.map((promo) => {
+                const promoStatus = promoQuotas.find((pq) => pq.promo.id === promo.id);
+                const liveUsed = promoStatus ? promoStatus.usedQuota : (promo.kuota_terpakai ?? 0);
+                const livePending = promoStatus ? promoStatus.pendingCount : 0;
+                const liveApproved = promoStatus ? promoStatus.approvedCount : liveUsed;
+                const isUnlimited = promo.kuota_maksimal == null;
+                const maxQuota = isUnlimited ? null : promo.kuota_maksimal;
+                const liveRemaining = isUnlimited ? null : Math.max(0, (maxQuota as number) - liveUsed);
+                const isPromoFull = !isUnlimited && liveUsed >= (maxQuota as number);
+
+                const nowMs = Date.now();
+                const isDateStarted = !promo.start_date || new Date(promo.start_date).getTime() <= nowMs;
+                const isDateEnded = Boolean(promo.end_date && !(new Date(promo.end_date).getTime() >= nowMs));
+                const isExpired = !isDateStarted || isDateEnded;
+
+                return (
+                  <tr key={promo.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="py-3.5 px-4 font-sans">
+                      <div className="font-bold text-white text-sm">{promo.title}</div>
+                      <div className="text-[11px] text-on-surface-variant line-clamp-1 max-w-xs">{promo.description || "-"}</div>
+                    </td>
+                    <td className="py-3.5 px-4 font-sans">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-primary/15 text-primary border border-primary/30">
+                          {promo.target_event || "All"}
+                        </span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary/15 text-secondary border border-secondary/30">
+                          {promo.kapasitas || 1} Org
+                        </span>
+                        {promo.kategori_peserta && promo.kategori_peserta !== "Semua" && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                            {promo.kategori_peserta}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 font-sans">
+                      <span className="font-bold text-sm text-[#ffd700] block">
+                        {promo.discount_type === "percent"
+                          ? `${promo.discount_value}% OFF`
+                          : promo.discount_type === "bundling"
+                          ? `Rp ${Number(promo.discount_value).toLocaleString("id-ID")}`
+                          : `Hemat Rp ${Number(promo.discount_value).toLocaleString("id-ID")}`}
+                      </span>
+                      <span className="text-[10px] font-mono text-on-surface-variant uppercase">{promo.discount_type}</span>
+                    </td>
+                    <td className="py-3.5 px-4 font-sans text-xs">
+                      <div className="flex items-center gap-1.5 text-slate-200 font-mono text-[11px]">
+                        <Calendar className="w-3.5 h-3.5 text-secondary shrink-0" />
+                        <span>
+                          {formatWIB(promo.start_date)}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-400 ml-5 font-mono mt-0.5">
+                        s/d {formatWIB(promo.end_date)}
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      {isUnlimited ? (
+                        <div className="inline-flex flex-col items-center gap-0.5">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-semibold text-xs">
+                            <Sparkles className="w-3 h-3" />
+                            <span>Tanpa Batas Kuota (∞)</span>
+                          </span>
+                          <span className="text-[10px] text-on-surface-variant">
+                            {liveUsed} Terpakai ({livePending} P / {liveApproved} A)
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="inline-flex flex-col items-center">
+                          <span className="font-bold text-white text-xs">
+                            {liveUsed} / {maxQuota}
+                          </span>
+                          <span className={`text-[10px] ${liveRemaining === 0 ? "text-error font-bold" : "text-emerald-400"}`}>
+                            (Sisa: {liveRemaining} slot)
+                          </span>
+                          <span className="text-[9px] text-on-surface-variant">
+                            ({livePending} P / {liveApproved} A)
+                          </span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4 text-center font-sans">
+                      <div className="flex flex-col items-center gap-1.5">
+                        <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${
+                          !promo.is_active
+                            ? "bg-slate-500/20 text-slate-400"
+                            : isPromoFull
+                            ? "bg-error/20 text-error border border-error/30"
+                            : isExpired
+                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                            : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                        }`}>
+                          {!promo.is_active ? "Nonaktif" : isPromoFull ? "Habis (Sold Out)" : isExpired ? "Periode Berakhir" : "Tersedia"}
+                        </span>
+                        <label className="relative inline-flex items-center cursor-pointer shrink-0" title={promo.is_active ? "Klik untuk Nonaktifkan" : "Klik untuk Aktifkan"}>
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={promo.is_active}
+                            onChange={() => handleToggleActive(promo)}
+                          />
+                          <div className="w-7 h-4 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-secondary"></div>
+                        </label>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {/* Edit Action Button */}
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(promo)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary/15 hover:bg-secondary/25 text-secondary border border-secondary/30 text-xs font-semibold transition-all cursor-pointer shadow-sm hover:scale-105"
+                          title="Edit Bundle / Promo"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePromo(promo.id, promo.title)}
+                          title="Hapus Promo"
+                          className="p-1.5 text-on-surface-variant hover:text-error transition-colors cursor-pointer rounded-lg hover:bg-white/5"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       ) : (
+        /* ── CARDS VIEW FOR BUNDLING & PROMO CONTROL ── */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {promos.map((promo) => (
-            <div
-              key={promo.id}
-              className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
-                promo.is_active
-                  ? "bg-surface-container-low/60 border-white/15 shadow-md hover:border-secondary/40"
-                  : "bg-surface-container-lowest/30 border-white/5 opacity-60"
-              }`}
-            >
-              <div>
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="flex-1">
-                    <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                      <span
-                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border inline-block ${
-                          promo.discount_type === "percent"
-                            ? "bg-secondary/15 text-secondary border-secondary/30"
-                            : promo.discount_type === "bundling"
-                            ? "bg-tertiary/15 text-tertiary border-tertiary/30"
-                            : "bg-[#ffd700]/15 text-[#ffd700] border-[#ffd700]/30"
-                        }`}
-                      >
-                        {promo.discount_type}
-                      </span>
+          {promos.map((promo) => {
+            const promoStatus = promoQuotas.find((pq) => pq.promo.id === promo.id);
+            const liveUsed = promoStatus ? promoStatus.usedQuota : (promo.kuota_terpakai ?? 0);
+            const livePending = promoStatus ? promoStatus.pendingCount : 0;
+            const liveApproved = promoStatus ? promoStatus.approvedCount : liveUsed;
+            const isUnlimited = promo.kuota_maksimal == null;
+            const maxQuota = isUnlimited ? null : promo.kuota_maksimal;
+            const liveRemaining = isUnlimited ? null : Math.max(0, (maxQuota as number) - liveUsed);
+            const isPromoFull = !isUnlimited && liveUsed >= (maxQuota as number);
 
-                      {/* Event Badge */}
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border bg-primary/15 text-primary border-primary/30 inline-flex items-center gap-1">
-                        Event: {promo.target_event || "All Events"}
-                      </span>
+            return (
+              <div
+                key={promo.id}
+                className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
+                  promo.is_active
+                    ? "bg-surface-container-low/60 border-white/15 shadow-md hover:border-secondary/40"
+                    : "bg-surface-container-lowest/30 border-white/5 opacity-60"
+                }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border inline-block ${
+                            promo.discount_type === "percent"
+                              ? "bg-secondary/15 text-secondary border-secondary/30"
+                              : promo.discount_type === "bundling"
+                              ? "bg-tertiary/15 text-tertiary border-tertiary/30"
+                              : "bg-[#ffd700]/15 text-[#ffd700] border-[#ffd700]/30"
+                          }`}
+                        >
+                          {promo.discount_type}
+                        </span>
 
-                      {/* Quota Badge */}
-                      <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded border inline-flex items-center gap-1 ${
-                        promo.kuota_maksimal != null && (promo.kuota_terpakai ?? 0) >= promo.kuota_maksimal
-                          ? "bg-error/15 text-error border-error/30"
-                          : "bg-surface-container-highest text-on-surface-variant border-white/10"
-                      }`}>
-                        Quota: {promo.kuota_terpakai ?? 0} / {promo.kuota_maksimal != null ? promo.kuota_maksimal : "∞"}
-                      </span>
+                        {/* Event Badge */}
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border bg-primary/15 text-primary border-primary/30 inline-flex items-center gap-1">
+                          Event: {promo.target_event || "All Events"}
+                        </span>
 
-                      {/* Capacity Badge in Admin Central */}
-                      <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded border bg-secondary/15 text-secondary border-secondary/30 inline-flex items-center gap-1">
-                        Kapasitas: {promo.kapasitas || 1} Orang
-                      </span>
+                        {/* Quota Badge (Live Pending + Approved) */}
+                        <span
+                          className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded border inline-flex items-center gap-1 ${
+                            isUnlimited
+                              ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30"
+                              : isPromoFull
+                              ? "bg-error/15 text-error border-error/30"
+                              : "bg-surface-container-highest text-on-surface-variant border-white/10"
+                          }`}
+                          title={`Terpakai: ${liveUsed} (${livePending} Pending, ${liveApproved} Approved)`}
+                        >
+                          {isUnlimited ? (
+                            <span>Quota: Unlimited (Terpakai: {liveUsed})</span>
+                          ) : (
+                            <>
+                              Quota: {liveUsed} / {maxQuota}
+                              <span className="text-[9px] text-emerald-400 ml-1">
+                                (Sisa: {liveRemaining})
+                              </span>
+                            </>
+                          )}
+                        </span>
 
-                      {/* Kategori Peserta Target Badge in Admin Central */}
-                      <span className="text-[10px] font-sans font-semibold px-2 py-0.5 rounded border bg-cyan-500/15 text-cyan-300 border-cyan-500/30 inline-flex items-center gap-1">
-                        Target: {promo.kategori_peserta || "Semua"}
-                      </span>
+                        {/* Capacity Badge in Admin Central */}
+                        <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded border bg-secondary/15 text-secondary border-secondary/30 inline-flex items-center gap-1">
+                          Kapasitas: {promo.kapasitas || 1} Orang
+                        </span>
+
+                        {/* Kategori Peserta Target Badge in Admin Central */}
+                        <span className="text-[10px] font-sans font-semibold px-2 py-0.5 rounded border bg-cyan-500/15 text-cyan-300 border-cyan-500/30 inline-flex items-center gap-1">
+                          Target: {promo.kategori_peserta || "Semua"}
+                        </span>
+                      </div>
+
+                      <h3 className="font-bold text-base text-white">{promo.title}</h3>
                     </div>
 
-                    <h3 className="font-bold text-base text-white">{promo.title}</h3>
+                    {/* Active Toggle */}
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={promo.is_active}
+                        onChange={() => handleToggleActive(promo)}
+                      />
+                      <div className="w-9 h-5 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary"></div>
+                    </label>
                   </div>
 
-                  {/* Active Toggle */}
-                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                    <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={promo.is_active}
-                      onChange={() => handleToggleActive(promo)}
-                    />
-                    <div className="w-9 h-5 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary"></div>
-                  </label>
+                  <p className="text-xs text-on-surface-variant line-clamp-2 mb-3 font-poppins">
+                    {promo.description || "Tidak ada deskripsi"}
+                  </p>
                 </div>
 
-                <p className="text-xs text-on-surface-variant line-clamp-2 mb-3 font-poppins">
-                  {promo.description || "Tidak ada deskripsi"}
-                </p>
-              </div>
+                <div className="pt-3 border-t border-white/10 flex items-center justify-between text-xs font-mono">
+                  <div className="flex items-center gap-1.5 text-slate-300">
+                    <Calendar className="w-3.5 h-3.5 text-secondary shrink-0" />
+                    <span>
+                      {formatWibDateRange(promo.start_date, promo.end_date)}
+                    </span>
+                  </div>
 
-              <div className="pt-3 border-t border-white/10 flex items-center justify-between text-xs font-mono">
-                <div className="flex items-center gap-1.5 text-on-surface-variant">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>
-                    {new Date(promo.start_date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta", month: "short", day: "numeric" })} -{" "}
-                    {new Date(promo.end_date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta", month: "short", day: "numeric", year: "numeric" })}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="font-bold text-sm text-[#ffd700]">
-                    {promo.discount_type === "percent"
-                      ? `${promo.discount_value}% OFF`
-                      : `Rp ${Number(promo.discount_value).toLocaleString("id-ID")}`}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleDeletePromo(promo.id, promo.title)}
-                    title="Hapus Promo"
-                    className="p-1 text-on-surface-variant hover:text-error transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-[#ffd700] mr-1">
+                      {promo.discount_type === "percent"
+                        ? `${promo.discount_value}% OFF`
+                        : `Rp ${Number(promo.discount_value).toLocaleString("id-ID")}`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(promo)}
+                      title="Edit Promo"
+                      className="p-1.5 text-on-surface-variant hover:text-secondary transition-colors cursor-pointer rounded-lg hover:bg-white/5 flex items-center gap-1 text-xs"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePromo(promo.id, promo.title)}
+                      title="Hapus Promo"
+                      className="p-1.5 text-on-surface-variant hover:text-error transition-colors cursor-pointer rounded-lg hover:bg-white/5"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* ── Sub-section: Manajemen Harga & Fase Pendaftaran ── */}
+      {/* ── Sub-section: Manajemen Kuota, Harga & Fase Pendaftaran ── */}
       <div className="mt-10 pt-8 border-t border-white/10">
         <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
           <div>
             <h3 className="text-lg font-bold text-on-surface flex items-center gap-2.5">
               <Banknote className="w-5 h-5 text-[#ffd700]" />
-              Manajemen Harga &amp; Fase Pendaftaran
+              Manajemen Kuota, Harga &amp; Fase Pendaftaran
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#ffd700]/15 text-[#ffd700] border border-[#ffd700]/30 uppercase">
                 cms_settings: pricing_tiers
               </span>
             </h3>
             <p className="text-xs text-on-surface-variant mt-1">
-              Atur nama fase aktif (misal: Presale 1, Presale 2, Normal Price) dan nominal biaya pendaftaran (Rp) untuk seluruh 6 sub-event.
+              Atur nama fase aktif, nominal biaya pendaftaran (Rp), dan batas maksimal kuota peserta untuk seluruh 6 sub-event.
             </p>
           </div>
 
@@ -448,7 +977,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
             ) : (
               <>
                 <Check className="w-4 h-4" />
-                <span>Simpan Harga</span>
+                <span>Simpan Kuota &amp; Harga</span>
               </>
             )}
           </button>
@@ -459,6 +988,8 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
           {(Object.keys(DEFAULT_PRICING_TIERS) as PricingEvent[]).map((eventKey) => {
             const item = pricingTiers[eventKey] || DEFAULT_PRICING_TIERS[eventKey];
             const eventName = PRICING_EVENT_NAMES[eventKey];
+            const q = subEventQuotas?.[eventKey];
+            const currentMax = item.max_quota || q?.maxQuota || DEFAULT_PRICING_TIERS[eventKey].max_quota;
 
             return (
               <div
@@ -508,6 +1039,41 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                         onChange={(e) => handlePricingChange(eventKey, "price", e.target.value)}
                         className="w-full bg-[#0b1026]/70 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/30 focus:border-secondary focus:outline-none transition-colors font-mono"
                       />
+                    </div>
+
+                    {/* c) Maksimal Kuota (Slot) */}
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider block">
+                          Total Kuota (Slot)
+                        </label>
+                        <span className="text-xs font-mono font-bold text-secondary">
+                          {currentMax} Slot
+                        </span>
+                      </div>
+                      <input
+                        type="number"
+                        min="1"
+                        value={currentMax}
+                        onChange={(e) => handlePricingChange(eventKey, "max_quota", e.target.value)}
+                        className="w-full bg-[#0b1026]/70 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/30 focus:border-secondary focus:outline-none transition-colors font-mono"
+                      />
+                    </div>
+
+                    {/* Live Quota Status Box */}
+                    <div className="p-3 rounded-lg bg-surface-container-highest/30 border border-white/5 space-y-1.5 text-xs font-mono">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] font-sans text-on-surface-variant">Terpakai (Pending + Approved):</span>
+                        <span className="text-white font-bold">
+                          {q ? `${q.usedQuota} (${q.pendingCount} P / ${q.approvedCount} A)` : "..."}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] font-sans text-on-surface-variant">Sisa Kuota Aktif:</span>
+                        <span className={`font-bold ${q && q.remainingQuota <= 20 ? "text-error" : "text-emerald-400"}`}>
+                          {q ? `${q.remainingQuota} Slot` : "..."}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -609,22 +1175,52 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-on-surface-variant font-semibold mb-1 uppercase tracking-wider">
-                    Maksimal Kuota *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    value={form.kuota_maksimal}
-                    onChange={(e) => setForm({ ...form, kuota_maksimal: e.target.value })}
-                    placeholder="e.g. 50"
-                    className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-secondary outline-none transition-all font-mono"
-                  />
+                {/* Maksimal Kuota with Unlimited Toggle */}
+                <div className="sm:col-span-2 p-3.5 rounded-xl bg-black/40 border border-white/10 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block text-white font-semibold uppercase tracking-wider text-[11px]">
+                        Maksimal Kuota (max_quota) *
+                      </label>
+                      <p className="text-[11px] text-on-surface-variant font-sans">
+                        Atur batas total pembelian atau buat tanpa batas kuota.
+                      </p>
+                    </div>
+
+                    <label className="flex items-center gap-2 cursor-pointer bg-surface-container-high px-3 py-1.5 rounded-lg border border-white/10 hover:border-secondary/40 transition-all">
+                      <input
+                        type="checkbox"
+                        checked={form.is_unlimited}
+                        onChange={(e) => setForm({ ...form, is_unlimited: e.target.checked })}
+                        className="rounded border-white/20 bg-surface-container-highest text-secondary focus:ring-secondary w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-xs font-semibold text-white select-none">
+                        Unlimited Kuota
+                      </span>
+                    </label>
+                  </div>
+
+                  {form.is_unlimited ? (
+                    <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 shrink-0 text-cyan-400" />
+                      <span>
+                        <strong>Tanpa Batas Kuota:</strong> Nilai <code className="font-mono">max_quota</code> diset <code className="font-mono">NULL</code>. Promo ini akan selalu tersedia untuk pembeli selama periode aktif.
+                      </span>
+                    </div>
+                  ) : (
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={form.kuota_maksimal}
+                      onChange={(e) => setForm({ ...form, kuota_maksimal: e.target.value })}
+                      placeholder="e.g. 50 (kuota tiket/bundle)"
+                      className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-secondary outline-none transition-all font-mono"
+                    />
+                  )}
                 </div>
 
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-on-surface-variant font-semibold mb-1 uppercase tracking-wider">
                     Kapasitas *
                   </label>
@@ -675,31 +1271,50 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Tanggal Mulai & Tanggal Berakhir (datetime picker in WIB) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-xl bg-black/30 border border-white/10">
                 <div>
-                  <label className="block text-on-surface-variant font-semibold mb-1 uppercase tracking-wider">
-                    Tanggal Mulai
+                  <label className="block text-slate-200 font-semibold mb-1 uppercase tracking-wider text-[11px] flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-secondary" />
+                      Tanggal Mulai *
+                    </span>
+                    <span className="text-[10px] text-secondary font-mono font-bold">WIB</span>
                   </label>
                   <input
-                    type="date"
+                    type="datetime-local"
                     required
                     value={form.start_date}
                     onChange={(e) => setForm({ ...form, start_date: e.target.value })}
-                    className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:border-secondary outline-none transition-all"
+                    className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:border-secondary outline-none transition-all font-mono"
                   />
+                  {form.start_date && (
+                    <span className="text-[10px] text-slate-400 font-mono mt-1 block">
+                      {formatWIB(wibDatetimeLocalToIso(form.start_date))}
+                    </span>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-on-surface-variant font-semibold mb-1 uppercase tracking-wider">
-                    Tanggal Berakhir
+                  <label className="block text-slate-200 font-semibold mb-1 uppercase tracking-wider text-[11px] flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-secondary" />
+                      Tanggal Berakhir *
+                    </span>
+                    <span className="text-[10px] text-secondary font-mono font-bold">WIB</span>
                   </label>
                   <input
-                    type="date"
+                    type="datetime-local"
                     required
                     value={form.end_date}
                     onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-                    className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:border-secondary outline-none transition-all"
+                    className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:border-secondary outline-none transition-all font-mono"
                   />
+                  {form.end_date && (
+                    <span className="text-[10px] text-secondary font-mono mt-1 block font-medium">
+                      {formatWIB(wibDatetimeLocalToIso(form.end_date))}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -732,6 +1347,250 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                 >
                   {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>{submitting ? "Menyimpan..." : "Simpan Promo"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── EDIT BUNDLE / PROMO MODAL ── */}
+      {editModalOpen && editingPromo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="bg-[#0B1026] border border-white/20 rounded-2xl p-6 max-w-lg w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center mb-5 pb-3 border-b border-white/10">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Edit className="w-5 h-5 text-secondary" />
+                Edit Bundle / Promo
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditModalOpen(false)}
+                className="text-on-surface-variant hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSaveEdit} className="flex flex-col gap-4 text-xs font-poppins">
+              <div>
+                <label className="block text-on-surface-variant font-semibold mb-1 uppercase tracking-wider">
+                  Judul Promo *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-secondary outline-none transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-on-surface-variant font-semibold mb-1 uppercase tracking-wider">
+                  Deskripsi Penawaran
+                </label>
+                <textarea
+                  rows={2}
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3.5 py-2 text-sm text-white focus:border-secondary outline-none transition-all"
+                />
+              </div>
+
+              {/* Tanggal Mulai & Tanggal Berakhir (datetime picker in WIB) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-xl bg-black/30 border border-white/10">
+                <div>
+                  <label className="block text-slate-200 font-semibold mb-1 uppercase tracking-wider text-[11px] flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-secondary" />
+                      Tanggal Mulai *
+                    </span>
+                    <span className="text-[10px] text-secondary font-mono font-bold">WIB</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={editForm.start_date}
+                    onChange={(e) => setEditForm({ ...editForm, start_date: e.target.value })}
+                    className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:border-secondary outline-none transition-all font-mono"
+                  />
+                  {editForm.start_date && (
+                    <span className="text-[10px] text-slate-400 font-mono mt-1 block">
+                      {formatWIB(wibDatetimeLocalToIso(editForm.start_date))}
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-slate-200 font-semibold mb-1 uppercase tracking-wider text-[11px] flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-secondary" />
+                      Tanggal Berakhir *
+                    </span>
+                    <span className="text-[10px] text-secondary font-mono font-bold">WIB</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={editForm.end_date}
+                    onChange={(e) => setEditForm({ ...editForm, end_date: e.target.value })}
+                    className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:border-secondary outline-none transition-all font-mono"
+                  />
+                  {editForm.end_date && (
+                    <span className="text-[10px] text-secondary font-mono mt-1 block font-medium">
+                      {formatWIB(wibDatetimeLocalToIso(editForm.end_date))}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Maksimal Kuota Section with Unlimited Toggle */}
+              <div className="p-3.5 rounded-xl bg-black/40 border border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="font-semibold text-white uppercase tracking-wider text-[11px] block">
+                      Maksimal Kuota (max_quota)
+                    </label>
+                    <p className="text-[11px] text-on-surface-variant font-sans">
+                      Atur kuota kuantitas atau buat tanpa batas kuota.
+                    </p>
+                  </div>
+
+                  {/* Unlimited Toggle */}
+                  <label className="flex items-center gap-2 cursor-pointer bg-surface-container-high px-3 py-1.5 rounded-lg border border-white/10 hover:border-secondary/40 transition-all">
+                    <input
+                      type="checkbox"
+                      checked={editForm.is_unlimited}
+                      onChange={(e) => setEditForm({ ...editForm, is_unlimited: e.target.checked })}
+                      className="rounded border-white/20 bg-surface-container-highest text-secondary focus:ring-secondary w-4 h-4 cursor-pointer"
+                    />
+                    <span className="text-xs font-semibold text-white select-none">
+                      Unlimited Kuota
+                    </span>
+                  </label>
+                </div>
+
+                {editForm.is_unlimited ? (
+                  <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 shrink-0 text-cyan-400" />
+                    <span>
+                      <strong>Tanpa Batas Kuota:</strong> Nilai <code className="font-mono">max_quota</code> diset <code className="font-mono">NULL</code>. Promo ini akan selalu tersedia untuk pembeli selama periode aktif.
+                    </span>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={editForm.kuota_maksimal}
+                      onChange={(e) => setEditForm({ ...editForm, kuota_maksimal: e.target.value })}
+                      placeholder="Masukkan batas kuota, e.g. 100, 250"
+                      className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-secondary outline-none transition-all font-mono"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Target Event, Kategori Peserta, Kapasitas & Diskon */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-on-surface-variant font-semibold mb-1 uppercase tracking-wider">
+                    Target Event
+                  </label>
+                  <select
+                    value={editForm.target_event}
+                    onChange={(e) => setEditForm({ ...editForm, target_event: e.target.value as PromoTargetEvent })}
+                    className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3 py-2.5 text-xs text-white focus:border-secondary outline-none cursor-pointer"
+                  >
+                    {PROMO_TARGET_EVENTS.map((evt) => (
+                      <option key={evt} value={evt} className="bg-[#0b1026]">
+                        {evt}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-on-surface-variant font-semibold mb-1 uppercase tracking-wider">
+                    Kapasitas (Orang)
+                  </label>
+                  <select
+                    value={editForm.kapasitas}
+                    onChange={(e) => setEditForm({ ...editForm, kapasitas: e.target.value })}
+                    className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3 py-2.5 text-xs text-white focus:border-secondary outline-none cursor-pointer font-mono"
+                  >
+                    {[1, 2, 3, 4, 5].map((num) => (
+                      <option key={num} value={num} className="bg-[#0b1026]">
+                        {num} Orang
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-on-surface-variant font-semibold mb-1 uppercase tracking-wider">
+                    Tipe Diskon
+                  </label>
+                  <select
+                    value={editForm.discount_type}
+                    onChange={(e) => setEditForm({ ...editForm, discount_type: e.target.value as DiscountType })}
+                    className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3 py-2.5 text-xs text-white focus:border-secondary outline-none cursor-pointer"
+                  >
+                    <option value="percent" className="bg-[#0b1026]">Persentase (%)</option>
+                    <option value="nominal" className="bg-[#0b1026]">Nominal Potongan (Rp)</option>
+                    <option value="bundling" className="bg-[#0b1026]">Harga Paket Bundling (Rp)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-on-surface-variant font-semibold mb-1 uppercase tracking-wider">
+                    Nilai Diskon / Harga *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    step="any"
+                    value={editForm.discount_value}
+                    onChange={(e) => setEditForm({ ...editForm, discount_value: e.target.value })}
+                    className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-secondary outline-none transition-all font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <input
+                  type="checkbox"
+                  id="edit_promo_is_active"
+                  checked={editForm.is_active}
+                  onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
+                  className="rounded border-white/20 bg-surface-container-high text-secondary focus:ring-secondary w-4 h-4 cursor-pointer"
+                />
+                <label htmlFor="edit_promo_is_active" className="text-xs text-white cursor-pointer font-medium">
+                  Aktifkan promo ini di User Dashboard &amp; Checkout
+                </label>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex justify-end gap-3 mt-4 pt-3 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setEditModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-on-surface text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="px-5 py-2.5 rounded-xl bg-secondary text-primary-container font-bold text-xs uppercase tracking-wider hover:bg-secondary-fixed transition-all cursor-pointer shadow-lg disabled:opacity-50 flex items-center gap-2"
+                >
+                  {savingEdit && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{savingEdit ? "Menyimpan..." : "Simpan Perubahan"}</span>
                 </button>
               </div>
             </form>

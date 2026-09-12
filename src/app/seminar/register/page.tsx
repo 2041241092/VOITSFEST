@@ -22,6 +22,7 @@ import {
 import Link from "next/link";
 import GatewayGuard from "@/components/gateway/GatewayGuard";
 import { fetchPricingTiers, EventPricing, DEFAULT_PRICING_TIERS } from "@/lib/pricing";
+import { checkQuotaAvailability, dispatchQuotaRefresh } from "@/lib/quota";
 
 export default function SeminarRegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -136,6 +137,13 @@ export default function SeminarRegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid || isSubmitting) return;
+    // Lifecycle Rule 1: Verify remaining quota before permitting submission
+    const quotaCheck = await checkQuotaAvailability("seminar", 1);
+    if (!quotaCheck.available) {
+      setError(quotaCheck.error || "Maaf, kuota pendaftaran Seminar Kewirausahaan sudah penuh.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
@@ -201,6 +209,7 @@ export default function SeminarRegisterPage() {
         if (txError) throw txError;
       }
 
+      dispatchQuotaRefresh();
       setIsSuccess(true);
     } catch (err: any) {
       setError(err.message || "Terjadi kesalahan yang tidak terduga.");

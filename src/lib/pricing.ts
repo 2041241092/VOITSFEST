@@ -5,6 +5,7 @@ export type PricingEvent = "festival" | "colorfun" | "seminar" | "bcc" | "bpc" |
 export interface EventPricing {
   phase: string;
   price: number;
+  max_quota: number;
 }
 
 export interface PricingTiersConfig {
@@ -17,12 +18,12 @@ export interface PricingTiersConfig {
 }
 
 export const DEFAULT_PRICING_TIERS: PricingTiersConfig = {
-  festival: { phase: "Presale 2", price: 75000 },
-  colorfun: { phase: "Normal Price", price: 75000 },
-  seminar: { phase: "Normal Price", price: 10000 },
-  bcc: { phase: "Batch 1", price: 79000 },
-  bpc: { phase: "Batch 1", price: 79000 },
-  tenant: { phase: "Regular", price: 10000 },
+  festival: { phase: "Presale 2", price: 75000, max_quota: 500 },
+  colorfun: { phase: "Normal Price", price: 75000, max_quota: 500 },
+  seminar: { phase: "Normal Price", price: 10000, max_quota: 300 },
+  bcc: { phase: "Batch 1", price: 79000, max_quota: 100 },
+  bpc: { phase: "Batch 1", price: 79000, max_quota: 100 },
+  tenant: { phase: "Regular", price: 10000, max_quota: 50 },
 };
 
 export const PRICING_EVENT_NAMES: Record<PricingEvent, string> = {
@@ -56,26 +57,32 @@ export async function fetchPricingTiers(): Promise<PricingTiersConfig> {
       festival: {
         phase: val.festival?.phase || DEFAULT_PRICING_TIERS.festival.phase,
         price: typeof val.festival?.price === "number" ? val.festival.price : DEFAULT_PRICING_TIERS.festival.price,
+        max_quota: typeof val.festival?.max_quota === "number" && val.festival.max_quota > 0 ? val.festival.max_quota : DEFAULT_PRICING_TIERS.festival.max_quota,
       },
       colorfun: {
         phase: val.colorfun?.phase || DEFAULT_PRICING_TIERS.colorfun.phase,
         price: typeof val.colorfun?.price === "number" ? val.colorfun.price : DEFAULT_PRICING_TIERS.colorfun.price,
+        max_quota: typeof val.colorfun?.max_quota === "number" && val.colorfun.max_quota > 0 ? val.colorfun.max_quota : DEFAULT_PRICING_TIERS.colorfun.max_quota,
       },
       seminar: {
         phase: val.seminar?.phase || DEFAULT_PRICING_TIERS.seminar.phase,
         price: typeof val.seminar?.price === "number" ? val.seminar.price : DEFAULT_PRICING_TIERS.seminar.price,
+        max_quota: typeof val.seminar?.max_quota === "number" && val.seminar.max_quota > 0 ? val.seminar.max_quota : DEFAULT_PRICING_TIERS.seminar.max_quota,
       },
       bcc: {
         phase: val.bcc?.phase || DEFAULT_PRICING_TIERS.bcc.phase,
         price: typeof val.bcc?.price === "number" ? val.bcc.price : DEFAULT_PRICING_TIERS.bcc.price,
+        max_quota: typeof val.bcc?.max_quota === "number" && val.bcc.max_quota > 0 ? val.bcc.max_quota : DEFAULT_PRICING_TIERS.bcc.max_quota,
       },
       bpc: {
         phase: val.bpc?.phase || DEFAULT_PRICING_TIERS.bpc.phase,
         price: typeof val.bpc?.price === "number" ? val.bpc.price : DEFAULT_PRICING_TIERS.bpc.price,
+        max_quota: typeof val.bpc?.max_quota === "number" && val.bpc.max_quota > 0 ? val.bpc.max_quota : DEFAULT_PRICING_TIERS.bpc.max_quota,
       },
       tenant: {
         phase: val.tenant?.phase || DEFAULT_PRICING_TIERS.tenant.phase,
         price: typeof val.tenant?.price === "number" ? val.tenant.price : DEFAULT_PRICING_TIERS.tenant.price,
+        max_quota: typeof val.tenant?.max_quota === "number" && val.tenant.max_quota > 0 ? val.tenant.max_quota : DEFAULT_PRICING_TIERS.tenant.max_quota,
       },
     };
   } catch (err) {

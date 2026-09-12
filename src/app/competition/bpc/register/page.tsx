@@ -23,6 +23,7 @@ import {
 import Link from "next/link";
 import GatewayGuard from "@/components/gateway/GatewayGuard";
 import { fetchPricingTiers, EventPricing, DEFAULT_PRICING_TIERS } from "@/lib/pricing";
+import { checkQuotaAvailability, dispatchQuotaRefresh } from "@/lib/quota";
 
 export default function BpcRegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -170,6 +171,13 @@ export default function BpcRegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid || isSubmitting) return;
+    // Lifecycle Rule 1: Verify remaining quota before permitting submission
+    const quotaCheck = await checkQuotaAvailability("bpc", 1);
+    if (!quotaCheck.available) {
+      setError(quotaCheck.error || "Maaf, kuota pendaftaran Business Plan Competition (BPC) sudah penuh.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
@@ -274,6 +282,7 @@ export default function BpcRegisterPage() {
 
       if (txError) throw txError;
 
+      dispatchQuotaRefresh();
       setIsSuccess(true);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");

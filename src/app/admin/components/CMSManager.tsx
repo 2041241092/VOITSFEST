@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Settings, Save, Calendar, Clock, MapPin, X, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
 import { parseEventDetails } from "@/lib/cms";
+import { toLocalISOString, wibDatetimeLocalToIso, formatWIB } from "@/lib/date";
 import PromoManager from "./PromoManager";
 import SponsorManager from "./SponsorManager";
 
@@ -97,7 +98,7 @@ export default function CMSManager() {
             const cd = countdownRecord.value as any;
             if (cd.active !== undefined) setCountdownActive(Boolean(cd.active));
             if (cd.description) setCountdownDesc(cd.description);
-            if (cd.date) setCountdownTarget(cd.date);
+            if (cd.date) setCountdownTarget(toLocalISOString(cd.date));
           } else {
             setCountdownActive(Boolean(countdownRecord.value));
           }
@@ -109,7 +110,7 @@ export default function CMSManager() {
           const rawTarget = typeof targetRecord.value === "string" 
             ? targetRecord.value 
             : JSON.stringify(targetRecord.value).replace(/"/g, "");
-          if (rawTarget) setCountdownTarget(rawTarget);
+          if (rawTarget) setCountdownTarget(toLocalISOString(rawTarget));
         }
 
         // Countdown label (key: 'countdown_label')
@@ -219,13 +220,13 @@ export default function CMSManager() {
           value: {
             active: countdownActive,
             description: countdownDesc,
-            date: countdownTarget,
+            date: wibDatetimeLocalToIso(countdownTarget) || countdownTarget,
           },
           updated_at: now,
         },
         {
           key: "countdown_target",
-          value: countdownTarget,
+          value: wibDatetimeLocalToIso(countdownTarget) || countdownTarget,
           updated_at: now,
         },
         {
@@ -458,6 +459,11 @@ export default function CMSManager() {
                 onChange={(e) => setCountdownTarget(e.target.value)}
                 className="w-full bg-surface-container border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white focus:border-secondary outline-none transition-all font-mono"
               />
+              {countdownTarget && (
+                <p className="text-[11px] text-secondary font-mono mt-1">
+                  Target WIB: {formatWIB(wibDatetimeLocalToIso(countdownTarget))}
+                </p>
+              )}
               <p className="text-[11px] text-on-surface-variant/70 mt-1">
                 Waktu batas hitung mundur yang akan dihitung langsung oleh timer di halaman depan.
               </p>

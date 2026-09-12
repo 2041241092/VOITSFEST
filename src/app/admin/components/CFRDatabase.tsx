@@ -251,7 +251,9 @@ export default function CFRDatabase() {
         }
       }
 
-      if (promoId) {
+      // Lifecycle Rule: Quota is already held at initial submission (pending).
+      // Only re-increment if the registration was previously marked as "rejected".
+      if (record.payment_status?.toLowerCase() === "rejected" && promoId) {
         const { error: rpcError } = await supabase.rpc("increment_promo_quota", {
           p_promo_id: promoId,
           p_amount: capacityCount,
@@ -282,7 +284,8 @@ export default function CFRDatabase() {
     setActionInProgress(recordId);
 
     try {
-      const wasVerified = (record.payment_status || "").toLowerCase() === "verified";
+      // Any non-rejected record (pending or verified) holds quota and must be released immediately upon rejection
+      const wasHoldingQuota = (record.payment_status || "").toLowerCase() !== "rejected";
       let error;
       if (record.group_id) {
         const res = await supabase
@@ -300,7 +303,7 @@ export default function CFRDatabase() {
 
       if (error) {
         console.error("Reject failed:", error);
-        alert(`Gagal menolak pendaftaran: ${error.message || "Terjadi kesalahan"}`);
+        alert(`Gagal menolak pendaftaran CFR: ${error.message || "Terjadi kesalahan"}`);
         return;
       }
 
@@ -315,8 +318,8 @@ export default function CFRDatabase() {
         console.warn("Notice syncing transactions rejection:", txErr);
       }
 
-      // If clicking Reject on a previously verified transaction, call decrement_promo_quota with the corresponding p_promo_id
-      if (wasVerified) {
+      // Lifecycle Rule: Release held quota immediately on admin rejection so slot becomes available again
+      if (wasHoldingQuota) {
         let promoId = record.promo_id || null;
         let capacityCount = 1;
         if (record.group_id) {
@@ -448,7 +451,7 @@ export default function CFRDatabase() {
       r.scan_count || 0,
       r.group_id || "-",
       r.is_primary === false ? "Anggota Group" : "Utama",
-      r.created_at ? new Date(r.created_at).toLocaleString("id-ID") : "-",
+      r.created_at ? new Date(r.created_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }) : "-",
     ]);
 
     downloadCSV(`colorfun_registrations_${new Date().toISOString().split("T")[0]}`, headers, rows);

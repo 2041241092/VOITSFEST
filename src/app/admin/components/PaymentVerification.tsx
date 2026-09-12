@@ -512,22 +512,36 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
         }
 
       } else {
-        const { error } = await supabase
+        const { data: updatedTx, error } = await supabase
           .from("transactions")
           .update({ status: "Verified", verified_at: new Date().toISOString(), verified_by: user?.id })
-          .eq("id", record.source_id);
+          .eq("id", record.source_id)
+          .select("source_id, source_type, sub_event_type")
+          .maybeSingle();
 
         if (error) {
           alert("Gagal memverifikasi transaksi: " + error.message);
           return;
+        }
+
+        if (updatedTx?.source_id) {
+          const sType = (updatedTx.source_type || updatedTx.sub_event_type || "").toLowerCase();
+          if (sType.includes("bcc")) {
+            await supabase.from("bcc_registrations").update({ status: "approved" }).eq("id", updatedTx.source_id);
+          } else if (sType.includes("bpc")) {
+            await supabase.from("bpc_registrations").update({ status: "approved" }).eq("id", updatedTx.source_id);
+          } else if (sType.includes("tenant")) {
+            await supabase.from("tenant_registrations").update({ status: "approved" }).eq("id", updatedTx.source_id);
+          }
         }
       }
 
       // Retrieve the promo_id associated with that group_id
       const { promoId, count: capacityCount } = await resolvePromoInfo(record);
 
-      // If a valid promo_id exists, execute the Supabase RPC function:
-      if (promoId) {
+      // Lifecycle Rule: Quota is already held at initial submission (pending).
+      // Only re-increment if the registration was previously marked as "Rejected".
+      if (record.status === "Rejected" && promoId) {
         const { error: rpcError } = await supabase.rpc("increment_promo_quota", {
           p_promo_id: promoId,
           p_amount: capacityCount,
@@ -558,10 +572,11 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
     }
   };
 
-  // Reject Action (Bi-directional sync updating all rows in group_id and reverting promo quota if previously verified)
+  // Reject Action (Bi-directional sync updating all rows in group_id and releasing held quota immediately)
   const handleReject = async (record: UnifiedPaymentRecord) => {
     try {
-      const wasVerified = record.status === "Verified";
+      // Any non-rejected record (Pending or Verified) holds quota and must be released upon rejection
+      const wasHoldingQuota = record.status !== "Rejected";
 
       if (record.origin_table === "colorfun_registrations") {
         let error;
@@ -626,19 +641,32 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
         }
 
       } else {
-        const { error } = await supabase
+        const { data: updatedTx, error } = await supabase
           .from("transactions")
           .update({ status: "Rejected" })
-          .eq("id", record.source_id);
+          .eq("id", record.source_id)
+          .select("source_id, source_type, sub_event_type")
+          .maybeSingle();
 
         if (error) {
           alert("Gagal menolak transaksi: " + error.message);
           return;
         }
+
+        if (updatedTx?.source_id) {
+          const sType = (updatedTx.source_type || updatedTx.sub_event_type || "").toLowerCase();
+          if (sType.includes("bcc")) {
+            await supabase.from("bcc_registrations").update({ status: "rejected" }).eq("id", updatedTx.source_id);
+          } else if (sType.includes("bpc")) {
+            await supabase.from("bpc_registrations").update({ status: "rejected" }).eq("id", updatedTx.source_id);
+          } else if (sType.includes("tenant")) {
+            await supabase.from("tenant_registrations").update({ status: "rejected" }).eq("id", updatedTx.source_id);
+          }
+        }
       }
 
-      // If clicking Reject on a previously verified transaction, call decrement_promo_quota with the corresponding p_promo_id
-      if (wasVerified) {
+      // Lifecycle Rule: Release held quota immediately on admin rejection so slot becomes available again
+      if (wasHoldingQuota) {
         const { promoId, count: capacityCount } = await resolvePromoInfo(record);
         if (promoId) {
           const { error: rpcError } = await supabase.rpc("decrement_promo_quota", {
@@ -712,7 +740,7 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
       item.ticket_phase || "-",
       item.status,
       item.ticket_qr_code || "-",
-      item.created_at ? new Date(item.created_at).toLocaleString("id-ID") : "-",
+      item.created_at ? new Date(item.created_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }) : "-",
       item.group_id || "-",
       item.is_primary === false ? "Anggota Group" : "Utama",
     ]);
@@ -921,6 +949,7 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
                   <td className="p-4 py-3 text-xs text-on-surface-variant font-mono">
                     {item.created_at
                       ? new Date(item.created_at).toLocaleString("id-ID", {
+                          timeZone: "Asia/Jakarta",
                           dateStyle: "short",
                           timeStyle: "short",
                         })

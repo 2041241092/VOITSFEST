@@ -6,6 +6,9 @@ export interface PromoValidationResult {
   promo?: Promo;
   discountAmount?: number;
   finalPrice?: number;
+  isExpired?: boolean;
+  isSoldOut?: boolean;
+  isUnlimited?: boolean;
 }
 
 /**
@@ -48,9 +51,11 @@ export function calculatePromoPrice(
 /**
  * Validates a promo code strictly according to VOITSFEST rules:
  * 1. Exists & active
- * 2. Date-based validity (start_date <= now <= end_date)
+ * 2. Condition 3 (Date Range Check): Current time within [start_date, end_date]
  * 3. Event Target match (promo.target_event === currentEventContext)
- * 4. Quota check (promo.kuota_terpakai < promo.kuota_maksimal)
+ * 4. Condition 1 & 2 (Quota Check):
+ *    - If kuota_maksimal is NOT null: ensure used_quota < kuota_maksimal
+ *    - If kuota_maksimal is null (Unlimited): bypass quota limit completely
  */
 export function validatePromoForEvent(
   promo: Promo | null | undefined,
@@ -67,38 +72,57 @@ export function validatePromoForEvent(
     return { valid: false, error: "Kode promo sedang tidak aktif." };
   }
 
-  // 2. Date-based expiration check
-  const now = new Date();
-  if (promo.start_date && new Date(promo.start_date) > now) {
-    return { valid: false, error: "Periode promo belum dimulai." };
-  }
-  if (promo.end_date && new Date(promo.end_date) < now) {
-    return { valid: false, error: "Kode promo telah kedaluwarsa." };
-  }
-
-  // 3. Validation Rule 1 (Event Match):
-  // Before applying a promo, verify that promo.target_event matches current page's event context.
-  if (!promo.target_event || promo.target_event.trim().toLowerCase() !== currentEventContext.trim().toLowerCase()) {
-    return { valid: false, error: "Kode promo tidak berlaku untuk event ini." };
-  }
-
-  // 4. Validation Rule 2 (Quota Check):
-  // Check if (promo.kuota_terpakai >= promo.kuota_maksimal).
-  if (
-    promo.kuota_maksimal != null &&
-    promo.kuota_maksimal > 0 &&
-    (promo.kuota_terpakai ?? 0) >= promo.kuota_maksimal
-  ) {
-    return { valid: false, error: "Maaf, kuota promo ini sudah habis." };
-  }
-
+  const isUnlimited = promo.kuota_maksimal == null;
   const { finalPrice, discountAmount } = calculatePromoPrice(promo, basePrice, customKapasitas);
 
+  // 2. Condition 3: Date-based validity check
+  const nowMs = Date.now();
+  if (promo.start_date && new Date(promo.start_date).getTime() > nowMs) {
+    return { valid: false, error: "Periode promo belum dimulai.", isExpired: true, discountAmount, finalPrice, isUnlimited };
+  }
+  if (promo.end_date && !(new Date(promo.end_date).getTime() >= nowMs)) {
+    return { valid: false, error: "Periode promo telah berakhir.", isExpired: true, discountAmount, finalPrice, isUnlimited };
+  }
+
+  // 3. Event Target Match
+  if (!promo.target_event || promo.target_event.trim().toLowerCase() !== currentEventContext.trim().toLowerCase()) {
+    return { valid: false, error: "Kode promo tidak berlaku untuk event ini.", discountAmount, finalPrice, isUnlimited };
+  }
+
+  // 4. Quota Check
+  const requestedCount = customKapasitas && customKapasitas >= 1
+    ? customKapasitas
+    : (promo.kapasitas && promo.kapasitas >= 1 ? promo.kapasitas : 1);
+
+  // Condition 1: Limited Quota Check (kuota_maksimal is not null)
+  if (!isUnlimited) {
+    const maxQuota = promo.kuota_maksimal as number;
+    const usedQuota = promo.kuota_terpakai ?? 0;
+    const remaining = Math.max(0, maxQuota - usedQuota);
+
+    if (usedQuota >= maxQuota) {
+      return { valid: false, error: "Maaf, kuota promo ini sudah habis (Sold Out).", isSoldOut: true, discountAmount, finalPrice, isUnlimited: false };
+    }
+
+    if (remaining < requestedCount) {
+      return {
+        valid: false,
+        error: `Maaf, sisa kuota promo ini tidak mencukupi (Tersisa: ${remaining} tiket/bundle, dibutuhkan: ${requestedCount}).`,
+        isSoldOut: true,
+        discountAmount,
+        finalPrice,
+        isUnlimited: false,
+      };
+    }
+  }
+
+  // Condition 2: Unlimited Quota (kuota_maksimal is null) -> Bypassed!
   return {
     valid: true,
     promo,
     discountAmount,
     finalPrice,
+    isUnlimited,
   };
 }
 

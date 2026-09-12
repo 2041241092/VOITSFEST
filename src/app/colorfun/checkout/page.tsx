@@ -28,12 +28,17 @@ import {
   UserPlus,
   Download,
   Maximize2,
-  X
+  X,
+  Clock,
+  Ban,
+  Infinity
 } from "lucide-react";
 import { fetchPricingTiers, EventPricing, DEFAULT_PRICING_TIERS } from "@/lib/pricing";
 import { itsDepartments } from "@/lib/departments";
 import { Promo } from "@/types/database";
 import { validatePromoForEvent, incrementPromoQuota, calculatePromoPrice } from "@/lib/promo";
+import { checkQuotaAvailability, fetchAllSubEventQuotas, dispatchQuotaRefresh, listenToQuotaRefresh } from "@/lib/quota";
+import { formatWIB } from "@/lib/date";
 import { formatBIB } from "@/lib/bib";
 import imageCompression from "browser-image-compression";
 
@@ -159,14 +164,7 @@ export default function ColorFunCheckoutPage() {
           .order("created_at", { ascending: false });
 
         if (!promoErr && data) {
-          const now = new Date();
-          const valid = (data as Promo[]).filter((p) => {
-            const startDateOk = !p.start_date || new Date(p.start_date) <= now;
-            const endDateOk = !p.end_date || new Date(p.end_date) >= now;
-            const quotaOk = p.kuota_maksimal == null || (p.kuota_terpakai ?? 0) < p.kuota_maksimal;
-            return startDateOk && endDateOk && quotaOk;
-          });
-          setActivePromos(valid);
+          setActivePromos(data as Promo[]);
         }
       } catch (err) {
         console.warn("Error loading active promos for ColorFun Run:", err);
@@ -175,6 +173,11 @@ export default function ColorFunCheckoutPage() {
       }
     }
     loadActivePromos();
+
+    const unsubscribe = listenToQuotaRefresh(() => {
+      loadActivePromos();
+    });
+    return () => unsubscribe();
   }, [supabase]);
 
   // Read URL query parameter ?promoId=... on mount
@@ -200,6 +203,8 @@ export default function ColorFunCheckoutPage() {
         setAppliedPromo(calc.promo || target);
         setPromoCode(target.title);
         setPromoError(null);
+      } else {
+        setPromoError(calc.error || "Paket bundling dari tautan tidak tersedia atau telah habis.");
       }
     }
   }, [urlPromoId, activePromos, cmsPricing.price, selectedPricingId]);
@@ -784,6 +789,14 @@ export default function ColorFunCheckoutPage() {
       }
     }
 
+    // Lifecycle Rule 1: Verify remaining quota before permitting submission
+    const registrantCount = Math.max(appliedPromo?.kapasitas || 1, 1 + extraMembers.length);
+    const quotaCheck = await checkQuotaAvailability("colorfun", registrantCount, appliedPromo?.id);
+    if (!quotaCheck.available) {
+      setError(quotaCheck.error || "Maaf, kuota tiket ColorFun Run 5K tidak mencukupi.");
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmittingStep("Mengompresi gambar...");
 
@@ -1020,6 +1033,13 @@ export default function ColorFunCheckoutPage() {
       } catch (txErr) {
         console.warn("Transactions record sync notice:", txErr);
       }
+
+      // Lifecycle Rule 2: Initial Submission ('pending') immediately counts towards Used Quota.
+      // If promo was applied, hold promo quota atomically so slot is reserved.
+      if (appliedPromo?.id) {
+        await incrementPromoQuota(supabase, appliedPromo.id, registrantCount);
+      }
+      dispatchQuotaRefresh();
 
       setSubmittedRegistrations(regResults || []);
       setIsSuccess(true);
@@ -1729,19 +1749,51 @@ export default function ColorFunCheckoutPage() {
                       const calc = validatePromoForEvent(promo, "ColorFun Run", CFR_TICKET_PRICE);
                       const promoFinalPrice = calc.finalPrice ?? CFR_TICKET_PRICE;
                       const discountVal = calc.discountAmount ?? 0;
-                      const remainingQuota = promo.kuota_maksimal != null ? promo.kuota_maksimal - (promo.kuota_terpakai ?? 0) : null;
+
+                      const nowMs = Date.now();
+                      const isDateStarted = !promo.start_date || new Date(promo.start_date).getTime() <= nowMs;
+                      const isDateEnded = Boolean(promo.end_date && !(new Date(promo.end_date).getTime() >= nowMs));
+                      const isOutsideDateRange = !isDateStarted || isDateEnded;
+
+                      const isUnlimited = promo.kuota_maksimal == null;
+                      const usedQuota = promo.kuota_terpakai ?? 0;
+                      const isSoldOut = !isUnlimited && promo.kuota_maksimal != null && usedQuota >= promo.kuota_maksimal;
+                      const remainingQuota = !isUnlimited && promo.kuota_maksimal != null 
+                        ? Math.max(0, promo.kuota_maksimal - usedQuota) 
+                        : null;
+
+                      const isAvailable = !isOutsideDateRange && !isSoldOut;
 
                       return (
                         <div
                           key={promo.id}
                           role="button"
-                          tabIndex={0}
-                          onClick={() => handleSelectPromoOption(promo)}
-                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleSelectPromoOption(promo); }}
-                          className={`relative cursor-pointer rounded-2xl p-5 border-2 transition-all duration-300 flex flex-col justify-between select-none overflow-hidden ${
-                            isSelected
-                              ? "bg-[#ffd700]/15 border-[#ffd700] shadow-[0_0_25px_rgba(255,215,0,0.25)] ring-1 ring-[#ffd700]/60"
-                              : "bg-black/30 border-[#ffd700]/30 hover:border-[#ffd700]/60 hover:bg-black/40"
+                          tabIndex={isAvailable ? 0 : -1}
+                          aria-disabled={!isAvailable}
+                          onClick={() => {
+                            if (!isAvailable) {
+                              if (isSoldOut) {
+                                setPromoError(`Maaf, kuota paket bundling "${promo.title}" sudah habis (Sold Out).`);
+                              } else if (isDateEnded) {
+                                setPromoError(`Maaf, periode pembelian paket bundling "${promo.title}" telah berakhir.`);
+                              } else if (!isDateStarted) {
+                                setPromoError(`Maaf, periode pembelian paket bundling "${promo.title}" belum dimulai.`);
+                              }
+                              return;
+                            }
+                            handleSelectPromoOption(promo);
+                          }}
+                          onKeyDown={(e) => {
+                            if ((e.key === "Enter" || e.key === " ") && isAvailable) {
+                              handleSelectPromoOption(promo);
+                            }
+                          }}
+                          className={`relative rounded-2xl p-5 border-2 transition-all duration-300 flex flex-col justify-between select-none overflow-hidden ${
+                            !isAvailable
+                              ? "bg-black/20 border-white/10 opacity-60 cursor-not-allowed"
+                              : isSelected
+                              ? "bg-[#ffd700]/15 border-[#ffd700] shadow-[0_0_25px_rgba(255,215,0,0.25)] ring-1 ring-[#ffd700]/60 cursor-pointer"
+                              : "bg-black/30 border-[#ffd700]/30 hover:border-[#ffd700]/60 hover:bg-black/40 cursor-pointer"
                           }`}
                         >
                           <div className="absolute -top-10 -right-10 w-24 h-24 bg-[#ffd700]/10 rounded-full blur-2xl pointer-events-none" />
@@ -1749,8 +1801,12 @@ export default function ColorFunCheckoutPage() {
                           <div>
                             <div className="flex items-center justify-between mb-3 relative z-10">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-white bg-gradient-to-r from-purple-500 to-blue-500 border border-purple-400/50 shadow-[0_0_12px_rgba(168,85,247,0.35)]">
-                                  <Sparkles className="w-3 h-3 text-amber-300" />
+                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-white ${
+                                  !isAvailable 
+                                    ? "bg-slate-700/60 border border-slate-600/40" 
+                                    : "bg-gradient-to-r from-purple-500 to-blue-500 border border-purple-400/50 shadow-[0_0_12px_rgba(168,85,247,0.35)]"
+                                }`}>
+                                  <Sparkles className={`w-3 h-3 ${!isAvailable ? "text-slate-400" : "text-amber-300"}`} />
                                   Bundle Package
                                 </span>
                                 {promo.kategori_peserta && promo.kategori_peserta !== "Semua" && (
@@ -1758,33 +1814,74 @@ export default function ColorFunCheckoutPage() {
                                     Khusus {promo.kategori_peserta}
                                   </span>
                                 )}
-                                {remainingQuota != null && (
+
+                                {/* Condition 1: Sold Out */}
+                                {isSoldOut ? (
+                                  <span className="text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-error/20 text-error border border-error/40 uppercase tracking-wider flex items-center gap-1">
+                                    <Ban className="w-2.5 h-2.5" />
+                                    Habis / Sold Out
+                                  </span>
+                                ) : isDateEnded ? (
+                                  /* Condition 3: Date Expired */
+                                  <span className="text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-wider flex items-center gap-1">
+                                    <Clock className="w-2.5 h-2.5" />
+                                    Periode Berakhir
+                                  </span>
+                                ) : !isDateStarted ? (
+                                  <span className="text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-slate-500/20 text-slate-300 border border-slate-500/40 uppercase tracking-wider flex items-center gap-1">
+                                    <Clock className="w-2.5 h-2.5" />
+                                    Belum Dimulai
+                                  </span>
+                                ) : isUnlimited ? (
+                                  /* Condition 2: Unlimited Quota */
+                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
+                                    <Infinity className="w-3 h-3" />
+                                    Tanpa Batas Kuota
+                                  </span>
+                                ) : remainingQuota != null ? (
                                   <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10">
                                     Sisa: {remainingQuota}
                                   </span>
-                                )}
+                                ) : null}
                               </div>
 
                               <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0 ${
-                                isSelected ? "border-[#ffd700] bg-[#ffd700]" : "border-neutral-600"
+                                !isAvailable
+                                  ? "border-slate-700 bg-slate-800/40 text-slate-500"
+                                  : isSelected 
+                                  ? "border-[#ffd700] bg-[#ffd700]" 
+                                  : "border-neutral-600"
                               }`}>
-                                {isSelected && (
+                                {isAvailable && isSelected && (
                                   <Check className="w-3 h-3 text-neutral-950 font-bold stroke-[3]" />
+                                )}
+                                {!isAvailable && (
+                                  <Ban className="w-2.5 h-2.5 text-slate-500" />
                                 )}
                               </div>
                             </div>
 
-                            <h4 className="font-bold text-base text-white mb-1 relative z-10">
+                            <h4 className={`font-bold text-base mb-1 relative z-10 ${!isAvailable ? "text-slate-300" : "text-white"}`}>
                               {promo.title}
                             </h4>
-                            <p className="text-xs text-slate-300 mb-4 line-clamp-2 relative z-10 font-poppins">
+                            <p className="text-xs text-slate-400 mb-2 line-clamp-2 relative z-10 font-poppins">
                               {promo.description || "Penawaran promo terbatas untuk event ini."}
                             </p>
+                            {promo.end_date && (
+                              <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono mb-3 relative z-10">
+                                <Clock className="w-3 h-3 text-secondary shrink-0" />
+                                <span>Berlaku s/d: {formatWIB(promo.end_date)}</span>
+                              </div>
+                            )}
                           </div>
 
                           <div className="pt-3 border-t border-white/10 flex items-baseline justify-between relative z-10">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                                !isAvailable
+                                  ? "bg-slate-700/40 text-slate-400 border border-slate-600/30"
+                                  : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                              }`}>
                                 {promo.discount_type === "percent"
                                   ? `${promo.discount_value}% OFF`
                                   : promo.discount_type === "bundling"
@@ -1797,7 +1894,7 @@ export default function ColorFunCheckoutPage() {
                                 <span className="text-xs text-slate-400 line-through font-mono">
                                   Rp {(CFR_TICKET_PRICE * (promo.kapasitas || 1)).toLocaleString("id-ID")}
                                 </span>
-                                <span className="text-xl font-bold font-headline-md text-[#ffd700]">
+                                <span className={`text-xl font-bold font-headline-md ${!isAvailable ? "text-slate-400" : "text-[#ffd700]"}`}>
                                   Rp {promoFinalPrice.toLocaleString("id-ID")}
                                 </span>
                               </div>
