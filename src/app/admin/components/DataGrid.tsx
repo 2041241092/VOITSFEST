@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Search, Save, Edit2, X, RotateCw } from "lucide-react";
 import CFRDatabase from "./CFRDatabase";
 import FestivalDatabase from "./FestivalDatabase";
+import { formatBIB } from "@/lib/bib";
 
 type DataGridProps = {
   tableName: "akun" | "cfr" | "festival" | "bpc" | "bcc" | "seminar" | "tenant";
@@ -176,7 +177,9 @@ export default function DataGrid({ tableName }: DataGridProps) {
                         />
                       ) : (
                         <span className="truncate max-w-[220px] block" title={String(row[col] || "")}>
-                          {String(row[col] || "-")}
+                          {col === "nomor_bib" || col === "bib_number"
+                            ? formatBIB(row[col])
+                            : String(row[col] || "-")}
                         </span>
                       )}
                     </td>

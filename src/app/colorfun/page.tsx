@@ -4,25 +4,18 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
-import { formatDisplayDate } from "@/lib/cms";
+import { formatDisplayDate, formatDisplayTime, parseEventDetails } from "@/lib/cms";
+import EventDetailsSection from "@/components/events/EventDetailsSection";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-function formatDisplayTime(timeStr?: string, fallback: string = "06:00 WIB - Selesai") {
-  if (!timeStr || !timeStr.trim()) return fallback;
-  const t = timeStr.trim();
-  if (t.toLowerCase().includes("wib") || t.toLowerCase().includes("selesai")) {
-    return t;
-  }
-  return `${t} WIB - Selesai`;
-}
 
 export default async function ColorFunRun() {
   const supabase = await createClient();
 
   // Fetch from cms_settings for ColorFun Run details (controlled by Admin Central CMS)
   let cfrRaw: { date?: string; time?: string; location?: string } | undefined;
+  let showEventDetails = true;
 
   try {
     const { data: records } = await supabase
@@ -32,6 +25,10 @@ export default async function ColorFunRun() {
 
     const cfrRec = records?.find((r) => r.key === "cfr_details");
     const evRec = records?.find((r) => r.key === "event_details");
+
+    if (evRec) {
+      showEventDetails = parseEventDetails(evRec.value);
+    }
 
     if (cfrRec?.value && typeof cfrRec.value === "object") {
       cfrRaw = cfrRec.value as any;
@@ -44,7 +41,7 @@ export default async function ColorFunRun() {
 
   const cfrDate = formatDisplayDate(cfrRaw?.date, "Minggu, 25 Oktober 2026");
   const cfrTime = formatDisplayTime(cfrRaw?.time, "06:00 WIB - Selesai");
-  const cfrVenue = (cfrRaw?.location && cfrRaw.location.trim()) || "ITS Campus";
+  const cfrVenue = (cfrRaw?.location && cfrRaw.location.trim()) || "Lapangan Rektorat ITS, Surabaya";
 
   return (
     <>
@@ -54,7 +51,7 @@ export default async function ColorFunRun() {
       <main className="pt-[100px] relative z-10">
         {/* Hero Section */}
         <section className="relative min-h-[921px] flex items-center justify-center overflow-hidden px-margin-desktop max-md:px-margin-mobile py-section-gap">
-          <div className="relative z-10 text-center flex flex-col items-center max-w-4xl mx-auto mt-16">
+          <div className="relative z-10 text-center flex flex-col items-center max-w-4xl mx-auto mt-16 w-full">
             <div className="glass-card px-6 py-2 rounded-full mb-stack-lg inline-block border border-primary-container/30">
               <span className="font-poppins text-label-sm text-primary-container uppercase tracking-[0.2em]">Spark the momentum</span>
             </div>
@@ -65,9 +62,22 @@ export default async function ColorFunRun() {
               className="font-headline-lg text-display-lg max-md:font-headline-lg-mobile max-md:text-headline-lg-mobile text-primary-fixed mb-stack-md glowing-text uppercase floating-element" 
             />
             
-            <p className="font-poppins text-body-lg text-on-surface-variant max-w-2xl mb-stack-lg mt-stack-md bg-surface/50 backdrop-blur-md p-4 rounded-xl border border-white/5">
-              {cfrDate} &nbsp;|&nbsp; {cfrTime} &nbsp;|&nbsp; {cfrVenue}
-            </p>
+            {/* Official Event Description */}
+            <div className="max-w-2xl mx-auto mb-8 px-6 py-4 rounded-2xl bg-surface/30 backdrop-blur-sm border border-white/5 shadow-lg text-center">
+              <p className="font-poppins text-sm md:text-base text-slate-200 leading-relaxed">
+                <strong className="font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]">VOITS ColorFun Run</strong> adalah kegiatan lari/jalan santai yang diselenggarakan untuk bersenang-senang dengan jarak 5K, dipadukan dengan keseruan berupa lemparan bubuk warna-warni di sepanjang rute sehingga peserta mencapai garis finish dengan pakaian yang penuh warna.
+              </p>
+            </div>
+            
+            <EventDetailsSection
+              eventType="cfr"
+              initialShowDetails={showEventDetails}
+              initialDate={cfrDate}
+              initialTime={cfrTime}
+              initialVenue={cfrVenue}
+              ctaLabel="Daftar ColorFun Run Sekarang"
+              ctaHref="/colorfun/checkout"
+            />
           </div>
         </section>
 

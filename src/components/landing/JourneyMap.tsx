@@ -2,7 +2,36 @@ import CustomHeading from "@/components/ui/CustomHeading";
 
 export default function JourneyMap() {
   return (
-    <section className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-section-gap relative z-10">
+    <section className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-section-gap relative z-10 overflow-hidden">
+      {/* Curated Atmospheric Accents (Depth of Field & Safe Inset Positioning) */}
+      <div className="absolute inset-0 pointer-events-none select-none overflow-hidden -z-10">
+        {/* Cosmic Planet: Upper Right Safe Inset */}
+        <img
+          src="/3.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute top-[6%] right-[6%] lg:right-[9%] w-36 sm:w-48 lg:w-56 h-auto opacity-45 animate-float-slow hidden md:block"
+        />
+
+        {/* Floating Asteroid: Mid-Left Safe Inset */}
+        <img
+          src="/49.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute top-[38%] left-[4%] lg:left-[8%] w-20 sm:w-28 lg:w-32 h-auto opacity-50 animate-drift-subtle hidden lg:block"
+          style={{ animationDelay: "2s" }}
+        />
+
+        {/* Warm Stardust Glow: Lower Left Safe Inset */}
+        <img
+          src="/37.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute bottom-[8%] left-[6%] lg:left-[10%] w-48 sm:w-60 lg:w-72 h-auto opacity-40 animate-float-reverse hidden md:block"
+          style={{ animationDelay: "1s" }}
+        />
+      </div>
+
       <CustomHeading 
         as="h2" 
         text="Journey Map" 

@@ -2,7 +2,23 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Filter, Eye, CheckCircle, XCircle, RotateCw, AlertCircle } from "lucide-react";
+import { Filter, Eye, CheckCircle, XCircle, RotateCw, AlertCircle, Download, Users, X } from "lucide-react";
+import { formatBIB, formatBIBCSV, downloadCSV } from "@/lib/bib";
+import { decrementPromoQuota, rollbackPromoQuotaOnReject } from "@/lib/promo";
+
+export type BundleMember = {
+  id: string;
+  nama_lengkap: string;
+  email: string;
+  whatsapp: string;
+  nomor_bib?: number | null;
+  kategori_peserta?: string | null;
+  nrp?: string | null;
+  departemen?: string | null;
+  ktm_url?: string | null;
+  payment_status?: string | null;
+  ticket_qr_code?: string | null;
+};
 
 export type UnifiedPaymentRecord = {
   id: string;
@@ -12,9 +28,14 @@ export type UnifiedPaymentRecord = {
   sub_event_type: string;
   source_type: string;
   participant_name: string;
+  nomor_bib?: number | null;
+  group_id?: string | null;
+  is_primary?: boolean | null;
+  extra_members?: BundleMember[];
   rekening_pengirim?: string | null;
   amount: number;
   ticket_phase?: string | null;
+  promo_id?: string | null;
   payment_proof_url: string;
   status: "Pending" | "Verified" | "Rejected";
   ticket_qr_code?: string | null;
@@ -33,6 +54,7 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("Pending");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [membersModalRecord, setMembersModalRecord] = useState<UnifiedPaymentRecord | null>(null);
 
   const supabase = createClient();
 
@@ -56,14 +78,45 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
       const handledCfrIds = new Set<string>();
       const handledFestIds = new Set<string>();
 
-      // 1. ColorFun Run registrations
+      // 1. ColorFun Run registrations (build group members lookup)
+      const cfrGroupMembers: Record<string, BundleMember[]> = {};
+      (cfrRes.data || []).forEach((c: any) => {
+        if (c.group_id) {
+          if (!cfrGroupMembers[c.group_id]) cfrGroupMembers[c.group_id] = [];
+          cfrGroupMembers[c.group_id].push({
+            id: c.id,
+            nama_lengkap: c.nama_lengkap || "-",
+            email: c.email || "-",
+            whatsapp: c.whatsapp || "-",
+            nomor_bib: c.nomor_bib ?? c.bib_number ?? null,
+            kategori_peserta: c.kategori_peserta || null,
+            nrp: c.nrp || null,
+            departemen: c.departemen || null,
+            ktm_url: c.ktm_url || null,
+            payment_status: c.payment_status || "pending",
+            ticket_qr_code: c.ticket_qr_code || null,
+          });
+        }
+      });
+
+      // Map primary ColorFun rows ONLY
       (cfrRes.data || []).forEach((c: any) => {
         handledCfrIds.add(c.id);
+
+        // Display Filter: ONLY display primary registrants in Payment Verification
+        if (c.is_primary === false) {
+          return;
+        }
+
         const rawStatus = (c.payment_status || "pending").toLowerCase();
         const status: "Pending" | "Verified" | "Rejected" =
           rawStatus === "verified" ? "Verified" : rawStatus === "rejected" ? "Rejected" : "Pending";
 
         const amount = Number(c.amount_paid || 0);
+
+        const extraMembers = c.group_id && cfrGroupMembers[c.group_id]
+          ? cfrGroupMembers[c.group_id].filter((m: BundleMember) => m.id !== c.id)
+          : [];
 
         allItems.push({
           id: `cfr-${c.id}`,
@@ -76,6 +129,11 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
           rekening_pengirim: c.rekening_pengirim || "-",
           amount,
           ticket_phase: c.ticket_phase || null,
+          promo_id: c.promo_id || null,
+          nomor_bib: c.nomor_bib ?? c.bib_number ?? null,
+          group_id: c.group_id ?? null,
+          is_primary: c.is_primary ?? null,
+          extra_members: extraMembers,
           payment_proof_url: c.bukti_transfer_url || "",
           status,
           ticket_qr_code: c.ticket_qr_code || null,
@@ -83,14 +141,45 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
         });
       });
 
-      // 2. Festival registrations
+      // 2. Festival registrations (build group members lookup)
+      const festGroupMembers: Record<string, BundleMember[]> = {};
+      (festRes.data || []).forEach((f: any) => {
+        if (f.group_id) {
+          if (!festGroupMembers[f.group_id]) festGroupMembers[f.group_id] = [];
+          festGroupMembers[f.group_id].push({
+            id: f.id,
+            nama_lengkap: f.nama_lengkap || "-",
+            email: f.email || "-",
+            whatsapp: f.whatsapp || "-",
+            nomor_bib: f.nomor_bib ?? f.bib_number ?? null,
+            kategori_peserta: f.kategori_peserta || null,
+            nrp: f.nrp || null,
+            departemen: f.departemen || null,
+            ktm_url: f.ktm_url || null,
+            payment_status: f.payment_status || "pending",
+            ticket_qr_code: f.ticket_qr_code || null,
+          });
+        }
+      });
+
+      // Map primary Festival rows ONLY
       (festRes.data || []).forEach((f: any) => {
         handledFestIds.add(f.id);
+
+        // Display Filter: ONLY display primary registrants in Payment Verification
+        if (f.is_primary === false) {
+          return;
+        }
+
         const rawStatus = (f.payment_status || "pending").toLowerCase();
         const status: "Pending" | "Verified" | "Rejected" =
           rawStatus === "verified" ? "Verified" : rawStatus === "rejected" ? "Rejected" : "Pending";
 
         const amount = Number(f.amount_paid || 0);
+
+        const extraMembers = f.group_id && festGroupMembers[f.group_id]
+          ? festGroupMembers[f.group_id].filter((m: BundleMember) => m.id !== f.id)
+          : [];
 
         allItems.push({
           id: `fest-${f.id}`,
@@ -103,6 +192,11 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
           rekening_pengirim: f.rekening_pengirim || "-",
           amount,
           ticket_phase: f.ticket_phase || null,
+          promo_id: f.promo_id || null,
+          nomor_bib: f.nomor_bib ?? f.bib_number ?? null,
+          group_id: f.group_id ?? null,
+          is_primary: f.is_primary ?? null,
+          extra_members: extraMembers,
           payment_proof_url: f.bukti_transfer_url || "",
           status,
           ticket_qr_code: f.ticket_qr_code || null,
@@ -130,6 +224,8 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
             participant_name: "Peserta VOITSFEST",
             rekening_pengirim: "-",
             amount: Number(tx.amount || 0),
+            ticket_phase: tx.ticket_phase || null,
+            promo_id: tx.promo_id || null,
             payment_proof_url: tx.payment_proof_url || "",
             status,
             created_at: tx.created_at,
@@ -153,6 +249,17 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
   // Initial fetch
   useEffect(() => {
     fetchPayments();
+  }, [fetchPayments]);
+
+  // Listen for admin-refresh-data event across Admin Central
+  useEffect(() => {
+    const handleAdminRefresh = () => {
+      fetchPayments();
+    };
+    window.addEventListener("admin-refresh-data", handleAdminRefresh);
+    return () => {
+      window.removeEventListener("admin-refresh-data", handleAdminRefresh);
+    };
   }, [fetchPayments]);
 
   // Realtime subscription across all registration and transaction tables
@@ -190,24 +297,154 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
     };
   }, [fetchPayments, onTransactionUpdated, supabase]);
 
-  // Verify Action (Bi-directional sync)
+  // Helper to get next sequential BIB numbers for an event table
+  const getNextBibNumbers = async (table: string, count: number): Promise<number[]> => {
+    if (count <= 0) return [];
+
+    const { data: rows } = await supabase
+      .from(table)
+      .select("nomor_bib")
+      .not("nomor_bib", "is", null)
+      .order("nomor_bib", { ascending: false, nullsFirst: false })
+      .limit(10);
+
+    let currentMax = 0;
+    if (rows && rows.length > 0) {
+      for (const r of rows) {
+        const val = Number(r.nomor_bib);
+        if (!isNaN(val) && val > currentMax) {
+          currentMax = val;
+        }
+      }
+    }
+
+    const startBib = currentMax + 1;
+
+    const bibs: number[] = [];
+    for (let i = 0; i < count; i++) {
+      bibs.push(startBib + i);
+    }
+    return bibs;
+  };
+
+  // Helper to resolve promo_id and capacity count associated with a transaction / group
+  const resolvePromoInfo = async (
+    record: UnifiedPaymentRecord
+  ): Promise<{ promoId: string | null; count: number }> => {
+    let promoId = record.promo_id || null;
+    let count = (record.extra_members?.length || 0) + 1;
+
+    // 1. If no promo_id on record, retrieve promo_id associated with that group_id from DB
+    if (!promoId && record.origin_table !== "transactions") {
+      try {
+        const query = record.group_id
+          ? supabase.from(record.origin_table).select("promo_id, ticket_phase").eq("group_id", record.group_id)
+          : supabase.from(record.origin_table).select("promo_id, ticket_phase").eq("id", record.source_id);
+
+        const { data: rows } = await query;
+        if (rows && rows.length > 0) {
+          if (record.group_id && rows.length > count) {
+            count = rows.length;
+          }
+          const rowWithPromo = rows.find((r: any) => r.promo_id);
+          if (rowWithPromo) {
+            promoId = rowWithPromo.promo_id;
+          } else if (rows[0]?.ticket_phase) {
+            record.ticket_phase = rows[0].ticket_phase;
+          }
+        }
+      } catch (err) {
+        console.warn("Could not query promo_id from DB:", err);
+      }
+    }
+
+    // 2. If still no promoId, check ticket_phase for [PROMO:uuid:count]
+    if (!promoId && record.ticket_phase) {
+      const match = record.ticket_phase.match(/\[PROMO:([^:\]]+)(?::(\d+))?\]/);
+      if (match) {
+        promoId = match[1];
+        const parsedCount = parseInt(match[2] || "1", 10);
+        if (count <= 1 && parsedCount > 1) {
+          count = parsedCount;
+        }
+      }
+    }
+
+    // 3. Fallback: match by promo title
+    if (!promoId && record.ticket_phase) {
+      try {
+        const cleanTitle = record.ticket_phase.replace(/\[PROMO:.*?\]/, "").trim();
+        const { data: promoData } = await supabase
+          .from("promos")
+          .select("id, kapasitas")
+          .eq("title", cleanTitle)
+          .maybeSingle();
+
+        if (promoData?.id) {
+          promoId = promoData.id;
+          if (count <= 1 && promoData.kapasitas) {
+            count = promoData.kapasitas;
+          }
+        }
+      } catch (err) {
+        console.warn("Could not lookup promo by title:", err);
+      }
+    }
+
+    return { promoId, count };
+  };
+
+  // Verify Action (Bi-directional sync updating all rows in group_id with sequential BIBs and QR codes)
   const handleVerify = async (record: UnifiedPaymentRecord) => {
     const { data: { user } } = await supabase.auth.getUser();
 
     try {
       if (record.origin_table === "colorfun_registrations") {
-        const generatedQR = record.ticket_qr_code || ('CFR-2026-' + Math.random().toString(36).substring(2, 8).toUpperCase());
-        const { error } = await supabase
-          .from("colorfun_registrations")
-          .update({ payment_status: "verified", ticket_qr_code: generatedQR })
-          .eq("id", record.source_id);
+        if (record.group_id) {
+          // Fetch all members in this group to issue unique QR codes and sequential BIBs for each
+          const { data: groupMembers } = await supabase
+            .from("colorfun_registrations")
+            .select("id, ticket_qr_code, nomor_bib, is_primary")
+            .eq("group_id", record.group_id)
+            .order("is_primary", { ascending: false });
 
-        if (error) {
-          alert("Gagal memverifikasi pendaftaran CFR: " + error.message);
-          return;
+          const members = groupMembers || [];
+          const neededCount = members.filter((m) => m.nomor_bib == null).length;
+          const newBibs = neededCount > 0
+            ? await getNextBibNumbers("colorfun_registrations", neededCount)
+            : [];
+          let bibIdx = 0;
+
+          await Promise.all(
+            members.map((m) => {
+              const bib = m.nomor_bib != null ? m.nomor_bib : newBibs[bibIdx++];
+              const qr = m.ticket_qr_code || ("CFR-2026-" + Math.random().toString(36).substring(2, 8).toUpperCase());
+              return supabase
+                .from("colorfun_registrations")
+                .update({ payment_status: "verified", ticket_qr_code: qr, nomor_bib: bib })
+                .eq("id", m.id);
+            })
+          );
+        } else {
+          // Single registrant update
+          let bib = record.nomor_bib;
+          if (bib == null) {
+            const [nextBib] = await getNextBibNumbers("colorfun_registrations", 1);
+            bib = nextBib;
+          }
+          const generatedQR = record.ticket_qr_code || ("CFR-2026-" + Math.random().toString(36).substring(2, 8).toUpperCase());
+          const { error } = await supabase
+            .from("colorfun_registrations")
+            .update({ payment_status: "verified", ticket_qr_code: generatedQR, nomor_bib: bib })
+            .eq("id", record.source_id);
+
+          if (error) {
+            alert("Gagal memverifikasi pendaftaran CFR: " + error.message);
+            return;
+          }
         }
 
-        // Sync transactions table
+        // Sync central transactions table
         try {
           await supabase
             .from("transactions")
@@ -219,18 +456,51 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
         }
 
       } else if (record.origin_table === "festival_registrations") {
-        const generatedQR = record.ticket_qr_code || ('FEST-2026-' + Math.random().toString(36).substring(2, 8).toUpperCase());
-        const { error } = await supabase
-          .from("festival_registrations")
-          .update({ payment_status: "verified", ticket_qr_code: generatedQR })
-          .eq("id", record.source_id);
+        if (record.group_id) {
+          // Fetch all members in this group to issue unique QR codes and sequential BIBs for each
+          const { data: groupMembers } = await supabase
+            .from("festival_registrations")
+            .select("id, ticket_qr_code, nomor_bib, is_primary")
+            .eq("group_id", record.group_id)
+            .order("is_primary", { ascending: false });
 
-        if (error) {
-          alert("Gagal memverifikasi pendaftaran Festival: " + error.message);
-          return;
+          const members = groupMembers || [];
+          const neededCount = members.filter((m) => m.nomor_bib == null).length;
+          const newBibs = neededCount > 0
+            ? await getNextBibNumbers("festival_registrations", neededCount)
+            : [];
+          let bibIdx = 0;
+
+          await Promise.all(
+            members.map((m) => {
+              const bib = m.nomor_bib != null ? m.nomor_bib : newBibs[bibIdx++];
+              const qr = m.ticket_qr_code || ("FEST-2026-" + Math.random().toString(36).substring(2, 8).toUpperCase());
+              return supabase
+                .from("festival_registrations")
+                .update({ payment_status: "verified", ticket_qr_code: qr, nomor_bib: bib })
+                .eq("id", m.id);
+            })
+          );
+        } else {
+          // Single registrant update
+          let bib = record.nomor_bib;
+          if (bib == null) {
+            const [nextBib] = await getNextBibNumbers("festival_registrations", 1);
+            bib = nextBib;
+          }
+          const generatedQR = record.ticket_qr_code || ("FEST-2026-" + Math.random().toString(36).substring(2, 8).toUpperCase());
+          const { error } = await supabase
+            .from("festival_registrations")
+            .update({ payment_status: "verified", ticket_qr_code: generatedQR, nomor_bib: bib })
+            .eq("id", record.source_id);
+
+          if (error) {
+            alert("Gagal memverifikasi pendaftaran Festival: " + error.message);
+            return;
+          }
         }
 
-        // Sync transactions table
+        // Sync central transactions table
         try {
           await supabase
             .from("transactions")
@@ -253,10 +523,30 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
         }
       }
 
+      // Retrieve the promo_id associated with that group_id
+      const { promoId, count: capacityCount } = await resolvePromoInfo(record);
+
+      // If a valid promo_id exists, execute the Supabase RPC function:
+      if (promoId) {
+        const { error: rpcError } = await supabase.rpc("increment_promo_quota", {
+          p_promo_id: promoId,
+          p_amount: capacityCount,
+        });
+        if (rpcError) {
+          console.error("RPC increment_promo_quota error:", rpcError);
+        }
+      }
+
       // Optimistic update
       setRecords(prev =>
         prev.map(r => (r.id === record.id ? { ...r, status: "Verified" } : r))
       );
+
+      // Trigger UI state revalidation across Admin Central
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("promo-quota-updated", { detail: { promoId, amount: capacityCount } }));
+        window.dispatchEvent(new CustomEvent("admin-refresh-data"));
+      }
 
       await fetchPayments();
       if (onTransactionUpdated) {
@@ -268,14 +558,26 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
     }
   };
 
-  // Reject Action (Bi-directional sync)
+  // Reject Action (Bi-directional sync updating all rows in group_id and reverting promo quota if previously verified)
   const handleReject = async (record: UnifiedPaymentRecord) => {
     try {
+      const wasVerified = record.status === "Verified";
+
       if (record.origin_table === "colorfun_registrations") {
-        const { error } = await supabase
-          .from("colorfun_registrations")
-          .update({ payment_status: "rejected" })
-          .eq("id", record.source_id);
+        let error;
+        if (record.group_id) {
+          const res = await supabase
+            .from("colorfun_registrations")
+            .update({ payment_status: "rejected" })
+            .eq("group_id", record.group_id);
+          error = res.error;
+        } else {
+          const res = await supabase
+            .from("colorfun_registrations")
+            .update({ payment_status: "rejected" })
+            .eq("id", record.source_id);
+          error = res.error;
+        }
 
         if (error) {
           alert("Gagal menolak pendaftaran CFR: " + error.message);
@@ -293,10 +595,20 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
         }
 
       } else if (record.origin_table === "festival_registrations") {
-        const { error } = await supabase
-          .from("festival_registrations")
-          .update({ payment_status: "rejected" })
-          .eq("id", record.source_id);
+        let error;
+        if (record.group_id) {
+          const res = await supabase
+            .from("festival_registrations")
+            .update({ payment_status: "rejected" })
+            .eq("group_id", record.group_id);
+          error = res.error;
+        } else {
+          const res = await supabase
+            .from("festival_registrations")
+            .update({ payment_status: "rejected" })
+            .eq("id", record.source_id);
+          error = res.error;
+        }
 
         if (error) {
           alert("Gagal menolak pendaftaran Festival: " + error.message);
@@ -325,6 +637,26 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
         }
       }
 
+      // If clicking Reject on a previously verified transaction, call decrement_promo_quota with the corresponding p_promo_id
+      if (wasVerified) {
+        const { promoId, count: capacityCount } = await resolvePromoInfo(record);
+        if (promoId) {
+          const { error: rpcError } = await supabase.rpc("decrement_promo_quota", {
+            p_promo_id: promoId,
+            p_amount: capacityCount,
+          });
+          if (rpcError) {
+            console.error("RPC decrement_promo_quota error:", rpcError);
+          }
+        }
+      }
+
+      // Trigger UI state revalidation across Admin Central
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("promo-quota-updated"));
+        window.dispatchEvent(new CustomEvent("admin-refresh-data"));
+      }
+
       // Optimistic update
       setRecords(prev =>
         prev.map(r => (r.id === record.id ? { ...r, status: "Rejected" } : r))
@@ -345,6 +677,47 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
     if (onTransactionUpdated) {
       onTransactionUpdated();
     }
+  };
+
+  // Excel-safe CSV Export
+  const handleExportCSV = () => {
+    const headers = [
+      "ID",
+      "Nomor BIB",
+      "Sub Event",
+      "Event Source",
+      "Nama Peserta",
+      "Rekening Pengirim",
+      "Nominal (IDR)",
+      "Fase Tiket",
+      "Status",
+      "Tiket QR Code",
+      "Waktu Transaksi",
+      "Group ID",
+      "Tipe Registran",
+    ];
+
+    const rows = filteredRecords.map(item => [
+      item.id,
+      formatBIBCSV(item.nomor_bib),
+      item.sub_event_type,
+      item.origin_table === "colorfun_registrations"
+        ? "ColorFun Run"
+        : item.origin_table === "festival_registrations"
+        ? "Festival"
+        : item.source_type,
+      item.participant_name,
+      item.rekening_pengirim || "-",
+      item.amount,
+      item.ticket_phase || "-",
+      item.status,
+      item.ticket_qr_code || "-",
+      item.created_at ? new Date(item.created_at).toLocaleString("id-ID") : "-",
+      item.group_id || "-",
+      item.is_primary === false ? "Anggota Group" : "Utama",
+    ]);
+
+    downloadCSV(`payment_verifications_${new Date().toISOString().split("T")[0]}`, headers, rows);
   };
 
   const filteredRecords = useMemo(() => {
@@ -380,6 +753,18 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
           >
             <RotateCw className={`w-3.5 h-3.5 text-secondary ${loading ? "animate-spin" : ""}`} />
             <span>Refresh Data</span>
+          </button>
+
+          {/* Export CSV / Excel Button */}
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            disabled={filteredRecords.length === 0}
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-secondary/15 hover:bg-secondary/25 border border-secondary/30 text-xs font-semibold text-secondary transition-all cursor-pointer disabled:opacity-50 shadow-sm"
+            title="Download CSV / Excel (Preserves 4-digit BIB)"
+          >
+            <Download className="w-3.5 h-3.5 text-secondary" />
+            <span className="hidden sm:inline">Export CSV</span>
           </button>
 
           {/* Status Filter */}
@@ -453,8 +838,30 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
                   </td>
                   <td className="p-4 py-3 text-white font-medium">
                     <span className="block">{item.participant_name}</span>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      {item.nomor_bib != null ? (
+                        <span className="font-mono text-xs font-bold text-secondary bg-secondary/10 border border-secondary/25 px-1.5 py-0.2 rounded w-fit">
+                          BIB #{formatBIB(item.nomor_bib)}
+                        </span>
+                      ) : (
+                        <span className="font-mono text-[11px] text-on-surface-variant/60 bg-white/5 border border-white/10 px-1.5 py-0.2 rounded w-fit">
+                          BIB: Menunggu Verifikasi
+                        </span>
+                      )}
+                      {item.extra_members && item.extra_members.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setMembersModalRecord(item)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 transition-all cursor-pointer shadow-sm hover:scale-105"
+                          title="Lihat Anggota Bundle"
+                        >
+                          <Users className="w-3 h-3" />
+                          <span>+{item.extra_members.length} Anggota</span>
+                        </button>
+                      )}
+                    </div>
                     {item.rekening_pengirim && item.rekening_pengirim !== "-" && (
-                      <span className="text-[11px] font-mono text-on-surface-variant/70">
+                      <span className="text-[11px] font-mono text-on-surface-variant/70 block mt-0.5">
                         a.n {item.rekening_pengirim}
                       </span>
                     )}
@@ -470,7 +877,7 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
                       </span>
                       {item.ticket_phase && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-secondary/15 text-secondary border border-secondary/30 w-fit">
-                          {item.ticket_phase}
+                          {item.ticket_phase.replace(/\s*\[PROMO:.*\]/, "")}
                         </span>
                       )}
                     </div>
@@ -553,6 +960,101 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
           </tbody>
         </table>
       </div>
+
+      {/* Extra Members View Modal */}
+      {membersModalRecord && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setMembersModalRecord(null)}
+        >
+          <div 
+            className="bg-[#0b1026]/95 border border-white/20 rounded-2xl p-6 max-w-lg w-full shadow-[0_0_60px_rgba(0,0,0,0.9)] relative flex flex-col gap-4 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Users className="w-5 h-5 text-secondary" />
+                  Anggota Bundle ({membersModalRecord.extra_members?.length || 0})
+                </h3>
+                <p className="text-xs text-on-surface-variant mt-0.5">
+                  Pendaftar Utama: <span className="text-white font-semibold">{membersModalRecord.participant_name}</span> ({membersModalRecord.sub_event_type})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMembersModalRecord(null)}
+                className="p-1.5 rounded-full text-on-surface-variant hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                title="Tutup Modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Members List */}
+            <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-1">
+              {membersModalRecord.extra_members?.map((member, idx) => (
+                <div
+                  key={member.id || idx}
+                  className="p-3.5 rounded-xl bg-surface-container-highest/40 border border-white/10 flex flex-col gap-2"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+                        {member.nama_lengkap}
+                        <span className="text-[10px] px-1.5 py-0.2 rounded font-sans font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                          Anggota {idx + 1}
+                        </span>
+                      </h4>
+                      <p className="text-xs text-on-surface-variant font-mono">
+                        {member.email} • {member.whatsapp}
+                      </p>
+                    </div>
+                    {member.nomor_bib != null ? (
+                      <span className="font-mono text-xs font-bold text-secondary bg-secondary/15 border border-secondary/35 px-2 py-0.5 rounded">
+                        BIB #{formatBIB(member.nomor_bib)}
+                      </span>
+                    ) : (
+                      <span className="font-mono text-xs text-on-surface-variant/60 bg-white/5 border border-white/10 px-2 py-0.5 rounded">
+                        BIB: Menunggu Verifikasi
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-on-surface-variant pt-1 border-t border-white/5">
+                    {member.kategori_peserta && (
+                      <span className="text-xs">
+                        Kategori: <strong className="text-white">{member.kategori_peserta}</strong>
+                      </span>
+                    )}
+                    {member.departemen && (
+                      <span className="text-xs">
+                        Dept: <strong className="text-white">{member.departemen}</strong>
+                      </span>
+                    )}
+                    {member.nrp && (
+                      <span className="text-xs font-mono">
+                        NRP: <strong className="text-white">{member.nrp}</strong>
+                      </span>
+                    )}
+                    {member.ktm_url && (
+                      <a
+                        href={member.ktm_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                      >
+                        <Eye className="w-3 h-3" /> Lihat KTM
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

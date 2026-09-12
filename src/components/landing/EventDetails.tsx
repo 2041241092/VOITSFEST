@@ -3,7 +3,36 @@ import { Infinity, Users, Sparkles, Quote } from "lucide-react";
 
 export default function EventDetails() {
   return (
-    <section className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-section-gap relative z-10 flex flex-col gap-stack-lg">
+    <section className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-section-gap relative z-10 flex flex-col gap-stack-lg overflow-hidden">
+      {/* Curated Atmospheric Accents (Depth of Field & Safe Inset Positioning) */}
+      <div className="absolute inset-0 pointer-events-none select-none overflow-hidden -z-10">
+        {/* Ringed Planet: Upper Right Safe Inset */}
+        <img
+          src="/12.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute top-[8%] right-[5%] lg:right-[8%] w-40 sm:w-52 lg:w-60 h-auto opacity-45 animate-float-slow hidden md:block"
+        />
+
+        {/* Golden Nebula Stardust: Mid-Left Safe Inset */}
+        <img
+          src="/33.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute top-[42%] left-[4%] lg:left-[7%] w-44 sm:w-56 lg:w-68 h-auto opacity-40 animate-drift-subtle hidden lg:block"
+          style={{ animationDelay: "1.5s" }}
+        />
+
+        {/* Textured Asteroid Fragment: Lower Right Safe Inset */}
+        <img
+          src="/52.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute bottom-[8%] right-[6%] lg:right-[10%] w-20 sm:w-28 lg:w-32 h-auto opacity-50 animate-float-subtle hidden md:block"
+          style={{ animationDelay: "2.5s" }}
+        />
+      </div>
+
       {/* Theme Section */}
       <div className="glass-card p-stack-lg rounded-2xl border-primary/20 max-w-4xl mx-auto text-center w-full">
         <CustomHeading 

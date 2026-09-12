@@ -18,39 +18,53 @@ export default function DashboardOverview() {
 
   const fetchStats = useCallback(async () => {
     try {
-      // 1. Pending Payments Count (status === 'Pending')
-      const { count: pendingCount } = await supabase
-        .from("transactions")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "Pending");
+      const [cfrRes, festRes] = await Promise.all([
+        supabase
+          .from("colorfun_registrations")
+          .select("amount_paid, payment_status, is_primary"),
+        supabase
+          .from("festival_registrations")
+          .select("amount_paid, payment_status, is_primary"),
+      ]);
 
-      // 2. Total Revenue (sum of amount from transactions where status === 'Verified' across all sub-events)
-      const { data: verifiedTx } = await supabase
-        .from("transactions")
-        .select("amount")
-        .eq("status", "Verified");
+      if (cfrRes.error) {
+        console.error("Error fetching colorfun_registrations for stats:", cfrRes.error);
+      }
+      if (festRes.error) {
+        console.error("Error fetching festival_registrations for stats:", festRes.error);
+      }
 
-      const revenue = verifiedTx?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
+      const colorfunData = (cfrRes.data || []).map((item: any) => ({
+        ...item,
+        payment_status: (item.payment_status || "").toLowerCase(),
+        amount_paid: Number(item.amount_paid) || 0,
+        is_primary: item.is_primary,
+      }));
 
-      // 3. Total Registrants: Only ColorFun Run & Festival (from tickets or verified CFR/Festival transactions)
-      // Excludes BPC, BCC, Seminar, Tenant
-      const { count: ticketsCount } = await supabase
-        .from("tickets")
-        .select("*", { count: "exact", head: true })
-        .in("event_type", ["CFR", "FESTIVAL"]);
+      const festivalData = (festRes.data || []).map((item: any) => ({
+        ...item,
+        payment_status: (item.payment_status || "").toLowerCase(),
+        amount_paid: Number(item.amount_paid) || 0,
+        is_primary: item.is_primary,
+      }));
 
-      const { count: verifiedCfrFestCount } = await supabase
-        .from("transactions")
-        .select("*", { count: "exact", head: true })
-        .in("sub_event_type", ["CFR", "FESTIVAL"])
-        .eq("status", "Verified");
+      // Total Registrants Calculation: Only count participants where payment status is verified
+      const totalRegistrants = [...colorfunData, ...festivalData]
+        .filter((item) => item.payment_status === "verified").length;
 
-      const totalRegistrants = Math.max(ticketsCount || 0, verifiedCfrFestCount || 0);
+      // Total Revenue Calculation: ONLY sum rows where is_primary !== false (prevent duplicated bundle prices)
+      const totalRevenue = [...colorfunData, ...festivalData]
+        .filter((item) => item.payment_status === "verified" && item.is_primary !== false)
+        .reduce((acc, curr) => acc + (Number(curr.amount_paid) || 0), 0);
+
+      // Pending Payments Calculation: Only count unique primary payment submissions
+      const pendingPayments = [...colorfunData, ...festivalData]
+        .filter((item) => item.payment_status === "pending" && item.is_primary !== false).length;
 
       setStats({
         totalRegistrants,
-        totalRevenue: revenue,
-        pendingPayments: pendingCount || 0,
+        totalRevenue,
+        pendingPayments,
       });
     } catch (err) {
       console.error("Error fetching dashboard overview stats:", err);
@@ -62,19 +76,26 @@ export default function DashboardOverview() {
   useEffect(() => {
     fetchStats();
 
-    // Set up Realtime listener for live updates across transactions and tickets tables
+    // Set up Realtime listener for live updates across colorfun_registrations, festival_registrations, and transactions tables
     const channel = supabase
       .channel("admin-dashboard-stats-realtime")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "transactions" },
+        { event: "*", schema: "public", table: "colorfun_registrations" },
         () => {
           fetchStats();
         }
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "tickets" },
+        { event: "*", schema: "public", table: "festival_registrations" },
+        () => {
+          fetchStats();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "transactions" },
         () => {
           fetchStats();
         }
@@ -86,9 +107,13 @@ export default function DashboardOverview() {
     };
   }, [fetchStats, supabase]);
 
-  // Clean Indonesian Rupiah formatting helper (e.g. Rp 15.250.000)
-  const formatRupiah = (amount: number) => {
-    return `Rp ${new Intl.NumberFormat("id-ID").format(amount)}`;
+  // Clean Indonesian Rupiah formatting helper
+  const formatIDR = (amount: number) => {
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      minimumFractionDigits: 0,
+    }).format(amount);
   };
 
   return (
@@ -126,7 +151,7 @@ export default function DashboardOverview() {
                 TOTAL REVENUE
               </p>
               <h3 className="text-3xl md:text-4xl font-bold text-tertiary tracking-tight">
-                {loading ? "..." : formatRupiah(stats.totalRevenue)}
+                {loading ? "..." : formatIDR(stats.totalRevenue)}
               </h3>
               <p className="text-xs text-tertiary/80 mt-3 font-medium">
                 Verified Transactions

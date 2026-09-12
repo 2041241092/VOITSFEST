@@ -17,6 +17,17 @@ interface PromoManagerProps {
   onToast?: (type: "success" | "error", message: string) => void;
 }
 
+export const PROMO_TARGET_EVENTS = [
+  "BPC",
+  "BCC",
+  "Seminar",
+  "Tenant",
+  "ColorFun Run",
+  "Festival",
+] as const;
+
+export type PromoTargetEvent = (typeof PROMO_TARGET_EVENTS)[number];
+
 export default function PromoManager({ onToast }: PromoManagerProps) {
   const [promos, setPromos] = useState<Promo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +40,10 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
     description: "",
     discount_type: "percent" as DiscountType,
     discount_value: "",
+    target_event: "ColorFun Run" as PromoTargetEvent,
+    kuota_maksimal: "",
+    kapasitas: "1",
+    kategori_peserta: "Semua",
     start_date: new Date().toISOString().split("T")[0],
     end_date: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
     is_active: true,
@@ -82,8 +97,8 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
     }
   };
 
-  const fetchPromos = useCallback(async () => {
-    setLoading(true);
+  const fetchPromos = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const { data, error } = await supabase
         .from("promos")
@@ -92,20 +107,47 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
 
       if (error) {
         console.error("Error fetching promos:", error);
-        onToast?.("error", "Gagal memuat data promo: " + error.message);
+        if (!isSilent) onToast?.("error", "Gagal memuat data promo: " + error.message);
       } else {
         setPromos((data as Promo[]) || []);
       }
     } catch (err: any) {
       console.error("Fetch promos error:", err);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   }, [supabase, onToast]);
 
   useEffect(() => {
     fetchPromos();
   }, [fetchPromos]);
+
+  // Realtime subscription & window event listeners for instantaneous quota counter revalidation
+  useEffect(() => {
+    const handleRefresh = () => {
+      fetchPromos(true);
+    };
+
+    window.addEventListener("promo-quota-updated", handleRefresh);
+    window.addEventListener("admin-refresh-data", handleRefresh);
+
+    const channel = supabase
+      .channel("promo-manager-realtime-quota")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "promos" },
+        () => {
+          fetchPromos(true);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      window.removeEventListener("promo-quota-updated", handleRefresh);
+      window.removeEventListener("admin-refresh-data", handleRefresh);
+      supabase.removeChannel(channel);
+    };
+  }, [fetchPromos, supabase]);
 
   // Handle Toggle Active Status
   const handleToggleActive = async (promo: Promo) => {
@@ -158,8 +200,14 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
   // Handle Create Promo Form Submit
   const handleCreatePromo = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title.trim() || !form.discount_value) {
+    if (!form.title.trim() || !form.discount_value || !form.kuota_maksimal) {
       onToast?.("error", "Harap isi semua kolom wajib!");
+      return;
+    }
+
+    const kuotaMax = parseInt(form.kuota_maksimal, 10);
+    if (isNaN(kuotaMax) || kuotaMax <= 0) {
+      onToast?.("error", "Maksimal kuota harus berupa angka positif lebih dari 0!");
       return;
     }
 
@@ -170,16 +218,32 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
         description: form.description.trim(),
         discount_type: form.discount_type,
         discount_value: parseFloat(form.discount_value) || 0,
+        target_event: form.target_event,
+        kuota_maksimal: kuotaMax,
+        kuota_terpakai: 0,
+        kapasitas: parseInt(form.kapasitas, 10) || 1,
+        kategori_peserta: form.kategori_peserta || "Semua",
         start_date: new Date(form.start_date).toISOString(),
         end_date: new Date(form.end_date).toISOString(),
         is_active: form.is_active,
       };
 
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("promos")
         .insert(newPromoPayload)
         .select()
         .single();
+
+      // Graceful fallback if target_event, kuota, kapasitas, or kategori_peserta columns have not yet been migrated in Supabase table
+      if (error && (error.message?.includes("target_event") || error.message?.includes("kuota") || error.message?.includes("kapasitas") || error.message?.includes("kategori_peserta") || error.code === "PGRST204")) {
+        console.warn("Retrying promo insert with basic schema fallback:", error.message);
+        const { target_event: _te, kuota_maksimal: _km, kuota_terpakai: _kt, kapasitas: _kap, kategori_peserta: _kp, ...fallbackPayload } = newPromoPayload;
+        const retry = await supabase.from("promos").insert(fallbackPayload).select().single();
+        if (!retry.error) {
+          error = null;
+          data = retry.data;
+        }
+      }
 
       if (error) {
         onToast?.("error", `Gagal membuat promo: ${error.message}`);
@@ -195,6 +259,10 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
           description: "",
           discount_type: "percent",
           discount_value: "",
+          target_event: "ColorFun Run",
+          kuota_maksimal: "",
+          kapasitas: "1",
+          kategori_peserta: "Semua",
           start_date: new Date().toISOString().split("T")[0],
           end_date: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
           is_active: true,
@@ -261,19 +329,46 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
             >
               <div>
                 <div className="flex items-start justify-between gap-3 mb-2">
-                  <div>
-                    <span
-                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border mr-2 inline-block ${
-                        promo.discount_type === "percent"
-                          ? "bg-secondary/15 text-secondary border-secondary/30"
-                          : promo.discount_type === "bundling"
-                          ? "bg-tertiary/15 text-tertiary border-tertiary/30"
-                          : "bg-[#ffd700]/15 text-[#ffd700] border-[#ffd700]/30"
-                      }`}
-                    >
-                      {promo.discount_type}
-                    </span>
-                    <h3 className="font-bold text-base text-white inline-block">{promo.title}</h3>
+                  <div className="flex-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border inline-block ${
+                          promo.discount_type === "percent"
+                            ? "bg-secondary/15 text-secondary border-secondary/30"
+                            : promo.discount_type === "bundling"
+                            ? "bg-tertiary/15 text-tertiary border-tertiary/30"
+                            : "bg-[#ffd700]/15 text-[#ffd700] border-[#ffd700]/30"
+                        }`}
+                      >
+                        {promo.discount_type}
+                      </span>
+
+                      {/* Event Badge */}
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border bg-primary/15 text-primary border-primary/30 inline-flex items-center gap-1">
+                        Event: {promo.target_event || "All Events"}
+                      </span>
+
+                      {/* Quota Badge */}
+                      <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded border inline-flex items-center gap-1 ${
+                        promo.kuota_maksimal != null && (promo.kuota_terpakai ?? 0) >= promo.kuota_maksimal
+                          ? "bg-error/15 text-error border-error/30"
+                          : "bg-surface-container-highest text-on-surface-variant border-white/10"
+                      }`}>
+                        Quota: {promo.kuota_terpakai ?? 0} / {promo.kuota_maksimal != null ? promo.kuota_maksimal : "∞"}
+                      </span>
+
+                      {/* Capacity Badge in Admin Central */}
+                      <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded border bg-secondary/15 text-secondary border-secondary/30 inline-flex items-center gap-1">
+                        Kapasitas: {promo.kapasitas || 1} Orang
+                      </span>
+
+                      {/* Kategori Peserta Target Badge in Admin Central */}
+                      <span className="text-[10px] font-sans font-semibold px-2 py-0.5 rounded border bg-cyan-500/15 text-cyan-300 border-cyan-500/30 inline-flex items-center gap-1">
+                        Target: {promo.kategori_peserta || "Semua"}
+                      </span>
+                    </div>
+
+                    <h3 className="font-bold text-base text-white">{promo.title}</h3>
                   </div>
 
                   {/* Active Toggle */}
@@ -475,6 +570,76 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   placeholder="Jelaskan keuntungan bundle atau potongan harga..."
                   className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3.5 py-2 text-sm text-white focus:border-secondary outline-none transition-all"
                 />
+              </div>
+
+              {/* Target Event, Kategori Peserta, Maksimal Kuota & Kapasitas */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-on-surface-variant font-semibold mb-1 uppercase tracking-wider">
+                    Target Event *
+                  </label>
+                  <select
+                    required
+                    value={form.target_event}
+                    onChange={(e) => setForm({ ...form, target_event: e.target.value as PromoTargetEvent })}
+                    className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3 py-2.5 text-xs text-white focus:border-secondary outline-none cursor-pointer"
+                  >
+                    {PROMO_TARGET_EVENTS.map((evt) => (
+                      <option key={evt} value={evt} className="bg-[#0b1026]">
+                        {evt}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-on-surface-variant font-semibold mb-1 uppercase tracking-wider">
+                    Kategori Peserta *
+                  </label>
+                  <select
+                    value={form.kategori_peserta}
+                    onChange={(e) => setForm({ ...form, kategori_peserta: e.target.value })}
+                    className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3 py-2.5 text-xs text-white focus:border-secondary outline-none cursor-pointer font-sans"
+                  >
+                    {["Semua", "Umum", "Mahasiswa ITS"].map((kat) => (
+                      <option key={kat} value={kat} className="bg-[#0b1026]">
+                        {kat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-on-surface-variant font-semibold mb-1 uppercase tracking-wider">
+                    Maksimal Kuota *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    value={form.kuota_maksimal}
+                    onChange={(e) => setForm({ ...form, kuota_maksimal: e.target.value })}
+                    placeholder="e.g. 50"
+                    className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-secondary outline-none transition-all font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-on-surface-variant font-semibold mb-1 uppercase tracking-wider">
+                    Kapasitas *
+                  </label>
+                  <select
+                    value={form.kapasitas}
+                    onChange={(e) => setForm({ ...form, kapasitas: e.target.value })}
+                    className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3 py-2.5 text-xs text-white focus:border-secondary outline-none cursor-pointer font-mono"
+                  >
+                    {[1, 2, 3, 4, 5].map((num) => (
+                      <option key={num} value={num} className="bg-[#0b1026]">
+                        {num} Orang
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

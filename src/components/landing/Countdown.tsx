@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-export default function Countdown() {
+export default function Countdown({ className = "" }: { className?: string }) {
   const [active, setActive] = useState(true);
   const [targetDate, setTargetDate] = useState<string>("2026-10-24T09:00:00");
   const [description, setDescription] = useState<string>("");
@@ -75,7 +75,7 @@ export default function Countdown() {
   if (!active) return null;
 
   return (
-    <div className="flex flex-col items-center justify-center mb-stack-lg font-poppins">
+    <div className={`flex flex-col items-center lg:items-start justify-center font-poppins ${className}`}>
       <div className="flex space-x-3 sm:space-x-gutter">
         <div className="glass-card p-3 sm:p-4 rounded-xl flex flex-col items-center min-w-[70px] sm:min-w-[90px] border border-white/10 shadow-lg">
           <span className="font-headline-lg text-2xl sm:text-4xl text-primary-container font-bold">

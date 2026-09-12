@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef } from "react";
+import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Promo } from "@/types/database";
 
 type PromoSliderProps = {
@@ -12,13 +14,15 @@ export default function PromoSlider({ promos }: PromoSliderProps) {
 
   const scrollLeft = () => {
     if (sliderRef.current) {
-      sliderRef.current.scrollBy({ left: -300, behavior: "smooth" });
+      const scrollAmount = sliderRef.current.clientWidth || 350;
+      sliderRef.current.scrollBy({ left: -scrollAmount, behavior: "smooth" });
     }
   };
 
   const scrollRight = () => {
     if (sliderRef.current) {
-      sliderRef.current.scrollBy({ left: 300, behavior: "smooth" });
+      const scrollAmount = sliderRef.current.clientWidth || 350;
+      sliderRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
     }
   };
 
@@ -36,22 +40,24 @@ export default function PromoSlider({ promos }: PromoSliderProps) {
         <>
           <button
             onClick={scrollLeft}
-            className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-surface-container-highest/80 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-secondary hover:text-primary-container transition-all opacity-0 group-hover/slider:opacity-100 shadow-lg"
+            className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-surface-container-highest/80 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-secondary hover:text-primary-container transition-all opacity-0 group-hover/slider:opacity-100 shadow-lg cursor-pointer"
+            aria-label="Previous promo"
           >
-            <span className="material-symbols-outlined">chevron_left</span>
+            <ChevronLeft className="w-5 h-5" />
           </button>
           <button
             onClick={scrollRight}
-            className="absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-surface-container-highest/80 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-secondary hover:text-primary-container transition-all opacity-0 group-hover/slider:opacity-100 shadow-lg"
+            className="absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-surface-container-highest/80 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-secondary hover:text-primary-container transition-all opacity-0 group-hover/slider:opacity-100 shadow-lg cursor-pointer"
+            aria-label="Next promo"
           >
-            <span className="material-symbols-outlined">chevron_right</span>
+            <ChevronRight className="w-5 h-5" />
           </button>
         </>
       )}
 
       <div
         ref={sliderRef}
-        className="slider-track flex gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4"
+        className="slider-track flex gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4 scroll-smooth"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {promos.map((promo, index) => {
@@ -72,9 +78,21 @@ export default function PromoSlider({ promos }: PromoSliderProps) {
               <div className={`absolute -right-20 -top-20 w-64 h-64 ${bgGlow} rounded-full blur-3xl pointer-events-none`}></div>
               <div className="flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
                 <div>
-                  <span className={`px-2 py-1 text-xs font-bold uppercase rounded border mb-3 inline-block ${badgeBg}`}>
-                    {promo.discount_type === "bundling" ? "Bundle Offer" : "Promo"}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <span className={`px-2 py-0.5 text-xs font-bold uppercase rounded border ${badgeBg}`}>
+                      {promo.discount_type === "bundling" ? "Bundle Offer" : "Promo"}
+                    </span>
+                    {promo.target_event && (
+                      <span className="px-2 py-0.5 text-xs font-bold uppercase rounded border bg-primary/20 border-primary/40 text-primary">
+                        Event: {promo.target_event}
+                      </span>
+                    )}
+                    {promo.kuota_maksimal != null && (
+                      <span className="px-2 py-0.5 text-xs font-mono font-semibold rounded border bg-white/5 border-white/10 text-on-surface-variant">
+                        Quota: {promo.kuota_terpakai ?? 0}/{promo.kuota_maksimal}
+                      </span>
+                    )}
+                  </div>
                   <h4 className="font-headline-sm text-2xl font-bold text-white mb-2">{promo.title}</h4>
                   <p className="text-on-surface-variant font-body-md text-sm">{promo.description}</p>
                 </div>
@@ -86,9 +104,16 @@ export default function PromoSlider({ promos }: PromoSliderProps) {
                       {promo.discount_type === "percent" ? `${promo.discount_value}% OFF` : `Rp ${promo.discount_value.toLocaleString()}`}
                     </span>
                   </div>
-                  <button className={`py-3 px-6 font-label-md text-sm rounded-full transition-shadow whitespace-nowrap ${btnClass}`}>
+                  <Link
+                    href={
+                      (promo.target_event || "").toLowerCase().includes("fest")
+                        ? `/festival/checkout?promoId=${promo.id}`
+                        : `/colorfun/checkout?promoId=${promo.id}`
+                    }
+                    className={`py-3 px-6 font-label-md text-sm rounded-full transition-shadow whitespace-nowrap inline-flex items-center justify-center font-bold ${btnClass}`}
+                  >
                     Grab Deal
-                  </button>
+                  </Link>
                 </div>
               </div>
             </div>

@@ -19,7 +19,7 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
-import BackgroundWrapper from "@/components/layout/BackgroundWrapper";
+import AmbientComets from "@/components/effects/AmbientComets";
 
 export const metadata: Metadata = {
   title: "VOITSFEST 2026",
@@ -32,8 +32,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       className={`${poppins.variable} ${ruthie.variable} ${inter.variable} h-full antialiased scroll-smooth`}
     >
-      <body className="min-h-full flex flex-col font-poppins">
-        <BackgroundWrapper>{children}</BackgroundWrapper>
+      <body className="relative bg-[#020617] text-white min-h-screen font-poppins">
+        {/* 1. Base Responsive Background Layer (Lowest Layer) */}
+        <div className="fixed inset-0 -z-30 pointer-events-none overflow-hidden">
+          <div
+            className="block md:hidden absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: `url('/Background 2.png')` }}
+          />
+          <div
+            className="hidden md:block absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: `url('/Background-desktop.png')` }}
+          />
+        </div>
+
+        {/* 2. Ambient Comets (Middle Background Layer) */}
+        <AmbientComets />
+
+        {/* 3. Main Application Content (Interactive Foreground Layer) */}
+        <div className="relative z-10">
+          {children}
+        </div>
       </body>
     </html>
   );

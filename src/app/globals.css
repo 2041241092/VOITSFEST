@@ -96,6 +96,7 @@ body {
   font-family: var(--font-poppins);
 }
 
+
 .glass-card {
   background: rgba(46, 78, 143, 0.4);
   backdrop-filter: blur(20px);
@@ -125,6 +126,34 @@ body {
 }
 .animate-float {
   animation: float 6s ease-in-out infinite;
+}
+@keyframes floatSubtle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+.animate-float-subtle {
+  animation: floatSubtle 4.5s ease-in-out infinite;
+}
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-14px) rotate(1.5deg); }
+}
+.animate-float-slow {
+  animation: floatSlow 8s ease-in-out infinite;
+}
+@keyframes floatReverse {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(12px) rotate(-1.5deg); }
+}
+.animate-float-reverse {
+  animation: floatReverse 6.5s ease-in-out infinite;
+}
+@keyframes driftSubtle {
+  0%, 100% { transform: translate(0px, 0px); }
+  50% { transform: translate(10px, -8px); }
+}
+.animate-drift-subtle {
+  animation: driftSubtle 7s ease-in-out infinite;
 }
 .orbit-container {
   position: relative;
@@ -180,6 +209,63 @@ body {
 .animate-drift-2 {
   animation: driftFade2 20s ease-in-out infinite;
 }
+
+@keyframes cometGlide30Deg {
+  0% {
+    transform: translate3d(50vw, -29vw, 0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.9;
+  }
+  85% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate3d(-100vw, 58vw, 0);
+    opacity: 0;
+  }
+}
+@keyframes starTwinkle {
+  0%, 100% { opacity: 0.25; transform: scale(0.5); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+.comet-glide-1 {
+  animation: cometGlide30Deg 24s linear infinite;
+  animation-delay: -5s;
+  animation-fill-mode: both;
+}
+.comet-glide-2 {
+  animation: cometGlide30Deg 28s linear infinite;
+  animation-delay: -12s;
+  animation-fill-mode: both;
+}
+.comet-glide-3 {
+  animation: cometGlide30Deg 30s linear infinite;
+  animation-delay: -20s;
+  animation-fill-mode: both;
+}
+.comet-glide-4 {
+  animation: cometGlide30Deg 22s linear infinite;
+  animation-delay: -8s;
+  animation-fill-mode: both;
+}
+.star-twinkle-1  { animation: starTwinkle 3.5s ease-in-out infinite -1.2s; }
+.star-twinkle-2  { animation: starTwinkle 4.5s ease-in-out infinite -2.7s; }
+.star-twinkle-3  { animation: starTwinkle 5.0s ease-in-out infinite -4.0s; }
+.star-twinkle-4  { animation: starTwinkle 4.0s ease-in-out infinite -0.8s; }
+.star-twinkle-5  { animation: starTwinkle 5.5s ease-in-out infinite -3.2s; }
+.star-twinkle-6  { animation: starTwinkle 3.8s ease-in-out infinite -1.6s; }
+.star-twinkle-7  { animation: starTwinkle 4.2s ease-in-out infinite -2.1s; }
+.star-twinkle-8  { animation: starTwinkle 3.2s ease-in-out infinite -0.5s; }
+.star-twinkle-9  { animation: starTwinkle 4.8s ease-in-out infinite -3.8s; }
+.star-twinkle-10 { animation: starTwinkle 5.2s ease-in-out infinite -5.0s; }
+.star-twinkle-11 { animation: starTwinkle 3.6s ease-in-out infinite -1.9s; }
+.star-twinkle-12 { animation: starTwinkle 4.4s ease-in-out infinite -4.3s; }
+.star-twinkle-13 { animation: starTwinkle 3.0s ease-in-out infinite -2.4s; }
+.star-twinkle-14 { animation: starTwinkle 5.3s ease-in-out infinite -5.5s; }
+.star-twinkle-15 { animation: starTwinkle 3.9s ease-in-out infinite -0.9s; }
+
 
 .flip-card {
   perspective: 1000px;

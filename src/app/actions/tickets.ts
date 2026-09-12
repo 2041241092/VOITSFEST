@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 
 export type VerificationResult = {
-  status: "valid" | "duplicate" | "invalid" | "error";
+  status: "valid" | "scanned" | "not_found" | "error";
   message: string;
   token?: string;
   ticket?: {
@@ -18,7 +18,36 @@ export type VerificationResult = {
     scannedAt?: string;
     firstScannedAt?: string;
     scannedByName?: string;
+    nomorBib?: number | string | null;
+    kategoriPeserta?: string | null;
+    departemen?: string | null;
+    nrp?: string | null;
+    isCheckedIn?: boolean;
   };
+};
+
+export type RecentScanItem = {
+  id: string;
+  token: string;
+  eventType: string;
+  scanCount: number;
+  scannedAt: string | null;
+  firstScannedAt?: string | null;
+  participantName: string;
+  participantEmail?: string;
+  amount?: number;
+  ticketPhase?: string | null;
+  nomorBib?: number | string | null;
+  kategoriPeserta?: string | null;
+  departemen?: string | null;
+  nrp?: string | null;
+  status: "valid" | "scanned";
+};
+
+export type TicketMetrics = {
+  total: number;
+  valid: number;
+  scanned: number;
 };
 
 export async function verifyTicket(rawToken: string): Promise<VerificationResult> {
@@ -49,8 +78,8 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
   const cleanToken = rawToken.trim();
   if (!cleanToken) {
     return {
-      status: "invalid",
-      message: "Token tiket tidak boleh kosong.",
+      status: "not_found",
+      message: "Data tidak ditemukan",
       token: "",
     };
   }
@@ -67,11 +96,11 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
   }
 
   if (cfrRecord) {
-    // Check if registration payment is verified
+    // Only verified payments count as valid database tickets
     if ((cfrRecord.payment_status || "").toLowerCase() !== "verified") {
       return {
-        status: "invalid",
-        message: `Tiket ColorFun Belum Terverifikasi (Status: ${cfrRecord.payment_status || "Pending"})`,
+        status: "not_found",
+        message: "Data tidak ditemukan",
         token: cleanToken,
       };
     }
@@ -93,11 +122,11 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
       console.error("Update colorfun_registrations scan error:", updateCfrError);
     }
 
-    // First Scan (scan_count === 0 before update): 'Valid Ticket - Access Granted' (Green)
+    // State 1: VALID (Green Badge) - First time scan (is_checked_in === false)
     if (prevScanCount === 0) {
       return {
         status: "valid",
-        message: "Valid Ticket - Access Granted",
+        message: "Check-in Berhasil",
         token: cfrRecord.ticket_qr_code,
         ticket: {
           id: cfrRecord.id,
@@ -109,15 +138,21 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
           ticketPhase: cfrRecord.ticket_phase || "",
           scanCount: newScanCount,
           scannedAt: now,
+          firstScannedAt: now,
           scannedByName: profile.full_name || "Petugas Security",
+          nomorBib: cfrRecord.nomor_bib ?? null,
+          kategoriPeserta: cfrRecord.kategori_peserta || "Umum",
+          departemen: cfrRecord.departemen || null,
+          nrp: cfrRecord.nrp || null,
+          isCheckedIn: true,
         },
       };
     }
 
-    // Subsequent Scans (scan_count >= 1 before update): 'Warning: Ticket Already Scanned X Times' (Yellow/Red alert)
+    // State 2: SCANNED / ALREADY CHECKED IN (Yellow/Orange Badge) - Prior scan exists
     return {
-      status: "duplicate",
-      message: `Warning: Ticket Already Scanned ${prevScanCount} Times`,
+      status: "scanned",
+      message: "Tiket Sudah Check-in Sebelumnya",
       token: cfrRecord.ticket_qr_code,
       ticket: {
         id: cfrRecord.id,
@@ -129,7 +164,13 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
         ticketPhase: cfrRecord.ticket_phase || "",
         scanCount: prevScanCount,
         firstScannedAt: cfrRecord.last_scanned_at || now,
+        scannedAt: now,
         scannedByName: profile.full_name || "Petugas Security",
+        nomorBib: cfrRecord.nomor_bib ?? null,
+        kategoriPeserta: cfrRecord.kategori_peserta || "Umum",
+        departemen: cfrRecord.departemen || null,
+        nrp: cfrRecord.nrp || null,
+        isCheckedIn: true,
       },
     };
   }
@@ -148,8 +189,8 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
   if (festRecord) {
     if ((festRecord.payment_status || "").toLowerCase() !== "verified") {
       return {
-        status: "invalid",
-        message: `Tiket Festival Belum Terverifikasi (Status: ${festRecord.payment_status || "Pending"})`,
+        status: "not_found",
+        message: "Data tidak ditemukan",
         token: cleanToken,
       };
     }
@@ -158,7 +199,6 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
     const newScanCount = prevScanCount + 1;
     const now = new Date().toISOString();
 
-    // Increment scan_count by 1 and update last_scanned_at
     const { error: updateFestError } = await supabase
       .from("festival_registrations")
       .update({
@@ -171,11 +211,11 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
       console.error("Update festival_registrations scan error:", updateFestError);
     }
 
-    // First Scan (scan_count === 0 before update): 'Valid Ticket - Access Granted' (Green)
+    // State 1: VALID (Green Badge)
     if (prevScanCount === 0) {
       return {
         status: "valid",
-        message: "Valid Ticket - Access Granted",
+        message: "Check-in Berhasil",
         token: festRecord.ticket_qr_code,
         ticket: {
           id: festRecord.id,
@@ -187,15 +227,21 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
           ticketPhase: festRecord.ticket_phase || "",
           scanCount: newScanCount,
           scannedAt: now,
+          firstScannedAt: now,
           scannedByName: profile.full_name || "Petugas Security",
+          nomorBib: festRecord.nomor_bib ?? null,
+          kategoriPeserta: festRecord.kategori_peserta || "Umum",
+          departemen: festRecord.departemen || null,
+          nrp: null,
+          isCheckedIn: true,
         },
       };
     }
 
-    // Subsequent Scans (scan_count >= 1 before update): 'Warning: Ticket Already Scanned X Times' (Alert)
+    // State 2: SCANNED / ALREADY CHECKED IN
     return {
-      status: "duplicate",
-      message: `Warning: Ticket Already Scanned ${prevScanCount} Times`,
+      status: "scanned",
+      message: "Tiket Sudah Check-in Sebelumnya",
       token: festRecord.ticket_qr_code,
       ticket: {
         id: festRecord.id,
@@ -207,12 +253,18 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
         ticketPhase: festRecord.ticket_phase || "",
         scanCount: prevScanCount,
         firstScannedAt: festRecord.last_scanned_at || now,
+        scannedAt: now,
         scannedByName: profile.full_name || "Petugas Security",
+        nomorBib: festRecord.nomor_bib ?? null,
+        kategoriPeserta: festRecord.kategori_peserta || "Umum",
+        departemen: festRecord.departemen || null,
+        nrp: null,
+        isCheckedIn: true,
       },
     };
   }
 
-  // 4. Fallback: Query festival tickets table by token
+  // 4. Fallback: Query tickets table by token
   const { data: ticket, error: fetchError } = await supabase
     .from("tickets")
     .select(`
@@ -249,11 +301,11 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
     };
   }
 
-  // Case 3: Invalid Ticket (Not Found in any table)
+  // Unknown QR outside the database
   if (!ticket) {
     return {
-      status: "invalid",
-      message: "Invalid Ticket",
+      status: "not_found",
+      message: "Data tidak ditemukan",
       token: cleanToken,
     };
   }
@@ -276,7 +328,7 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
   const newScanCount = prevScanCount + 1;
   const now = new Date().toISOString();
 
-  // First Scan (scan_count === 0 before update): 'Valid Ticket - Access Granted' (Green)
+  // State 1: VALID (Green Badge)
   if (prevScanCount === 0) {
     const { error: updateError } = await supabase
       .from("tickets")
@@ -293,7 +345,7 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
 
     return {
       status: "valid",
-      message: "Valid Ticket - Access Granted",
+      message: "Check-in Berhasil",
       token: ticket.token,
       ticket: {
         id: ticket.id,
@@ -304,12 +356,18 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
         amount,
         scanCount: 1,
         scannedAt: now,
+        firstScannedAt: now,
         scannedByName: profile.full_name || "Petugas Gate",
+        nomorBib: null,
+        kategoriPeserta: "Umum",
+        departemen: null,
+        nrp: null,
+        isCheckedIn: true,
       },
     };
   }
 
-  // Subsequent Scans (scan_count >= 1 before update): 'Warning: Ticket Already Scanned X Times' (Yellow/Red alert)
+  // State 2: SCANNED / ALREADY CHECKED IN
   let originalVerifierName = "Petugas Gate";
   if (ticket.scanned_by) {
     const { data: verifierProfile } = await supabase
@@ -323,7 +381,6 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
     }
   }
 
-  // Increment scan_count in tickets table
   await supabase
     .from("tickets")
     .update({
@@ -332,8 +389,8 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
     .eq("id", ticket.id);
 
   return {
-    status: "duplicate",
-    message: `Warning: Ticket Already Scanned ${prevScanCount} Times`,
+    status: "scanned",
+    message: "Tiket Sudah Check-in Sebelumnya",
     token: ticket.token,
     ticket: {
       id: ticket.id,
@@ -343,13 +400,63 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
       participantEmail,
       amount,
       scanCount: prevScanCount,
-      firstScannedAt: ticket.scanned_at || undefined,
+      firstScannedAt: ticket.scanned_at || now,
+      scannedAt: now,
       scannedByName: originalVerifierName,
+      nomorBib: null,
+      kategoriPeserta: "Umum",
+      departemen: null,
+      nrp: null,
+      isCheckedIn: true,
     },
   };
 }
 
-export async function getRecentScans(limit = 15) {
+export async function getTicketMetrics(): Promise<TicketMetrics> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { total: 0, valid: 0, scanned: 0 };
+
+  const [cfrRes, festRes, ticketRes] = await Promise.all([
+    supabase
+      .from("colorfun_registrations")
+      .select("id, scan_count, last_scanned_at, payment_status"),
+    supabase
+      .from("festival_registrations")
+      .select("id, scan_count, last_scanned_at, payment_status"),
+    supabase
+      .from("tickets")
+      .select("id, scan_count, scanned_at"),
+  ]);
+
+  let total = 0;
+  let scanned = 0;
+
+  const countRow = (r: any) => {
+    const status = (r.payment_status || "pending").toLowerCase();
+    if (status !== "verified") return;
+    total++;
+    const isCheckedIn = (r.scan_count || 0) > 0 || r.last_scanned_at !== null;
+    if (isCheckedIn) {
+      scanned++;
+    }
+  };
+
+  (cfrRes.data || []).forEach(countRow);
+  (festRes.data || []).forEach(countRow);
+
+  (ticketRes.data || []).forEach((t: any) => {
+    total++;
+    const isCheckedIn = (t.scan_count || 0) > 0 || t.scanned_at !== null;
+    if (isCheckedIn) scanned++;
+  });
+
+  const valid = Math.max(0, total - scanned);
+
+  return { total, valid, scanned };
+}
+
+export async function getRecentScans(limit = 30): Promise<RecentScanItem[]> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
@@ -357,7 +464,7 @@ export async function getRecentScans(limit = 15) {
   // 1. Recent scans from colorfun_registrations
   const { data: cfrData } = await supabase
     .from("colorfun_registrations")
-    .select("id, ticket_qr_code, scan_count, last_scanned_at, nama_lengkap")
+    .select("*")
     .not("last_scanned_at", "is", null)
     .order("last_scanned_at", { ascending: false })
     .limit(limit);
@@ -365,7 +472,7 @@ export async function getRecentScans(limit = 15) {
   // 2. Recent scans from festival_registrations
   const { data: festData } = await supabase
     .from("festival_registrations")
-    .select("id, ticket_qr_code, scan_count, last_scanned_at, nama_lengkap")
+    .select("*")
     .not("last_scanned_at", "is", null)
     .order("last_scanned_at", { ascending: false })
     .limit(limit);
@@ -379,43 +486,72 @@ export async function getRecentScans(limit = 15) {
       event_type,
       scan_count,
       scanned_at,
-      profiles:user_id (full_name)
+      profiles:user_id (full_name, email),
+      transactions:transaction_id (amount)
     `)
     .not("scanned_at", "is", null)
     .order("scanned_at", { ascending: false })
     .limit(limit);
 
-  const cfrScans = (cfrData || []).map((c: any) => ({
+  const cfrScans: RecentScanItem[] = (cfrData || []).map((c: any) => ({
     id: c.id,
-    token: c.ticket_qr_code,
-    eventType: "ColorFun Run",
+    token: c.ticket_qr_code || "",
+    eventType: "ColorFun Run (5K)",
     scanCount: c.scan_count || 1,
     scannedAt: c.last_scanned_at,
+    firstScannedAt: c.last_scanned_at,
     participantName: c.nama_lengkap || "Peserta ColorFun",
+    participantEmail: c.email || "",
+    nomorBib: c.nomor_bib ?? null,
+    kategoriPeserta: c.kategori_peserta || "Umum",
+    departemen: c.departemen || null,
+    nrp: c.nrp || null,
+    status: (c.scan_count || 1) === 1 ? "valid" : "scanned",
+    amount: Number(c.amount_paid || 0),
+    ticketPhase: c.ticket_phase || "",
   }));
 
-  const festScans = (festData || []).map((f: any) => ({
+  const festScans: RecentScanItem[] = (festData || []).map((f: any) => ({
     id: f.id,
-    token: f.ticket_qr_code,
+    token: f.ticket_qr_code || "",
     eventType: "Festival",
     scanCount: f.scan_count || 1,
     scannedAt: f.last_scanned_at,
+    firstScannedAt: f.last_scanned_at,
     participantName: f.nama_lengkap || "Peserta Festival",
+    participantEmail: f.email || "",
+    nomorBib: f.nomor_bib ?? null,
+    kategoriPeserta: f.kategori_peserta || "Umum",
+    departemen: f.departemen || null,
+    nrp: null,
+    status: (f.scan_count || 1) === 1 ? "valid" : "scanned",
+    amount: Number(f.amount_paid || 0),
+    ticketPhase: f.ticket_phase || "",
   }));
 
-  const ticketScans = (ticketData || []).map((t: any) => {
-    const profileObj = (Array.isArray(t.profiles) ? t.profiles[0] : t.profiles) as { full_name?: string } | null;
+  const ticketScans: RecentScanItem[] = (ticketData || []).map((t: any) => {
+    const profileObj = (Array.isArray(t.profiles) ? t.profiles[0] : t.profiles) as { full_name?: string; email?: string } | null;
+    const txObj = (Array.isArray(t.transactions) ? t.transactions[0] : t.transactions) as { amount?: number } | null;
     return {
       id: t.id,
-      token: t.token,
+      token: t.token || "",
       eventType: t.event_type || "Festival",
       scanCount: t.scan_count || 1,
       scannedAt: t.scanned_at,
+      firstScannedAt: t.scanned_at,
       participantName: profileObj?.full_name || "Peserta",
+      participantEmail: profileObj?.email || "",
+      nomorBib: null,
+      kategoriPeserta: "Umum",
+      departemen: null,
+      nrp: null,
+      status: (t.scan_count || 1) === 1 ? "valid" : "scanned",
+      amount: Number(txObj?.amount || 0),
+      ticketPhase: "",
     };
   });
 
   const merged = [...cfrScans, ...festScans, ...ticketScans];
-  merged.sort((a, b) => new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime());
+  merged.sort((a, b) => new Date(b.scannedAt || 0).getTime() - new Date(a.scannedAt || 0).getTime());
   return merged.slice(0, limit);
 }

@@ -20,10 +20,40 @@ import {
   CreditCard,
   Ticket,
   Loader2,
-  AlertCircle
+  FileText,
+  AlertCircle,
+  Tag,
+  Sparkles,
+  Users,
+  UserPlus
 } from "lucide-react";
 import { fetchPricingTiers, EventPricing, DEFAULT_PRICING_TIERS } from "@/lib/pricing";
+import { itsDepartments } from "@/lib/departments";
+import { Promo } from "@/types/database";
+import { validatePromoForEvent, incrementPromoQuota, calculatePromoPrice } from "@/lib/promo";
+import { formatBIB } from "@/lib/bib";
 import imageCompression from "browser-image-compression";
+
+async function compressImage(file: File): Promise<File> {
+  if (!file.type.startsWith("image/")) {
+    return file;
+  }
+  try {
+    const options = {
+      maxSizeMB: 0.2,
+      maxWidthOrHeight: 1024,
+      useWebWorker: true,
+    };
+    const compressedBlob = await imageCompression(file, options);
+    return new File([compressedBlob], file.name, {
+      type: compressedBlob.type || file.type,
+      lastModified: Date.now(),
+    });
+  } catch (err) {
+    console.warn("Kompresi gambar gagal, menggunakan file asli:", err);
+    return file;
+  }
+}
 
 export default function FestivalCheckoutPage() {
   const router = useRouter();
@@ -40,7 +70,27 @@ export default function FestivalCheckoutPage() {
     email: "",
   });
 
-  // Form State
+  // Form State - Kategori Peserta (Section 1)
+  const [kategoriPeserta, setKategoriPeserta] = useState<"Umum" | "Mahasiswa ITS">("Umum");
+  const [departemen, setDepartemen] = useState("");
+  const [nrp, setNrp] = useState("");
+  const [ktmFile, setKtmFile] = useState<File | null>(null);
+  const [isCompressingKtm, setIsCompressingKtm] = useState(false);
+
+  // Dynamic Group Registration State
+  interface ExtraMemberState {
+    nama_lengkap: string;
+    whatsapp: string;
+    email: string;
+    kategori_peserta: "Umum" | "Mahasiswa ITS";
+    departemen: string;
+    nrp: string;
+    ktm_file: File | null;
+    is_compressing_ktm?: boolean;
+  }
+  const [extraMembers, setExtraMembers] = useState<ExtraMemberState[]>([]);
+
+  // Form State - Payment
   const [metodeBayar, setMetodeBayar] = useState<"bni" | "qris">("bni");
   const [namaPemilikRekening, setNamaPemilikRekening] = useState("");
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
@@ -48,12 +98,23 @@ export default function FestivalCheckoutPage() {
   const [persetujuanAturan, setPersetujuanAturan] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Promo State
+  const [promoCode, setPromoCode] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<Promo | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [isValidatingPromo, setIsValidatingPromo] = useState(false);
+  const [activePromos, setActivePromos] = useState<Promo[]>([]);
+  const [loadingPromos, setLoadingPromos] = useState(true);
+  const [selectedPricingId, setSelectedPricingId] = useState<string>("standard");
+
   // Status & Feedback
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [submittedRegistrations, setSubmittedRegistrations] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const ktmInputRef = useRef<HTMLInputElement>(null);
 
   // Dynamic Pricing from cms_settings
   const [cmsPricing, setCmsPricing] = useState<EventPricing>(DEFAULT_PRICING_TIERS.festival);
@@ -68,7 +129,190 @@ export default function FestivalCheckoutPage() {
     loadPricing();
   }, []);
 
+  // Fetch active promo bundles targeting Festival
+  useEffect(() => {
+    async function loadActivePromos() {
+      setLoadingPromos(true);
+      try {
+        const { data, error: promoErr } = await supabase
+          .from("promos")
+          .select("*")
+          .eq("is_active", true)
+          .eq("target_event", "Festival")
+          .order("created_at", { ascending: false });
+
+        if (!promoErr && data) {
+          const now = new Date();
+          const valid = (data as Promo[]).filter((p) => {
+            const startDateOk = !p.start_date || new Date(p.start_date) <= now;
+            const endDateOk = !p.end_date || new Date(p.end_date) >= now;
+            const quotaOk = p.kuota_maksimal == null || (p.kuota_terpakai ?? 0) < p.kuota_maksimal;
+            return startDateOk && endDateOk && quotaOk;
+          });
+          setActivePromos(valid);
+        }
+      } catch (err) {
+        console.warn("Error loading active promos for Festival:", err);
+      } finally {
+        setLoadingPromos(false);
+      }
+    }
+    loadActivePromos();
+  }, [supabase]);
+
+  // Read URL query parameter ?promoId=... on mount
+  const [urlPromoId, setUrlPromoId] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const pId = params.get("promoId");
+      if (pId) {
+        setUrlPromoId(pId);
+      }
+    }
+  }, []);
+
+  // Auto-select promo card matching urlPromoId once promos are loaded
+  useEffect(() => {
+    if (!urlPromoId || activePromos.length === 0) return;
+    const target = activePromos.find((p) => p.id === urlPromoId);
+    if (target && selectedPricingId !== target.id) {
+      const calc = validatePromoForEvent(target, "Festival", cmsPricing.price);
+      if (calc.valid) {
+        setSelectedPricingId(target.id);
+        setAppliedPromo(calc.promo || target);
+        setPromoCode(target.title);
+        setPromoError(null);
+      }
+    }
+  }, [urlPromoId, activePromos, cmsPricing.price, selectedPricingId]);
+
   const totalAmount = cmsPricing.price;
+
+  // Dynamic capacity tracking based on selected ticket/promo (Regular ticket defaults to 1)
+  const kapasitas = useMemo(() => {
+    if (selectedPricingId !== "standard" && appliedPromo?.kapasitas) {
+      const k = Number(appliedPromo.kapasitas);
+      return isNaN(k) || k < 1 ? 1 : k;
+    }
+    return 1;
+  }, [selectedPricingId, appliedPromo]);
+
+  // Strict Discount Calculation (Tipe A: %, Tipe B: Nominal, Tipe C: Bundling direct override)
+  const { finalPrice: finalAmount, discountAmount, totalBasePrice } = useMemo(() => {
+    return calculatePromoPrice(appliedPromo, totalAmount, kapasitas);
+  }, [appliedPromo, totalAmount, kapasitas]);
+
+  // Check if primary participant's category is locked by the active promo
+  const isKategoriLocked = Boolean(
+    appliedPromo?.kategori_peserta && appliedPromo.kategori_peserta !== "Semua"
+  );
+  const promoRequiredCategory = isKategoriLocked
+    ? (appliedPromo!.kategori_peserta as "Umum" | "Mahasiswa ITS")
+    : null;
+
+  // Auto-Select Primary Participant Category when promo specifies a target category
+  useEffect(() => {
+    if (promoRequiredCategory) {
+      setKategoriPeserta(promoRequiredCategory);
+      if (promoRequiredCategory === "Umum") {
+        setDepartemen("");
+        setNrp("");
+        setKtmFile(null);
+        if (ktmInputRef.current) {
+          ktmInputRef.current.value = "";
+        }
+      }
+    }
+  }, [promoRequiredCategory]);
+
+  // Synchronize extraMembers array length dynamically when kapasitas changes
+  useEffect(() => {
+    const targetCount = Math.max(0, kapasitas - 1);
+    setExtraMembers((prev) => {
+      if (prev.length === targetCount) return prev;
+      if (prev.length < targetCount) {
+        const added: ExtraMemberState[] = Array.from(
+          { length: targetCount - prev.length },
+          () => ({
+            nama_lengkap: "",
+            whatsapp: "",
+            email: "",
+            kategori_peserta: "Umum",
+            departemen: "",
+            nrp: "",
+            ktm_file: null,
+          })
+        );
+        return [...prev, ...added];
+      }
+      return prev.slice(0, targetCount);
+    });
+  }, [kapasitas]);
+
+  const handleExtraMemberChange = (index: number, field: keyof ExtraMemberState, value: any) => {
+    setExtraMembers((prev) => {
+      const updated = [...prev];
+      if (!updated[index]) return prev;
+      updated[index] = { ...updated[index], [field]: value };
+      if (field === "kategori_peserta" && value === "Umum") {
+        updated[index].departemen = "";
+        updated[index].nrp = "";
+        updated[index].ktm_file = null;
+      }
+      return updated;
+    });
+  };
+
+  const handleExtraMemberKtmChange = async (index: number, file: File | null) => {
+    if (!file) {
+      handleExtraMemberChange(index, "ktm_file", null);
+      return;
+    }
+
+    const isImage = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+
+    if (!isImage && !isPdf) {
+      setError(`File Scan Kartu Pelajar / KTM Anggota ${index + 1} harus berformat Gambar (JPG/PNG) atau PDF.`);
+      return;
+    }
+
+    if (file.size > 15 * 1024 * 1024) {
+      setError(`Ukuran file KTM Anggota ${index + 1} maksimal 15MB sebelum kompresi.`);
+      return;
+    }
+
+    setError(null);
+    if (isImage) {
+      setExtraMembers((prev) => {
+        const updated = [...prev];
+        if (updated[index]) updated[index] = { ...updated[index], is_compressing_ktm: true };
+        return updated;
+      });
+      try {
+        const compressed = await compressImage(file);
+        setExtraMembers((prev) => {
+          const updated = [...prev];
+          if (updated[index]) {
+            updated[index] = { ...updated[index], ktm_file: compressed, is_compressing_ktm: false };
+          }
+          return updated;
+        });
+      } catch (err) {
+        console.error(`Gagal kompresi KTM Anggota ${index + 1}:`, err);
+        setExtraMembers((prev) => {
+          const updated = [...prev];
+          if (updated[index]) {
+            updated[index] = { ...updated[index], ktm_file: file, is_compressing_ktm: false };
+          }
+          return updated;
+        });
+      }
+    } else {
+      handleExtraMemberChange(index, "ktm_file", file);
+    }
+  };
 
   // 1. Client-Side Auth Guard with getUser() & 3-Second Fallback Timeout
   useEffect(() => {
@@ -172,6 +416,64 @@ export default function FestivalCheckoutPage() {
     };
   }, [router, supabase]);
 
+  // Handle Kategori Peserta Change
+  const handleKategoriChange = (newCategory: "Umum" | "Mahasiswa ITS") => {
+    setKategoriPeserta(newCategory);
+    if (newCategory === "Umum") {
+      setDepartemen("");
+      setNrp("");
+      setKtmFile(null);
+      if (ktmInputRef.current) {
+        ktmInputRef.current.value = "";
+      }
+    }
+  };
+
+  // Handle KTM File Change with client-side image compression
+  const handleKtmFileChange = async (file: File | null) => {
+    if (!file) {
+      setKtmFile(null);
+      return;
+    }
+
+    const isImage = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+
+    if (!isImage && !isPdf) {
+      setError("File Scan Kartu Pelajar / KTM harus berformat Gambar (JPG/PNG) atau PDF (.pdf).");
+      setKtmFile(null);
+      if (ktmInputRef.current) {
+        ktmInputRef.current.value = "";
+      }
+      return;
+    }
+
+    if (file.size > 15 * 1024 * 1024) {
+      setError("Ukuran file KTM maksimal 15MB sebelum kompresi.");
+      setKtmFile(null);
+      if (ktmInputRef.current) {
+        ktmInputRef.current.value = "";
+      }
+      return;
+    }
+
+    setError(null);
+    if (isImage) {
+      setIsCompressingKtm(true);
+      try {
+        const compressed = await compressImage(file);
+        setKtmFile(compressed);
+      } catch (err) {
+        console.error("Gagal kompresi file KTM:", err);
+        setKtmFile(file);
+      } finally {
+        setIsCompressingKtm(false);
+      }
+    } else {
+      setKtmFile(file);
+    }
+  };
+
   // Handle File Change with Image Compression (maxSizeMB: 0.2, maxWidthOrHeight: 1024)
   const handleFileChange = async (file: File | null) => {
     if (!file) return;
@@ -180,16 +482,8 @@ export default function FestivalCheckoutPage() {
     try {
       let processedFile = file;
       if (file.type.startsWith("image/")) {
-        const options = {
-          maxSizeMB: 0.2,
-          maxWidthOrHeight: 1024,
-          useWebWorker: true,
-        };
-        const compressedBlob = await imageCompression(file, options);
-        processedFile = new File([compressedBlob], file.name, {
-          type: compressedBlob.type || file.type,
-          lastModified: Date.now(),
-        });
+        const compressed = await compressImage(file);
+        processedFile = compressed;
       }
 
       setPaymentProofFile(processedFile);
@@ -203,6 +497,78 @@ export default function FestivalCheckoutPage() {
     }
   };
 
+  // Select Standard Base Price
+  const handleSelectStandardPrice = () => {
+    setSelectedPricingId("standard");
+    setAppliedPromo(null);
+    setPromoCode("");
+    setPromoError(null);
+  };
+
+  // Select a Promo Bundle Card
+  const handleSelectPromoOption = (promo: Promo) => {
+    if (selectedPricingId === promo.id) {
+      handleSelectStandardPrice();
+      return;
+    }
+
+    const result = validatePromoForEvent(promo, "Festival", totalAmount);
+    if (!result.valid) {
+      setPromoError(result.error || "Promo ini tidak dapat diterapkan.");
+      return;
+    }
+
+    setSelectedPricingId(promo.id);
+    setAppliedPromo(result.promo || promo);
+    setPromoCode(promo.title);
+    setPromoError(null);
+  };
+
+  // Apply Promo Handler
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) return;
+    setPromoError(null);
+    setIsValidatingPromo(true);
+
+    try {
+      const { data, error: fetchErr } = await supabase
+        .from("promos")
+        .select("*")
+        .ilike("title", promoCode.trim())
+        .maybeSingle();
+
+      if (fetchErr || !data) {
+        setPromoError("Kode promo tidak ditemukan.");
+        setAppliedPromo(null);
+        setSelectedPricingId("standard");
+        return;
+      }
+
+      const result = validatePromoForEvent(data as Promo, "Festival", totalAmount);
+      if (!result.valid) {
+        setPromoError(result.error || "Kode promo tidak valid.");
+        setAppliedPromo(null);
+        setSelectedPricingId("standard");
+        return;
+      }
+
+      setAppliedPromo(result.promo || null);
+      setSelectedPricingId(result.promo?.id || "custom");
+      setPromoError(null);
+    } catch (err: any) {
+      setPromoError("Gagal memvalidasi kode promo: " + (err.message || ""));
+    } finally {
+      setIsValidatingPromo(false);
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setPromoCode("");
+    setPromoError(null);
+    setSelectedPricingId("standard");
+  };
+
   // Copy BNI Account Number
   const handleCopyAccountNumber = () => {
     navigator.clipboard.writeText("1433025776");
@@ -212,13 +578,47 @@ export default function FestivalCheckoutPage() {
 
   // Comprehensive Form Validation Check
   const isFormValid = useMemo(() => {
-    if (loading || !user) return false;
+    if (loading || !user || isCompressingKtm) return false;
     if (metodeBayar !== "bni") return false;
     if (!paymentProofFile) return false;
     if (!namaPemilikRekening.trim()) return false;
     if (!persetujuanAturan) return false;
+
+    // Category-specific validation: Mahasiswa ITS requires Departemen, NRP & KTM
+    if (kategoriPeserta === "Mahasiswa ITS") {
+      if (!departemen.trim()) return false;
+      if (!nrp.trim()) return false;
+      if (!ktmFile) return false;
+    }
+
+    // Dynamic Extra Members validation
+    for (const member of extraMembers) {
+      if (!member.nama_lengkap.trim()) return false;
+      if (!member.whatsapp.trim()) return false;
+      if (!member.email.trim()) return false;
+      if (member.is_compressing_ktm) return false;
+      if (member.kategori_peserta === "Mahasiswa ITS") {
+        if (!member.departemen.trim()) return false;
+        if (!member.nrp.trim()) return false;
+        if (!member.ktm_file) return false;
+      }
+    }
+
     return true;
-  }, [loading, user, metodeBayar, paymentProofFile, namaPemilikRekening, persetujuanAturan]);
+  }, [
+    loading, 
+    user, 
+    isCompressingKtm, 
+    metodeBayar, 
+    paymentProofFile, 
+    namaPemilikRekening, 
+    persetujuanAturan, 
+    kategoriPeserta, 
+    departemen, 
+    nrp, 
+    ktmFile,
+    extraMembers
+  ]);
 
   // Form Submission strictly into festival_registrations
   const handleSubmit = async (e: React.FormEvent) => {
@@ -232,6 +632,21 @@ export default function FestivalCheckoutPage() {
       setError("Sesi pengguna telah berakhir. Silakan login kembali.");
       router.replace("/login?redirect=/festival/checkout");
       return;
+    }
+
+    if (kategoriPeserta === "Mahasiswa ITS") {
+      if (!departemen.trim()) {
+        setError("Departemen wajib dipilih untuk Mahasiswa ITS.");
+        return;
+      }
+      if (!nrp.trim()) {
+        setError("NRP (Nomor Pokok Mahasiswa) wajib diisi untuk Mahasiswa ITS.");
+        return;
+      }
+      if (!ktmFile) {
+        setError("Scan Kartu Pelajar / KTM wajib diunggah untuk Mahasiswa ITS.");
+        return;
+      }
     }
 
     if (!namaPemilikRekening.trim()) {
@@ -249,10 +664,93 @@ export default function FestivalCheckoutPage() {
       return;
     }
 
+    // Extra Members validation
+    for (let i = 0; i < extraMembers.length; i++) {
+      const m = extraMembers[i];
+      const memberNum = i + 1;
+      if (!m.nama_lengkap.trim()) {
+        setError(`Nama lengkap Anggota ${memberNum} wajib diisi.`);
+        return;
+      }
+      if (!m.whatsapp.trim()) {
+        setError(`Nomor WhatsApp Anggota ${memberNum} wajib diisi.`);
+        return;
+      }
+      if (!m.email.trim()) {
+        setError(`Email Anggota ${memberNum} wajib diisi.`);
+        return;
+      }
+      if (m.kategori_peserta === "Mahasiswa ITS") {
+        if (!m.departemen.trim()) {
+          setError(`Departemen Anggota ${memberNum} wajib dipilih.`);
+          return;
+        }
+        if (!m.nrp.trim()) {
+          setError(`NRP Anggota ${memberNum} wajib diisi.`);
+          return;
+        }
+        if (!m.ktm_file) {
+          setError(`Scan Kartu Pelajar / KTM Anggota ${memberNum} wajib diunggah.`);
+          return;
+        }
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
-      // 1. Upload compressed payment proof to 'payment_proofs' storage bucket
+      // 1. Upload KTM if category is Mahasiswa ITS
+      let ktmUrl: string | null = null;
+      if (kategoriPeserta === "Mahasiswa ITS" && ktmFile) {
+        const compressedKtm = await compressImage(ktmFile);
+        const cleanKtmName = compressedKtm.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const ktmPath = `${authUser.id}/${Date.now()}-${cleanKtmName}`;
+
+        let { error: ktmUploadError } = await supabase.storage
+          .from("registrations")
+          .upload(ktmPath, compressedKtm, {
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        let targetKtmBucket = "registrations";
+
+        if (ktmUploadError) {
+          const fallback = await supabase.storage
+            .from("colorfun_ktm")
+            .upload(ktmPath, compressedKtm, {
+              cacheControl: "3600",
+              upsert: false,
+            });
+          if (!fallback.error) {
+            ktmUploadError = null;
+            targetKtmBucket = "colorfun_ktm";
+          } else {
+            const fallback2 = await supabase.storage
+              .from("payment_proofs")
+              .upload(ktmPath, compressedKtm, {
+                cacheControl: "3600",
+                upsert: false,
+              });
+            if (!fallback2.error) {
+              ktmUploadError = null;
+              targetKtmBucket = "payment_proofs";
+            }
+          }
+        }
+
+        if (ktmUploadError) {
+          throw new Error(`Gagal mengunggah Scan Kartu Pelajar / KTM: ${ktmUploadError.message}`);
+        }
+
+        const { data: ktmPublicData } = supabase.storage
+          .from(targetKtmBucket)
+          .getPublicUrl(ktmPath);
+
+        ktmUrl = ktmPublicData?.publicUrl || null;
+      }
+
+      // 2. Upload compressed payment proof to 'payment_proofs' storage bucket
       const cleanFileName = paymentProofFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
       const filePath = `${authUser.id}/${Date.now()}-${cleanFileName}`;
 
@@ -267,56 +765,211 @@ export default function FestivalCheckoutPage() {
         throw new Error(`Gagal mengunggah bukti pembayaran: ${uploadError.message}`);
       }
 
-      // 2. Get Public URL
+      // 3. Get Public URL
       const { data: publicUrlData } = supabase.storage
         .from("payment_proofs")
         .getPublicUrl(filePath);
 
       const publicUrl = publicUrlData?.publicUrl || "";
 
-      // 3. Insert payload strictly into festival_registrations table
-      const registrationPayload = {
+      // 4. Upload extra members' KTMs to Supabase storage (atomic — abort all on any failure)
+      const extraMemberKtmUrls: (string | null)[] = [];
+      for (let i = 0; i < extraMembers.length; i++) {
+        const m = extraMembers[i];
+        let memberKtmUrl: string | null = null;
+
+        if (m.kategori_peserta === "Mahasiswa ITS" && m.ktm_file) {
+          const compressedMemberKtm = await compressImage(m.ktm_file);
+          const cleanMemberKtmName = compressedMemberKtm.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+          const memberKtmPath = `${authUser.id}/${Date.now()}-anggota-${i + 1}-${cleanMemberKtmName}`;
+
+          let { error: memberKtmUploadErr } = await supabase.storage
+            .from("registrations")
+            .upload(memberKtmPath, compressedMemberKtm, {
+              cacheControl: "3600",
+              upsert: false,
+            });
+
+          let targetMemberBucket = "registrations";
+
+          if (memberKtmUploadErr) {
+            const fallback = await supabase.storage
+              .from("colorfun_ktm")
+              .upload(memberKtmPath, compressedMemberKtm, {
+                cacheControl: "3600",
+                upsert: false,
+              });
+            if (!fallback.error) {
+              memberKtmUploadErr = null;
+              targetMemberBucket = "colorfun_ktm";
+            } else {
+              const fallback2 = await supabase.storage
+                .from("payment_proofs")
+                .upload(memberKtmPath, compressedMemberKtm, {
+                  cacheControl: "3600",
+                  upsert: false,
+                });
+              if (!fallback2.error) {
+                memberKtmUploadErr = null;
+                targetMemberBucket = "payment_proofs";
+              }
+            }
+          }
+
+          if (memberKtmUploadErr) {
+            throw new Error(`Gagal mengunggah Scan Kartu Pelajar / KTM Anggota ${i + 1}: ${memberKtmUploadErr.message}`);
+          }
+
+          const { data: memberKtmData } = supabase.storage
+            .from(targetMemberBucket)
+            .getPublicUrl(memberKtmPath);
+
+          memberKtmUrl = memberKtmData?.publicUrl || null;
+        }
+
+        extraMemberKtmUrls.push(memberKtmUrl);
+      }
+
+      // 5. Build participants array for bulk insert (each participant = separate row, linked by group_id)
+      const groupId = crypto.randomUUID();
+
+      // Shared payment/promo context for the entire group
+      const registrantCount = Math.max(appliedPromo?.kapasitas || 1, 1 + extraMembers.length);
+      const resolvedPhase = appliedPromo
+        ? `${appliedPromo.title} [PROMO:${appliedPromo.id}:${registrantCount}]`
+        : (cmsPricing.phase || "Tiket Reguler");
+
+      const sharedPaymentContext = {
+        bukti_transfer_url: publicUrl,
+        rekening_pengirim: namaPemilikRekening.trim(),
+        payment_status: "pending",
+        amount_paid: finalAmount,
+        ticket_phase: resolvedPhase,
+        promo_id: appliedPromo?.id || null,
+        nomor_bib: null, // BIB must NOT be generated on form submission; assigned sequentially upon admin verification
+        ticket_qr_code: null,
+      };
+
+      // Primary Registrant row
+      const primaryRow: Record<string, any> = {
         user_id: authUser.id,
+        group_id: groupId,
+        is_primary: true,
         nama_lengkap: userData.fullName || authUser.user_metadata?.full_name || "",
         whatsapp: userData.phone || authUser.user_metadata?.phone || "",
         email: userData.email || authUser.email || "",
-        rekening_pengirim: namaPemilikRekening.trim(),
-        bukti_transfer_url: publicUrl,
-        payment_status: "pending",
-        amount_paid: totalAmount,
-        ticket_phase: cmsPricing.phase,
+        kategori_peserta: kategoriPeserta,
+        departemen: kategoriPeserta === "Mahasiswa ITS" ? departemen.trim() : null,
+        nrp: kategoriPeserta === "Mahasiswa ITS" ? nrp.trim() : null,
+        ktm_url: ktmUrl,
+        ...sharedPaymentContext,
       };
 
-      const { data: regResult, error: regError } = await supabase
+      // Additional Member rows
+      const additionalRows: Record<string, any>[] = extraMembers.map((m, i) => ({
+        user_id: authUser.id,
+        group_id: groupId,
+        is_primary: false,
+        nama_lengkap: m.nama_lengkap.trim(),
+        whatsapp: m.whatsapp.trim(),
+        email: m.email.trim(),
+        kategori_peserta: m.kategori_peserta,
+        departemen: m.kategori_peserta === "Mahasiswa ITS" ? m.departemen.trim() : null,
+        nrp: m.kategori_peserta === "Mahasiswa ITS" ? m.nrp.trim() : null,
+        ktm_url: extraMemberKtmUrls[i] || null,
+        ...sharedPaymentContext,
+      }));
+
+      // Combine into single array for atomic bulk insert (DB SERIAL nomor_bib auto-assigns sequential BIBs)
+      const participantsArray = [primaryRow, ...additionalRows];
+
+      let { data: regResults, error: regError } = await supabase
         .from("festival_registrations")
-        .insert(registrationPayload)
-        .select()
-        .maybeSingle();
+        .insert(participantsArray)
+        .select();
+
+      // Graceful schema fallback if nomor_bib causes constraint issue: retry omitting nomor_bib
+      if (regError && regError.message?.includes("nomor_bib")) {
+        console.warn("Retrying festival_registrations bulk insert omitting nomor_bib:", regError.message);
+        const fallbackArray = participantsArray.map((row) => {
+          const { nomor_bib: _nb, ...rest } = row;
+          return rest;
+        });
+        const retryRes = await supabase
+          .from("festival_registrations")
+          .insert(fallbackArray)
+          .select();
+        if (!retryRes.error) {
+          regError = null;
+          regResults = retryRes.data;
+        }
+      }
+
+      // Graceful schema fallback if group_id/is_primary columns have not yet been migrated
+      if (regError && (regError.message?.includes("group_id") || regError.message?.includes("is_primary") || regError.code === "PGRST204")) {
+        console.warn("Retrying festival_registrations bulk insert with schema fallback:", regError.message);
+        const fallbackArray = participantsArray.map((row) => {
+          const { group_id: _gid, is_primary: _ip, ...rest } = row;
+          return rest;
+        });
+        const retryRes = await supabase
+          .from("festival_registrations")
+          .insert(fallbackArray)
+          .select();
+        if (!retryRes.error) {
+          regError = null;
+          regResults = retryRes.data;
+        }
+      }
+
+      // Second fallback: strip departemen/kategori_peserta if those columns are also missing
+      if (regError && (regError.message?.includes("departemen") || regError.message?.includes("kategori_peserta") || regError.code === "PGRST204")) {
+        console.warn("Retrying festival_registrations bulk insert with further schema fallback:", regError.message);
+        const fallbackArray = participantsArray.map((row) => {
+          const { group_id: _gid, is_primary: _ip, departemen: _dep, nrp: _nrp, ktm_url: _ktm, kategori_peserta: _kat, ...rest } = row;
+          return rest;
+        });
+        const retryRes = await supabase
+          .from("festival_registrations")
+          .insert(fallbackArray)
+          .select();
+        if (!retryRes.error) {
+          regError = null;
+          regResults = retryRes.data;
+        }
+      }
 
       if (regError) {
-        console.error("Supabase festival_registrations insert error:", regError);
+        console.error("Supabase festival_registrations bulk insert error:", regError);
         throw new Error(`Gagal menyimpan data pendaftaran: ${regError.message}`);
       }
 
-      // 4. Also sync into central transactions table for dashboard status
+      // Identify the primary registration row for transaction sync
+      const primaryResult = regResults?.find((r: any) => r.is_primary === true) || regResults?.[0] || null;
+
+      // 6. Sync into central transactions table for dashboard status
       try {
         await supabase.from("transactions").insert({
           user_id: authUser.id,
           source_type: "festival",
-          source_id: regResult?.id || null,
+          source_id: primaryResult?.id || null,
           sub_event_type: "FESTIVAL",
-          amount: totalAmount,
+          amount: finalAmount,
           payment_proof_url: publicUrl,
           status: "Pending",
+          participant_category: kategoriPeserta,
+          student_id_number: kategoriPeserta === "Mahasiswa ITS" ? nrp.trim() : null,
+          student_card_url: ktmUrl,
         });
       } catch (syncErr) {
         console.warn("Notice syncing transactions table:", syncErr);
       }
 
+      setSubmittedRegistrations(regResults || []);
       setIsSuccess(true);
       setTimeout(() => {
         router.push("/dashboard");
-      }, 2500);
+      }, 5000);
 
     } catch (err: any) {
       console.error("Submission error:", err);
@@ -374,8 +1027,35 @@ export default function FestivalCheckoutPage() {
               </div>
               <div className="flex justify-between text-on-surface-variant">
                 <span>Total Nominal</span>
-                <span className="text-secondary font-bold">Rp {totalAmount.toLocaleString("id-ID")}</span>
+                <span className="text-secondary font-bold">
+                  Rp {(submittedRegistrations[0]?.amount_paid ?? finalAmount).toLocaleString("id-ID")}
+                </span>
               </div>
+
+              {submittedRegistrations.length > 0 && (
+                <div className="pt-2.5 border-t border-white/10 space-y-1.5">
+                  <div className="flex justify-between items-center text-on-surface-variant">
+                    <span className="text-white font-semibold">Nomor BIB Peserta</span>
+                    <span className="text-[10px] uppercase tracking-wider text-amber-300 font-mono">Menunggu Verifikasi</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {submittedRegistrations.map((reg, idx) => (
+                      <div
+                        key={reg.id || idx}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-300 font-mono text-xs font-bold"
+                      >
+                        <span>{reg.nomor_bib != null ? `BIB #${formatBIB(reg.nomor_bib)}` : "BIB: Menunggu Verifikasi"}</span>
+                        <span className="text-[10px] font-sans font-normal text-on-surface-variant">
+                          ({reg.is_primary ? "Utama" : `Anggota ${idx}`})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-neutral-400 italic pt-1">
+                    Nomor BIB dan tiket QR resmi akan otomatis terbit setelah pembayaran diverifikasi oleh Admin.
+                  </p>
+                </div>
+              )}
             </div>
             <Link 
               href="/dashboard" 
@@ -483,31 +1163,600 @@ export default function FestivalCheckoutPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Kategori Peserta */}
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between">
+                    <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block">
+                      Kategori Peserta *
+                    </label>
+                    {isKategoriLocked && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 animate-in fade-in">
+                        <Lock className="w-3 h-3" />
+                        Terkunci otomatis oleh syarat Promo ({appliedPromo?.kategori_peserta})
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <select
+                      value={kategoriPeserta}
+                      disabled={isKategoriLocked}
+                      onChange={(e) => handleKategoriChange(e.target.value as "Umum" | "Mahasiswa ITS")}
+                      className={`w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins ${
+                        isKategoriLocked ? "opacity-75 cursor-not-allowed bg-neutral-900/80 pr-10" : "cursor-pointer"
+                      }`}
+                    >
+                      <option value="Umum" className="bg-[#101415] text-white">Umum</option>
+                      <option value="Mahasiswa ITS" className="bg-[#101415] text-white">Mahasiswa ITS</option>
+                    </select>
+                    {isKategoriLocked && (
+                      <Lock className="w-4 h-4 text-amber-300/80 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Conditional Fields for Mahasiswa ITS */}
+                {kategoriPeserta === "Mahasiswa ITS" && (
+                  <div className="space-y-6 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                    {/* Departemen (New Dropdown) */}
+                    <div className="space-y-2">
+                      <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block">
+                        Departemen *
+                      </label>
+                      <select
+                        required
+                        value={departemen}
+                        onChange={(e) => setDepartemen(e.target.value)}
+                        className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins cursor-pointer"
+                      >
+                        <option value="" disabled className="bg-[#101415] text-on-surface-variant/70">
+                          -- Pilih Departemen --
+                        </option>
+                        {itsDepartments.map((dept) => (
+                          <option key={dept} value={dept} className="bg-[#101415] text-white">
+                            {dept}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* NRP */}
+                    <div className="space-y-2">
+                      <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block">
+                        NRP (Nomor Pokok Mahasiswa) *
+                      </label>
+                      <input
+                        required
+                        type="text"
+                        value={nrp}
+                        onChange={(e) => setNrp(e.target.value)}
+                        placeholder="e.g. 5001211001"
+                        className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-3 text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50"
+                      />
+                    </div>
+
+                    {/* Scan Kartu Pelajar / KTM (Gambar/PDF) */}
+                    <div className="space-y-2">
+                      <label className="font-poppins font-medium text-sm text-primary-fixed-dim uppercase tracking-wider block">
+                        Scan Kartu Pelajar / KTM (JPG/PNG/PDF) *
+                      </label>
+                      <div className="relative w-full">
+                        <input
+                          ref={ktmInputRef}
+                          required
+                          accept="image/*,application/pdf,.pdf"
+                          type="file"
+                          onChange={(e) => handleKtmFileChange(e.target.files?.[0] || null)}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        />
+                        <div
+                          className={`w-full border-2 border-dashed rounded-lg py-6 px-4 flex flex-col items-center justify-center transition-colors ${
+                            ktmFile
+                              ? "border-secondary bg-secondary/10"
+                              : "border-outline-variant bg-surface-container-highest/30 hover:bg-surface-container-highest/60"
+                          }`}
+                        >
+                          {ktmFile ? (
+                            <div className="flex items-center gap-3 text-secondary">
+                              <FileText className="w-8 h-8 flex-shrink-0" />
+                              <div className="text-left">
+                                <p className="font-medium text-sm text-white truncate max-w-xs">{ktmFile.name}</p>
+                                <p className="text-xs text-secondary-fixed-dim">
+                                  {isCompressingKtm ? "Mengompresi..." : `${(ktmFile.size / 1024).toFixed(1)} KB - File Terunggah`}
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <UploadCloud className="w-8 h-8 mb-2 text-on-surface-variant" />
+                              <span className="text-white font-medium text-sm text-center">
+                                {isCompressingKtm ? "Mengompresi file KTM..." : "Unggah Scan Kartu Pelajar / KTM (JPG/PNG/PDF)"}
+                              </span>
+                              <span className="text-xs text-on-surface-variant/70 mt-1">Klik atau seret file ke sini</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Dynamic Extra Participants Rendering inside Section 1 */}
+                {extraMembers.length > 0 && (
+                  <div className="pt-8 border-t border-white/10 space-y-6">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-secondary/20 border border-secondary/30 flex items-center justify-center">
+                        <Users className="w-4 h-4 text-secondary" />
+                      </div>
+                      <div>
+                        <h3 className="font-poppins font-semibold text-base text-white flex items-center gap-2">
+                          Data Anggota Tambahan
+                          <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-secondary/20 text-secondary border border-secondary/30">
+                            {extraMembers.length} Peserta
+                          </span>
+                        </h3>
+                        <p className="text-xs text-on-surface-variant/70 mt-0.5">
+                          Lengkapi data anggota rombongan/bundle paket yang Anda daftarkan
+                        </p>
+                      </div>
+                    </div>
+
+                    {extraMembers.map((member, idx) => (
+                      <div
+                        key={idx}
+                        className="p-5 md:p-6 rounded-2xl bg-surface-container-highest/20 border border-white/15 space-y-5 relative backdrop-blur-md shadow-lg"
+                      >
+                        <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                          <h4 className="font-poppins font-semibold text-sm text-primary-fixed flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-secondary/20 text-secondary border border-secondary/30 flex items-center justify-center text-xs font-bold">
+                              {idx + 1}
+                            </span>
+                            Data Anggota {idx + 1}
+                          </h4>
+                          <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-white/5 text-on-surface-variant border border-white/10">
+                            Anggota {idx + 1} dari {extraMembers.length}
+                          </span>
+                        </div>
+
+                        {/* Nama Lengkap */}
+                        <div className="space-y-2">
+                          <label className="font-poppins font-medium text-xs text-primary-fixed-dim uppercase tracking-wider block">
+                            Nama Lengkap *
+                          </label>
+                          <input
+                            required
+                            type="text"
+                            value={member.nama_lengkap}
+                            onChange={(e) => handleExtraMemberChange(idx, "nama_lengkap", e.target.value)}
+                            placeholder="Masukkan nama lengkap sesuai kartu identitas"
+                            className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-2.5 text-sm text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50"
+                          />
+                        </div>
+
+                        {/* Nomor WhatsApp & Email */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="font-poppins font-medium text-xs text-primary-fixed-dim uppercase tracking-wider block">
+                              Nomor WhatsApp *
+                            </label>
+                            <input
+                              required
+                              type="text"
+                              value={member.whatsapp}
+                              onChange={(e) => handleExtraMemberChange(idx, "whatsapp", e.target.value)}
+                              placeholder="e.g. 081234567890"
+                              className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-2.5 text-sm text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="font-poppins font-medium text-xs text-primary-fixed-dim uppercase tracking-wider block">
+                              Email *
+                            </label>
+                            <input
+                              required
+                              type="email"
+                              value={member.email}
+                              onChange={(e) => handleExtraMemberChange(idx, "email", e.target.value)}
+                              placeholder="e.g. email@example.com"
+                              className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-2.5 text-sm text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Kategori Peserta */}
+                        <div className="space-y-2">
+                          <label className="font-poppins font-medium text-xs text-primary-fixed-dim uppercase tracking-wider block">
+                            Kategori Peserta *
+                          </label>
+                          <select
+                            value={member.kategori_peserta}
+                            onChange={(e) =>
+                              handleExtraMemberChange(
+                                idx,
+                                "kategori_peserta",
+                                e.target.value as "Umum" | "Mahasiswa ITS"
+                              )
+                            }
+                            className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-2.5 text-sm text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins cursor-pointer"
+                          >
+                            <option value="Umum" className="bg-[#101415] text-white">
+                              Umum
+                            </option>
+                            <option value="Mahasiswa ITS" className="bg-[#101415] text-white">
+                              Mahasiswa ITS
+                            </option>
+                          </select>
+                        </div>
+
+                        {/* Conditional ITS Fields */}
+                        {member.kategori_peserta === "Mahasiswa ITS" && (
+                          <div className="space-y-4 pt-3 border-t border-white/5 animate-in fade-in slide-in-from-top-2 duration-300">
+                            {/* Departemen */}
+                            <div className="space-y-2">
+                              <label className="font-poppins font-medium text-xs text-primary-fixed-dim uppercase tracking-wider block">
+                                Departemen *
+                              </label>
+                              <select
+                                required
+                                value={member.departemen}
+                                onChange={(e) => handleExtraMemberChange(idx, "departemen", e.target.value)}
+                                className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-2.5 text-sm text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins cursor-pointer"
+                              >
+                                <option value="" disabled className="bg-[#101415] text-on-surface-variant/70">
+                                  -- Pilih Departemen --
+                                </option>
+                                {itsDepartments.map((dept) => (
+                                  <option key={dept} value={dept} className="bg-[#101415] text-white">
+                                    {dept}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* NRP */}
+                            <div className="space-y-2">
+                              <label className="font-poppins font-medium text-xs text-primary-fixed-dim uppercase tracking-wider block">
+                                NRP (Nomor Pokok Mahasiswa) *
+                              </label>
+                              <input
+                                required
+                                type="text"
+                                value={member.nrp}
+                                onChange={(e) => handleExtraMemberChange(idx, "nrp", e.target.value)}
+                                placeholder="e.g. 5001211001"
+                                className="w-full bg-surface-container-highest/50 border border-outline-variant rounded-lg px-4 py-2.5 text-sm text-white focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all font-poppins placeholder:text-on-surface-variant/50"
+                              />
+                            </div>
+
+                            {/* Scan KTM */}
+                            <div className="space-y-2">
+                              <label className="font-poppins font-medium text-xs text-primary-fixed-dim uppercase tracking-wider block">
+                                Scan Kartu Pelajar / KTM (JPG/PNG/PDF) *
+                              </label>
+                              <div className="relative w-full">
+                                <input
+                                  required
+                                  accept="image/*,application/pdf,.pdf"
+                                  type="file"
+                                  onChange={(e) => handleExtraMemberKtmChange(idx, e.target.files?.[0] || null)}
+                                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                />
+                                <div
+                                  className={`w-full border-2 border-dashed rounded-lg py-4 px-4 flex flex-col items-center justify-center transition-colors ${
+                                    member.ktm_file
+                                      ? "border-secondary bg-secondary/10"
+                                      : "border-outline-variant bg-surface-container-highest/30 hover:bg-surface-container-highest/60"
+                                  }`}
+                                >
+                                  {member.ktm_file ? (
+                                    <div className="flex items-center gap-3 text-secondary">
+                                      <FileText className="w-7 h-7 flex-shrink-0" />
+                                      <div className="text-left">
+                                        <p className="font-medium text-xs text-white truncate max-w-xs">{member.ktm_file.name}</p>
+                                        <p className="text-[11px] text-secondary-fixed-dim">
+                                          {member.is_compressing_ktm ? "Mengompresi..." : `${(member.ktm_file.size / 1024).toFixed(1)} KB - File Terunggah`}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <UploadCloud className="w-6 h-6 mb-1 text-on-surface-variant" />
+                                      <span className="text-white font-medium text-xs text-center">
+                                        {member.is_compressing_ktm ? "Mengompresi KTM..." : `Unggah Scan KTM Anggota ${idx + 1} (JPG/PNG/PDF)`}
+                                      </span>
+                                      <span className="text-[10px] text-on-surface-variant/70 mt-0.5">Klik atau seret file ke sini</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
             {/* ======================================================== */}
-            {/* SECTION 2: PEMBAYARAN */}
+            {/* SECTION 2: PEMBAYARAN & FINALISASI */}
             {/* ======================================================== */}
             <div className="glass-card rounded-2xl p-6 md:p-10 relative overflow-hidden shadow-xl border border-white/10">
               <div className="mb-6 pb-4 border-b border-white/10">
                 <CustomHeading 
                   as="h2" 
-                  text="Pembayaran" 
+                  text="Pembayaran &amp; Finalisasi" 
                   className="text-2xl md:text-3xl text-primary-fixed flex items-center gap-3" 
                 />
+                <p className="text-xs text-on-surface-variant/70 mt-1">
+                  Biaya tiket Festival Musik &amp; Pameran Seni VOITSFEST 2026
+                </p>
+              </div>
+
+              {/* ── PRICING SELECTION (Standard Phase vs Active Promo Bundles) ── */}
+              <div className="mb-8 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-xs text-primary-fixed uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#ffd700]" />
+                    Pilihan Paket &amp; Tiket Pendaftaran
+                  </label>
+                  {!loadingPromos && activePromos.length > 0 && (
+                    <span className="text-[11px] text-secondary font-medium hidden sm:inline">
+                      Pilih salah satu paket di bawah
+                    </span>
+                  )}
+                </div>
+
+                {loadingPromos ? (
+                  <div className="p-6 rounded-2xl bg-surface-container-highest/30 border border-white/10 animate-pulse flex items-center justify-center">
+                    <Loader2 className="w-5 h-5 text-secondary animate-spin" />
+                  </div>
+                ) : activePromos.length === 0 ? (
+                  /* Scenario A: No Active Promos -> Dynamic Base Price Card */
+                  <div className="p-5 md:p-6 rounded-2xl bg-gradient-to-r from-secondary/15 via-surface-container-highest/60 to-primary/10 border-2 border-secondary/40 shadow-[0_0_25px_rgba(176,198,255,0.15)] flex items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-xl md:text-2xl font-bold text-white tracking-wide">
+                        {cmsPricing?.phase?.trim() || "Tiket Reguler"}
+                      </h3>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-[11px] uppercase tracking-wider text-on-surface-variant font-medium">Total</p>
+                      <p className="text-2xl md:text-3xl font-headline-md font-bold text-white">
+                        Rp {totalAmount.toLocaleString("id-ID")}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  /* Scenario B: Active Promos Exist (Side-by-Side Selectable Cards) */
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Left Card: Dynamic Phase Name / Base Ticket */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={handleSelectStandardPrice}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleSelectStandardPrice(); }}
+                      className={`relative cursor-pointer rounded-2xl p-5 border-2 transition-all duration-300 flex flex-col justify-between select-none ${
+                        selectedPricingId === "standard"
+                          ? "bg-secondary/15 border-secondary shadow-[0_0_25px_rgba(176,198,255,0.2)] ring-1 ring-secondary/50"
+                          : "bg-surface-container-highest/30 border-white/10 hover:border-white/25 hover:bg-surface-container-highest/50 opacity-85 hover:opacity-100"
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider text-slate-300 bg-white/10 border border-white/20">
+                            Fase Pendaftaran Aktif
+                          </span>
+
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0 ${
+                            selectedPricingId === "standard" ? "border-secondary bg-secondary" : "border-neutral-600"
+                          }`}>
+                            {selectedPricingId === "standard" && (
+                              <Check className="w-3 h-3 text-primary-container font-bold stroke-[3]" />
+                            )}
+                          </div>
+                        </div>
+
+                        <h4 className="font-bold text-base text-white mb-1">
+                          {cmsPricing?.phase?.trim() || "Tiket Reguler"}
+                        </h4>
+                      </div>
+
+                      <div className="pt-3 border-t border-white/10 flex items-baseline justify-between">
+                        <span className="text-[11px] text-on-surface-variant uppercase tracking-wider">Total</span>
+                        <span className="text-xl font-bold font-headline-md text-white">
+                          Rp {totalAmount.toLocaleString("id-ID")}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Right Card(s): Promo / Bundling Options */}
+                    {activePromos.map((promo) => {
+                      const isSelected = selectedPricingId === promo.id;
+                      const calc = validatePromoForEvent(promo, "Festival", totalAmount);
+                      const promoFinalPrice = calc.finalPrice ?? totalAmount;
+                      const discountVal = calc.discountAmount ?? 0;
+                      const remainingQuota = promo.kuota_maksimal != null ? promo.kuota_maksimal - (promo.kuota_terpakai ?? 0) : null;
+
+                      return (
+                        <div
+                          key={promo.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleSelectPromoOption(promo)}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleSelectPromoOption(promo); }}
+                          className={`relative cursor-pointer rounded-2xl p-5 border-2 transition-all duration-300 flex flex-col justify-between select-none overflow-hidden ${
+                            isSelected
+                              ? "bg-[#ffd700]/15 border-[#ffd700] shadow-[0_0_25px_rgba(255,215,0,0.25)] ring-1 ring-[#ffd700]/60"
+                              : "bg-surface-container-highest/30 border-[#ffd700]/30 hover:border-[#ffd700]/60 hover:bg-surface-container-highest/50"
+                          }`}
+                        >
+                          <div className="absolute -top-10 -right-10 w-24 h-24 bg-[#ffd700]/10 rounded-full blur-2xl pointer-events-none" />
+
+                          <div>
+                            <div className="flex items-center justify-between mb-3 relative z-10">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-white bg-gradient-to-r from-purple-500 to-blue-500 border border-purple-400/50 shadow-[0_0_12px_rgba(168,85,247,0.35)]">
+                                  <Sparkles className="w-3 h-3 text-amber-300" />
+                                  Bundle Package
+                                </span>
+                                {promo.kategori_peserta && promo.kategori_peserta !== "Semua" && (
+                                  <span className="text-[10px] font-sans font-semibold px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                                    Khusus {promo.kategori_peserta}
+                                  </span>
+                                )}
+                                {remainingQuota != null && (
+                                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-white/5 text-on-surface-variant border border-white/10">
+                                    Sisa: {remainingQuota}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0 ${
+                                isSelected ? "border-[#ffd700] bg-[#ffd700]" : "border-neutral-600"
+                              }`}>
+                                {isSelected && (
+                                  <Check className="w-3 h-3 text-neutral-950 font-bold stroke-[3]" />
+                                )}
+                              </div>
+                            </div>
+
+                            <h4 className="font-bold text-base text-white mb-1 relative z-10">
+                              {promo.title}
+                            </h4>
+                            <p className="text-xs text-on-surface-variant/85 mb-4 line-clamp-2 relative z-10 font-poppins">
+                              {promo.description || "Penawaran promo terbatas untuk Festival."}
+                            </p>
+                          </div>
+
+                          <div className="pt-3 border-t border-white/10 flex items-baseline justify-between relative z-10">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+                                {promo.discount_type === "percent"
+                                  ? `${promo.discount_value}% OFF`
+                                  : promo.discount_type === "bundling"
+                                  ? "Paket Bundling"
+                                  : `Hemat Rp ${discountVal.toLocaleString("id-ID")}`}
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <div className="flex items-baseline gap-1.5 justify-end">
+                                <span className="text-xs text-on-surface-variant line-through font-mono">
+                                  Rp {(totalAmount * (promo.kapasitas || 1)).toLocaleString("id-ID")}
+                                </span>
+                                <span className="text-xl font-bold font-headline-md text-[#ffd700]">
+                                  Rp {promoFinalPrice.toLocaleString("id-ID")}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Promo Code Input & Summary */}
+              <div className="mb-6 p-4 rounded-xl bg-surface-container-highest/40 border border-white/10 space-y-3">
+                <label className="font-medium text-xs text-primary-fixed uppercase tracking-wider flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-secondary" />
+                  Kupon Promo / Diskon
+                </label>
+                {appliedPromo ? (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                        <Check className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-white text-sm tracking-wider uppercase">
+                            {appliedPromo.title}
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">
+                            {appliedPromo.discount_type === "percent"
+                              ? `${appliedPromo.discount_value}% OFF`
+                              : appliedPromo.discount_type === "bundling"
+                              ? "Paket Bundling"
+                              : `Hemat Rp ${Number(appliedPromo.discount_value).toLocaleString("id-ID")}`}
+                          </span>
+                        </div>
+                        <p className="text-xs text-emerald-400/90 mt-0.5 font-medium">
+                          Potongan harga: -Rp {discountAmount.toLocaleString("id-ID")}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemovePromo}
+                      className="text-xs text-red-400 hover:text-red-300 px-2.5 py-1 rounded bg-red-500/10 hover:bg-red-500/20 transition-colors font-medium border border-red-500/20 shrink-0"
+                    >
+                      Hapus
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={promoCode}
+                        onChange={(e) => {
+                          setPromoCode(e.target.value.toUpperCase());
+                          if (promoError) setPromoError(null);
+                        }}
+                        placeholder="Masukkan kode promo (cth: FESTIVALHEBOH)"
+                        className="flex-1 bg-surface-container-highest/60 border border-outline-variant rounded-lg px-4 py-2.5 text-white font-mono text-sm tracking-wider placeholder:text-on-surface-variant/50 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none uppercase"
+                      />
+                      <button
+                        type="button"
+                        disabled={!promoCode.trim() || isValidatingPromo}
+                        onClick={handleApplyPromo}
+                        className="px-5 py-2.5 rounded-lg bg-secondary/20 hover:bg-secondary/30 disabled:opacity-50 disabled:cursor-not-allowed text-secondary text-xs font-semibold uppercase tracking-wider transition-colors border border-secondary/30 flex items-center gap-1.5 shrink-0"
+                      >
+                        {isValidatingPromo ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Cek...</span>
+                          </>
+                        ) : (
+                          "Gunakan"
+                        )}
+                      </button>
+                    </div>
+                    {promoError && (
+                      <p className="text-xs text-red-400 font-medium flex items-center gap-1.5 animate-in fade-in">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        {promoError}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Total Payment Bar */}
               <div className="p-4 rounded-xl border border-secondary/50 bg-secondary/10 flex justify-between items-center mb-8">
                 <div>
                   <h3 className="font-medium text-xs uppercase text-secondary tracking-wider">
-                    Total Biaya (Fase: {cmsPricing.phase})
+                    Total Biaya (Fase: {cmsPricing.phase}{kapasitas > 1 ? ` • ${kapasitas} Peserta` : ""})
                   </h3>
-                  <p className="font-headline-md text-2xl text-white font-bold mt-1">
-                    Rp {totalAmount.toLocaleString("id-ID")}
-                  </p>
+                  <div className="flex items-baseline gap-2.5 mt-1">
+                    <p className="font-headline-md text-2xl text-white font-bold">
+                      Rp {finalAmount.toLocaleString("id-ID")}
+                    </p>
+                    {discountAmount > 0 && (
+                      <p className="text-xs text-on-surface-variant line-through font-mono">
+                        Rp {totalBasePrice.toLocaleString("id-ID")}
+                      </p>
+                    )}
+                  </div>
                 </div>
+                {appliedPromo && (
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-secondary/20 text-secondary border border-secondary/30">
+                    Kupon Aktif
+                  </span>
+                )}
               </div>
 
               {/* Payment Method */}

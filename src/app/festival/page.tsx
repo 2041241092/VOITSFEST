@@ -4,25 +4,18 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
-import { formatDisplayDate } from "@/lib/cms";
+import { formatDisplayDate, formatDisplayTime, parseEventDetails } from "@/lib/cms";
+import EventDetailsSection from "@/components/events/EventDetailsSection";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-function formatDisplayTime(timeStr?: string, fallback: string = "16:00 WIB - Selesai") {
-  if (!timeStr || !timeStr.trim()) return fallback;
-  const t = timeStr.trim();
-  if (t.toLowerCase().includes("wib") || t.toLowerCase().includes("selesai")) {
-    return t;
-  }
-  return `${t} WIB - Selesai`;
-}
 
 export default async function Festival() {
   const supabase = await createClient();
 
   // Fetch from cms_settings for Festival details (controlled by Admin Central CMS)
   let festRaw: { date?: string; time?: string; location?: string } | undefined;
+  let showEventDetails = true;
 
   try {
     const { data: records } = await supabase
@@ -32,6 +25,10 @@ export default async function Festival() {
 
     const festRec = records?.find((r) => r.key === "festival_details");
     const evRec = records?.find((r) => r.key === "event_details");
+
+    if (evRec) {
+      showEventDetails = parseEventDetails(evRec.value);
+    }
 
     if (festRec?.value && typeof festRec.value === "object") {
       festRaw = festRec.value as any;
@@ -44,7 +41,7 @@ export default async function Festival() {
 
   const festDate = formatDisplayDate(festRaw?.date, "Sabtu, 24 Oktober 2026");
   const festTime = formatDisplayTime(festRaw?.time, "16:00 WIB - Selesai");
-  const festVenue = (festRaw?.location && festRaw.location.trim()) || "ITS Campus";
+  const festVenue = (festRaw?.location && festRaw.location.trim()) || "Graha Sepuluh Nopember, Surabaya";
 
   return (
     <>
@@ -54,7 +51,7 @@ export default async function Festival() {
       <main className="pt-[100px] relative z-10">
         {/* Hero Section */}
         <section className="relative min-h-[921px] flex items-center justify-center overflow-hidden px-margin-desktop max-md:px-margin-mobile py-section-gap">
-          <div className="relative z-10 text-center flex flex-col items-center max-w-4xl mx-auto mt-16">
+          <div className="relative z-10 text-center flex flex-col items-center max-w-4xl mx-auto mt-16 w-full">
             <div className="glass-card px-6 py-2 rounded-full mb-stack-lg inline-block border border-primary-container/30">
               <span className="font-poppins text-label-sm text-primary-container uppercase tracking-[0.2em]">The Grand Finale</span>
             </div>
@@ -65,9 +62,15 @@ export default async function Festival() {
               className="font-headline-lg text-display-lg max-md:font-headline-lg-mobile max-md:text-headline-lg-mobile text-primary-fixed mb-stack-md glowing-text uppercase floating-element" 
             />
             
-            <p className="font-poppins text-body-lg text-on-surface-variant max-w-2xl mb-stack-lg mt-stack-md bg-surface/50 backdrop-blur-md p-4 rounded-xl border border-white/5">
-              {festDate} &nbsp;|&nbsp; {festTime} &nbsp;|&nbsp; {festVenue}
-            </p>
+            <EventDetailsSection
+              eventType="festival"
+              initialShowDetails={showEventDetails}
+              initialDate={festDate}
+              initialTime={festTime}
+              initialVenue={festVenue}
+              ctaLabel="Beli Tiket Festival Sekarang"
+              ctaHref="/festival/checkout"
+            />
           </div>
         </section>
 

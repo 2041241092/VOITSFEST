@@ -58,3 +58,19 @@ export function formatDisplayDate(dateStr?: string, fallback: string = ""): stri
     return dateStr;
   }
 }
+
+/**
+ * Formats a time string into display format with "WIB - Selesai".
+ *
+ * @param timeStr Time string from CMS (e.g. "06:00" or "16:00")
+ * @param fallback Fallback time string if timeStr is missing or invalid
+ * @returns Formatted time string (e.g. "06:00 WIB - Selesai")
+ */
+export function formatDisplayTime(timeStr?: string, fallback: string = "WIB - Selesai"): string {
+  if (!timeStr || !timeStr.trim()) return fallback;
+  const t = timeStr.trim();
+  if (t.toLowerCase().includes("wib") || t.toLowerCase().includes("selesai")) {
+    return t;
+  }
+  return `${t} WIB - Selesai`;
+}

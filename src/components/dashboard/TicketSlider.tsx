@@ -5,7 +5,8 @@ import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { createClient } from "@/lib/supabase/client";
 import { Ticket } from "@/types/database";
-import { Check, Copy, QrCode, X, CheckCircle2, Clock, XCircle, AlertCircle } from "lucide-react";
+import { Check, Copy, QrCode, X, CheckCircle2, Clock, XCircle, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { formatBIB } from "@/lib/bib";
 
 type TicketSliderProps = {
   tickets: Ticket[];
@@ -36,6 +37,7 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
 
       const updatedAmount = updated.amount_paid != null ? Number(updated.amount_paid) : undefined;
       const updatedPhase = updated.ticket_phase || undefined;
+      const updatedBIB = updated.nomor_bib != null ? Number(updated.nomor_bib) : updated.bib_number != null ? Number(updated.bib_number) : undefined;
 
       setTicketList(prev => {
         const index = prev.findIndex(t => t.id === updated.id);
@@ -47,6 +49,7 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
             payment_status: updatedStatus,
             amount_paid: updatedAmount !== undefined ? updatedAmount : next[index].amount_paid,
             ticket_phase: updatedPhase !== undefined ? updatedPhase : next[index].ticket_phase,
+            nomor_bib: updatedBIB !== undefined ? updatedBIB : next[index].nomor_bib,
             scan_count: updatedScanCount,
             scanned_at: updatedScannedAt,
           };
@@ -63,6 +66,7 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
               payment_status: updatedStatus,
               amount_paid: updatedAmount !== undefined ? updatedAmount : prev.amount_paid,
               ticket_phase: updatedPhase !== undefined ? updatedPhase : prev.ticket_phase,
+              nomor_bib: updatedBIB !== undefined ? updatedBIB : prev.nomor_bib,
               scan_count: updatedScanCount,
               scanned_at: updatedScannedAt,
             }
@@ -100,15 +104,13 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
     setTimeout(() => setCopiedToken(null), 2000);
   };
 
-  const scrollLeft = () => {
+  const handleScroll = (direction: "prev" | "next") => {
     if (sliderRef.current) {
-      sliderRef.current.scrollBy({ left: -300, behavior: "smooth" });
-    }
-  };
-
-  const scrollRight = () => {
-    if (sliderRef.current) {
-      sliderRef.current.scrollBy({ left: 300, behavior: "smooth" });
+      const scrollAmount = sliderRef.current.clientWidth || 350;
+      sliderRef.current.scrollBy({
+        left: direction === "next" ? scrollAmount : -scrollAmount,
+        behavior: "smooth",
+      });
     }
   };
 
@@ -126,24 +128,26 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
         <>
           <button
             type="button"
-            onClick={scrollLeft}
-            className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-surface-container-highest/80 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-secondary hover:text-primary-container transition-all opacity-0 group-hover/slider:opacity-100 shadow-lg cursor-pointer"
+            onClick={() => handleScroll("prev")}
+            className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-surface-container-highest/80 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-secondary hover:text-primary-container transition-all md:opacity-0 md:group-hover/slider:opacity-100 shadow-lg cursor-pointer"
+            aria-label="Previous ticket"
           >
-            <span className="material-symbols-outlined">chevron_left</span>
+            <ChevronLeft className="w-5 h-5" />
           </button>
           <button
             type="button"
-            onClick={scrollRight}
-            className="absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-surface-container-highest/80 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-secondary hover:text-primary-container transition-all opacity-0 group-hover/slider:opacity-100 shadow-lg cursor-pointer"
+            onClick={() => handleScroll("next")}
+            className="absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-surface-container-highest/80 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-secondary hover:text-primary-container transition-all md:opacity-0 md:group-hover/slider:opacity-100 shadow-lg cursor-pointer"
+            aria-label="Next ticket"
           >
-            <span className="material-symbols-outlined">chevron_right</span>
+            <ChevronRight className="w-5 h-5" />
           </button>
         </>
       )}
 
       <div
         ref={sliderRef}
-        className="slider-track flex gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4"
+        className="slider-track flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory scrollbar-hide pb-4"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {ticketList.map((ticket) => {
@@ -176,7 +180,7 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
                     )}
                     {isRejected && (
                       <span className="px-3 py-1 bg-rose-500/20 text-rose-400 font-label-md text-xs rounded-full border border-rose-500/30 flex items-center gap-1.5 font-bold">
-                        <XCircle className="w-3.5 h-3.5" /> Ditolak / Pembayaran Tidak Valid
+                        <XCircle className="w-3.5 h-3.5" /> Ditolak
                       </span>
                     )}
 
@@ -185,6 +189,14 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
                       {ticket.event_type === "FESTIVAL" ? "Festival" : "ColorFun Run"}
                     </span>
                   </div>
+
+                  {/* Rejected Alert Banner */}
+                  {isRejected && (
+                    <div className="mb-4 p-3 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in duration-300">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                      <span>Pembayaran Ditolak. Silakan hubungi admin atau daftar ulang.</span>
+                    </div>
+                  )}
 
                   <h4 className="font-headline-sm text-2xl font-bold mb-1">
                     {ticket.event_type === "FESTIVAL" ? "VOITSFEST Main Festival" : "ColorFun Run (5K)"}
@@ -208,9 +220,19 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
                       </span>
                     )}
                   </div>
-                  <div className="mt-auto">
-                    <p className="text-xs text-on-surface-variant uppercase tracking-widest">TICKET ID</p>
-                    <p className="font-mono text-sm tracking-widest">{ticket.id.split('-')[0].toUpperCase()}</p>
+                  <div className="mt-auto flex items-end justify-between gap-4">
+                    <div>
+                      <p className="text-xs text-on-surface-variant uppercase tracking-widest">TICKET ID</p>
+                      <p className="font-mono text-sm tracking-widest">{ticket.id.split('-')[0].toUpperCase()}</p>
+                    </div>
+                    {!isRejected && (
+                      <div className="text-right">
+                        <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">NOMOR BIB</p>
+                        <p className={`font-mono font-bold tracking-wider ${ticket.nomor_bib != null ? "text-base text-secondary" : "text-xs text-on-surface-variant/70"}`}>
+                          {ticket.nomor_bib != null ? `#${formatBIB(ticket.nomor_bib)}` : "Menunggu Verifikasi"}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -286,21 +308,21 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
                     </div>
                   )}
 
-                  {/* State 3: REJECTED - Notice with Re-upload button (Do not show QR) */}
+                  {/* State 3: REJECTED - Notice with Re-registration button (Do not show QR) */}
                   {isRejected && (
                     <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/25 text-center flex flex-col items-center justify-center gap-2.5 w-full my-auto animate-in fade-in duration-300">
                       <div className="w-11 h-11 rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
                         <XCircle className="w-5 h-5" />
                       </div>
                       <h5 className="text-sm font-bold text-rose-400">Pembayaran Ditolak</h5>
-                      <p className="text-xs text-neutral-300 leading-relaxed max-w-[210px]">
-                        Bukti pembayaran tidak valid atau belum sesuai. Silakan lakukan pemesanan atau upload ulang melalui checkout.
+                      <p className="text-xs text-rose-200/90 leading-relaxed max-w-[210px]">
+                        Pembayaran Ditolak. Silakan hubungi admin atau daftar ulang.
                       </p>
                       <Link
                         href={ticket.event_type === "FESTIVAL" ? "/festival/checkout" : "/colorfun/checkout"}
                         className="mt-1 px-3.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-bold border border-rose-500/40 transition-colors uppercase tracking-wider"
                       >
-                        Upload Ulang
+                        Daftar Ulang
                       </Link>
                     </div>
                   )}
@@ -330,9 +352,14 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
               <X className="w-5 h-5" />
             </button>
 
-            <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-secondary/15 text-secondary border border-secondary/30 mb-2">
-              {modalTicket.event_type === "FESTIVAL" ? "VOITSFEST 2026 FESTIVAL" : "COLORFUN RUN (5K)"}
-            </span>
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-2">
+              <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-secondary/15 text-secondary border border-secondary/30">
+                {modalTicket.event_type === "FESTIVAL" ? "VOITSFEST 2026 FESTIVAL" : "COLORFUN RUN (5K)"}
+              </span>
+              <span className="px-3 py-1 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider bg-secondary/20 text-secondary border border-secondary/40 shadow-[0_0_12px_rgba(240,192,77,0.25)]">
+                BIB: {modalTicket.nomor_bib != null ? `#${formatBIB(modalTicket.nomor_bib)}` : "Menunggu Verifikasi"}
+              </span>
+            </div>
             <h3 className="text-xl font-bold text-white mb-1">
               {modalTicket.event_type === "FESTIVAL" ? "Official Festival Pass" : "ColorFun Run E-Ticket"}
             </h3>

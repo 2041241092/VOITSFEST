@@ -80,6 +80,7 @@ export interface Transaction {
   participant_category?: string;
   student_id_number?: string | null;
   student_card_url?: string | null;
+  promo_id?: string | null;
 }
 
 export interface Ticket {
@@ -95,6 +96,10 @@ export interface Ticket {
   payment_status?: string | null;
   amount_paid?: number | null;
   ticket_phase?: string | null;
+  nomor_bib?: number | null;
+  group_id?: string | null;
+  is_primary?: boolean | null;
+  promo_id?: string | null;
 }
 
 export interface CmsSetting {
@@ -114,6 +119,21 @@ export interface Promo {
   start_date: string;
   end_date: string;
   created_at: string;
+  target_event?: string | null;
+  kuota_maksimal?: number | null;
+  kuota_terpakai?: number | null;
+  kapasitas?: number | null;
+  kategori_peserta?: "Semua" | "Umum" | "Mahasiswa ITS" | string | null;
+}
+
+export interface ExtraParticipant {
+  nama_lengkap: string;
+  whatsapp: string;
+  email: string;
+  kategori_peserta: "Umum" | "Mahasiswa ITS";
+  departemen?: string | null;
+  nrp?: string | null;
+  ktm_url?: string | null;
 }
 
 export interface Sponsor {

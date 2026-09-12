@@ -4,6 +4,35 @@ import { Trophy, MessageSquare, Store, Footprints, Tent } from "lucide-react";
 export default function CelestialEvents() {
   return (
     <section className="max-w-[100vw] mx-auto py-section-gap overflow-hidden w-full relative z-10">
+      {/* Curated Atmospheric Accents (Depth of Field & Safe Inset Positioning) */}
+      <div className="absolute inset-0 pointer-events-none select-none overflow-hidden -z-10">
+        {/* Violet Cosmic Planet: Upper Left Safe Inset */}
+        <img
+          src="/7.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute top-[6%] left-[6%] lg:left-[9%] w-36 sm:w-48 lg:w-56 h-auto opacity-45 animate-float-slow hidden md:block"
+        />
+
+        {/* Golden Solar Aura / Stardust: Bottom-Center Safe Inset */}
+        <img
+          src="/34.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute bottom-[8%] left-1/2 -translate-x-1/2 w-52 sm:w-68 lg:w-80 h-auto opacity-40 animate-float-subtle hidden sm:block"
+          style={{ animationDelay: "2s" }}
+        />
+
+        {/* Floating Asteroid Fragment: Lower Right Safe Inset */}
+        <img
+          src="/50.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute bottom-[10%] right-[6%] lg:right-[10%] w-20 sm:w-28 lg:w-32 h-auto opacity-50 animate-drift-subtle hidden lg:block"
+          style={{ animationDelay: "3.5s" }}
+        />
+      </div>
+
       <CustomHeading 
         as="h2" 
         text="Celestial Events" 

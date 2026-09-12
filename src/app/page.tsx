@@ -37,7 +37,7 @@ export default async function Home() {
   return (
     <div className="text-on-background font-body-md overflow-x-hidden relative min-h-screen">
       {/* Background dark overlay for contrast */}
-      <div className="fixed inset-0 z-0 pointer-events-none bg-background/40"></div>
+      <div className="fixed inset-0 -z-20 pointer-events-none bg-background/40"></div>
 
       <Navbar />
 

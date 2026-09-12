@@ -150,7 +150,24 @@ export default function SponsorsList({
   const hasPartners = sponsors.length > 0 || mediaPartners.length > 0;
   if (!hasPartners) {
     return (
-      <section id="sponsors" className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-section-gap relative z-10 font-poppins">
+      <section id="sponsors" className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-section-gap relative z-10 font-poppins overflow-hidden">
+        {/* Curated Atmospheric Accents (Safe Inset Positioning) */}
+        <div className="absolute inset-0 pointer-events-none select-none overflow-hidden -z-10">
+          <img
+            src="/11.png"
+            alt=""
+            aria-hidden="true"
+            className="absolute top-[6%] left-[6%] lg:left-[10%] w-32 sm:w-44 lg:w-52 h-auto opacity-40 animate-float-slow hidden md:block"
+          />
+          <img
+            src="/54.png"
+            alt=""
+            aria-hidden="true"
+            className="absolute bottom-[8%] right-[6%] lg:right-[10%] w-18 sm:w-24 lg:w-28 h-auto opacity-45 animate-float-subtle hidden md:block"
+            style={{ animationDelay: "2.5s" }}
+          />
+        </div>
+
         <CustomHeading 
           as="h2" 
           text="Sponsors & Media Partners" 
@@ -168,6 +185,35 @@ export default function SponsorsList({
 
   return (
     <section id="sponsors" className="max-w-[100vw] mx-auto py-section-gap overflow-hidden w-full relative z-10 font-poppins">
+      {/* Curated Atmospheric Accents (Depth of Field & Safe Inset Positioning) */}
+      <div className="absolute inset-0 pointer-events-none select-none overflow-hidden -z-10">
+        {/* Deep Violet Planet: Upper Left Safe Inset */}
+        <img
+          src="/11.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute top-[6%] left-[6%] lg:left-[10%] w-36 sm:w-48 lg:w-56 h-auto opacity-40 animate-float-slow hidden md:block"
+        />
+
+        {/* Soft Golden Stardust: Mid-Bottom Safe Inset */}
+        <img
+          src="/35.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute bottom-[8%] left-[20%] lg:left-[26%] w-44 sm:w-56 lg:w-64 h-auto opacity-40 animate-drift-subtle hidden lg:block"
+          style={{ animationDelay: "1.5s" }}
+        />
+
+        {/* Floating Asteroid Fragment: Lower Right Safe Inset */}
+        <img
+          src="/54.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute bottom-[6%] right-[6%] lg:right-[10%] w-20 sm:w-28 lg:w-32 h-auto opacity-45 animate-float-subtle hidden md:block"
+          style={{ animationDelay: "2.5s" }}
+        />
+      </div>
+
       <CustomHeading 
         as="h2" 
         text="Sponsors & Media Partners" 

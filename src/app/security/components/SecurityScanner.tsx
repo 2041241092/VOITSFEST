@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { 
   Shield, 
   Search, 
@@ -12,15 +12,23 @@ import {
   Camera, 
   CameraOff, 
   RotateCcw, 
-  LogOut, 
   Loader2,
   ArrowRight,
-  User,
   Clock,
-  Sparkles
+  X,
+  Users
 } from "lucide-react";
-import { verifyTicket, getRecentScans, VerificationResult } from "@/app/actions/tickets";
+import { 
+  verifyTicket, 
+  getRecentScans, 
+  getTicketMetrics, 
+  VerificationResult, 
+  RecentScanItem, 
+  TicketMetrics 
+} from "@/app/actions/tickets";
 import { createClient } from "@/lib/supabase/client";
+import { formatBIB } from "@/lib/bib";
+import SecurityHeader from "./SecurityHeader";
 
 interface SecurityScannerProps {
   guardName: string;
@@ -28,14 +36,63 @@ interface SecurityScannerProps {
   role: string;
 }
 
-type RecentScanItem = {
-  id: string;
-  token: string;
-  eventType: string;
-  scanCount: number;
-  scannedAt: string | null;
-  participantName: string;
-};
+const SESSION_SCANS_KEY = "voitsfest_security_recent_scans";
+
+function getStoredScans(): RecentScanItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = sessionStorage.getItem(SESSION_SCANS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredScans(scans: RecentScanItem[]) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(SESSION_SCANS_KEY, JSON.stringify(scans.slice(0, 50)));
+  } catch (e) {
+    console.error("Error saving scans to session storage:", e);
+  }
+}
+
+function formatKategoriPeserta(ticket?: VerificationResult["ticket"]): string {
+  if (!ticket) return "-";
+  const kat = ticket.kategoriPeserta || "Umum";
+  const isMhs = kat.toLowerCase().includes("mahasiswa");
+  if (isMhs) {
+    const details: string[] = [];
+    if (ticket.departemen) details.push(ticket.departemen);
+    if (ticket.nrp) details.push(`NRP: ${ticket.nrp}`);
+    if (details.length > 0) {
+      return `${kat} (${details.join(" • ")})`;
+    }
+    return kat;
+  }
+  return kat;
+}
+
+function formatNilaiTransaksi(amount?: number): string {
+  if (amount === undefined || amount === null) return "-";
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(amount);
+}
+
+function formatTimestamp(isoString?: string | null): string {
+  if (!isoString) return "-";
+  try {
+    return new Date(isoString).toLocaleString("id-ID", {
+      dateStyle: "medium",
+      timeStyle: "medium",
+    });
+  } catch {
+    return isoString;
+  }
+}
 
 export default function SecurityScanner({
   guardName,
@@ -47,7 +104,9 @@ export default function SecurityScanner({
   const [isVerifying, setIsVerifying] = useState(false);
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [recentScans, setRecentScans] = useState<RecentScanItem[]>([]);
-  const [countdown, setCountdown] = useState<number | null>(null);
+  const [historySearch, setHistorySearch] = useState("");
+  const [metrics, setMetrics] = useState<TicketMetrics>({ total: 0, valid: 0, scanned: 0 });
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Camera scanner states
   const [cameraActive, setCameraActive] = useState(false);
@@ -56,15 +115,23 @@ export default function SecurityScanner({
   const [selectedCameraId, setSelectedCameraId] = useState<string>("");
 
   const html5QrCodeRef = useRef<any>(null);
-  const autoResetTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isScanningRef = useRef(false);
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const supabase = createClient();
 
-  // Load recent scans on mount and listen to realtime updates
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => {
+      setToastMessage(null);
+    }, 3000);
+  };
+
+  // Load metrics & recent scans on mount and listen to realtime updates
   useEffect(() => {
     loadRecentScans();
+    loadMetrics();
 
     const channel = supabase
       .channel("security-scanner-live-scans")
@@ -73,6 +140,7 @@ export default function SecurityScanner({
         { event: "*", schema: "public", table: "colorfun_registrations" },
         () => {
           loadRecentScans();
+          loadMetrics();
         }
       )
       .on(
@@ -80,6 +148,7 @@ export default function SecurityScanner({
         { event: "*", schema: "public", table: "festival_registrations" },
         () => {
           loadRecentScans();
+          loadMetrics();
         }
       )
       .on(
@@ -87,6 +156,7 @@ export default function SecurityScanner({
         { event: "*", schema: "public", table: "tickets" },
         () => {
           loadRecentScans();
+          loadMetrics();
         }
       )
       .subscribe();
@@ -96,10 +166,45 @@ export default function SecurityScanner({
     };
   }, [supabase]);
 
+  const loadMetrics = async () => {
+    try {
+      const m = await getTicketMetrics();
+      setMetrics(m);
+    } catch (err) {
+      console.error("Failed to load metrics:", err);
+    }
+  };
+
   const loadRecentScans = async () => {
     try {
-      const data = await getRecentScans(15);
-      setRecentScans(data);
+      const dbScans = await getRecentScans(40);
+      const sessionScans = getStoredScans();
+
+      const map = new Map<string, RecentScanItem>();
+
+      // Load session scans first
+      for (const s of sessionScans) {
+        const key = (s.token || s.id || "").toLowerCase();
+        if (key) map.set(key, s);
+      }
+
+      // Merge DB scans
+      for (const d of dbScans) {
+        const key = (d.token || d.id || "").toLowerCase();
+        if (key) {
+          const existing = map.get(key);
+          if (existing) {
+            map.set(key, { ...existing, ...d, status: existing.status || d.status });
+          } else {
+            map.set(key, d);
+          }
+        }
+      }
+
+      const merged = Array.from(map.values());
+      merged.sort((a, b) => new Date(b.scannedAt || 0).getTime() - new Date(a.scannedAt || 0).getTime());
+      setRecentScans(merged);
+      saveStoredScans(merged);
     } catch (err) {
       console.error("Failed to load recent scans:", err);
     }
@@ -226,44 +331,84 @@ export default function SecurityScanner({
 
     try {
       const res = await verifyTicket(cleanToken);
+
+      // Handle Unknown QR outside the database:
+      // Show standard, subtle toast/alert without modal and without logging into metric/history tables
+      if (res.status === "not_found" || res.status === "error") {
+        showToast(res.message || "Data tidak ditemukan");
+        setManualToken("");
+        // Resume camera after a short pause so guard can scan the next attendee
+        setTimeout(() => {
+          isScanningRef.current = false;
+          if (html5QrCodeRef.current && activeTab === "scanner") {
+            try {
+              html5QrCodeRef.current.resume();
+            } catch {}
+          }
+        }, 1500);
+        return;
+      }
+
+      // Valid or Scanned (Two primary states): Render persistent modal
       setResult(res);
       setManualToken("");
+
+      // Record this scan in persistent session history
+      const now = new Date().toISOString();
+      const newScanItem: RecentScanItem = {
+        id: res.ticket?.id || `scan-${Date.now()}-${cleanToken}`,
+        token: res.ticket?.token || cleanToken,
+        eventType: res.ticket?.eventType || "VOITSFEST",
+        scanCount: res.ticket?.scanCount ?? 1,
+        scannedAt: now,
+        firstScannedAt: res.ticket?.firstScannedAt || now,
+        participantName: res.ticket?.participantName || "Peserta",
+        participantEmail: res.ticket?.participantEmail,
+        nomorBib: res.ticket?.nomorBib ?? null,
+        kategoriPeserta: res.ticket?.kategoriPeserta ?? null,
+        departemen: res.ticket?.departemen ?? null,
+        nrp: res.ticket?.nrp ?? null,
+        amount: res.ticket?.amount ?? 0,
+        ticketPhase: res.ticket?.ticketPhase ?? null,
+        status: res.status === "valid" ? "valid" : "scanned",
+      };
+
+      setRecentScans((prev) => {
+        const filtered = prev.filter(
+          (p) => p.token.toLowerCase() !== newScanItem.token.toLowerCase() && p.id !== newScanItem.id
+        );
+        const updated = [newScanItem, ...filtered];
+        saveStoredScans(updated);
+        return updated;
+      });
+
+      // Background sync from database & refresh metrics
       loadRecentScans();
-
-      // Setup 3-second auto-reset for valid scan
-      if (res.status === "valid") {
-        setCountdown(3);
-        let currentSeconds = 3;
-
-        countdownIntervalRef.current = setInterval(() => {
-          currentSeconds -= 1;
-          setCountdown(currentSeconds);
-          if (currentSeconds <= 0) {
-            if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-            resetForNextScan();
-          }
-        }, 1000);
-      }
+      loadMetrics();
     } catch (err) {
       console.error("Verification failed:", err);
-      setResult({
-        status: "error",
-        message: "Gagal memverifikasi tiket. Silakan periksa koneksi server.",
-        token: cleanToken,
-      });
+      showToast("Gagal memverifikasi tiket. Silakan periksa koneksi.");
+      setTimeout(() => {
+        isScanningRef.current = false;
+        if (html5QrCodeRef.current && activeTab === "scanner") {
+          try {
+            html5QrCodeRef.current.resume();
+          } catch {}
+        }
+      }, 1500);
     } finally {
       setIsVerifying(false);
     }
   };
 
-  // Reset overlay & resume scanner
-  const resetForNextScan = () => {
-    if (autoResetTimerRef.current) clearTimeout(autoResetTimerRef.current);
-    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-
-    setCountdown(null);
+  // Reset overlay & resume scanner (Strictly manual dismissal)
+  const resetForNextScan = (targetTab?: "scanner" | "lookup" | "history") => {
     setResult(null);
     isScanningRef.current = false;
+
+    if (targetTab) {
+      setActiveTab(targetTab);
+    }
 
     if (html5QrCodeRef.current) {
       try {
@@ -272,103 +417,182 @@ export default function SecurityScanner({
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.error("Logout error:", err);
-    } finally {
+  // Interactive History Row Click: Re-open detailed modal
+  const handleOpenHistoryDetail = (item: RecentScanItem) => {
+    if (html5QrCodeRef.current) {
       try {
-        localStorage.clear();
-        sessionStorage.clear();
+        html5QrCodeRef.current.pause();
       } catch {}
-      window.location.href = "/login";
     }
+    isScanningRef.current = true;
+
+    setResult({
+      status: item.status,
+      message:
+        item.status === "valid"
+          ? "Check-in Berhasil"
+          : "Tiket Sudah Check-in Sebelumnya",
+      token: item.token,
+      ticket: {
+        id: item.id,
+        token: item.token,
+        eventType: item.eventType,
+        participantName: item.participantName,
+        participantEmail: item.participantEmail,
+        amount: item.amount,
+        ticketPhase: item.ticketPhase || "",
+        scanCount: item.scanCount,
+        scannedAt: item.scannedAt || undefined,
+        firstScannedAt: item.firstScannedAt || item.scannedAt || undefined,
+        nomorBib: item.nomorBib,
+        kategoriPeserta: item.kategoriPeserta,
+        departemen: item.departemen,
+        nrp: item.nrp,
+        isCheckedIn: true,
+      },
+    });
   };
 
-  return (
-    <div className="min-h-screen bg-[#0B1026] text-on-surface flex flex-col relative overflow-x-hidden font-poppins selection:bg-secondary selection:text-primary-container">
-      {/* Top App Bar */}
-      <header className="sticky top-0 w-full z-40 flex justify-between items-center px-4 md:px-8 h-18 bg-[#0B1026]/85 backdrop-blur-xl border-b border-white/10 shadow-[0_4px_25px_rgba(0,0,0,0.5)]">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-secondary/20 border border-secondary/40 flex items-center justify-center text-secondary shadow-[0_0_15px_rgba(176,198,255,0.25)]">
-            <Shield className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="font-bold text-base md:text-lg tracking-tight text-white flex items-center gap-2">
-              VOITSFEST <span className="text-secondary font-mono text-xs px-2 py-0.5 rounded bg-secondary/15 border border-secondary/30">GATE SCANNER</span>
-            </h1>
-            <p className="text-[11px] text-on-surface-variant hidden sm:block">Fakultas Vokasi ITS • Security Checkpoint</p>
-          </div>
-        </div>
+  // Filtered scans for History tab
+  const filteredScans = useMemo(() => {
+    const q = historySearch.trim().toLowerCase();
+    if (!q) return recentScans;
+    return recentScans.filter((item) => {
+      const bibStr = formatBIB(item.nomorBib).toLowerCase();
+      const name = (item.participantName || "").toLowerCase();
+      const token = (item.token || "").toLowerCase();
+      const kat = (item.kategoriPeserta || "").toLowerCase();
+      return bibStr.includes(q) || name.includes(q) || token.includes(q) || kat.includes(q);
+    });
+  }, [recentScans, historySearch]);
 
-        {/* Officer info and working logout */}
-        <div className="flex items-center gap-3 md:gap-4">
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-semibold text-white">{guardName}</p>
-            <p className="text-[10px] text-secondary uppercase tracking-widest">{role}</p>
+  return (
+    <div 
+      className="min-h-screen overflow-x-hidden antialiased text-on-surface font-poppins pb-24 flex flex-col relative selection:bg-secondary selection:text-primary-container"
+      style={{
+        backgroundColor: "#0b1026",
+        backgroundImage: "radial-gradient(circle at 50% 0%, rgba(46, 78, 143, 0.15) 0%, rgba(11, 16, 38, 1) 70%)",
+        backgroundAttachment: "fixed"
+      }}
+    >
+      {/* 3-Section Clean Header strictly mirroring Admin Central */}
+      <SecurityHeader
+        guardName={guardName}
+        guardEmail={guardEmail}
+        role={role}
+      />
+
+      {/* Subtle Toast / Alert Notification (for Unknown QR outside database) */}
+      {toastMessage && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-4 fade-in duration-200">
+          <div className="bg-[#0e1530]/95 text-rose-300 border border-rose-500/40 px-4 py-2.5 rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-md flex items-center gap-2.5 text-xs font-semibold">
+            <XCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+            <span>{toastMessage}</span>
+            <button
+              type="button"
+              onClick={() => setToastMessage(null)}
+              className="ml-1 text-on-surface-variant hover:text-white p-0.5 rounded cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            title="Keluar / Logout"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-error/10 hover:bg-error/20 border border-error/30 text-error text-xs font-medium transition-all cursor-pointer"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Logout</span>
-          </button>
         </div>
-      </header>
+      )}
 
       {/* Main Scanner Body */}
       <main className="flex-grow pt-4 pb-24 px-4 max-w-2xl mx-auto w-full flex flex-col items-center justify-start relative">
         
+        {/* ── 1. METRIC STAT CARDS SIMPLIFICATION (Strictly 3 Primary Cards) ── */}
+        <div className="w-full max-w-md grid grid-cols-3 gap-2.5 mb-5">
+          {/* Total */}
+          <div className="bg-surface-container-high/60 backdrop-blur-md border border-white/10 rounded-2xl p-3 sm:p-3.5 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden">
+            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
+            <span className="text-[10px] sm:text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
+              Total
+            </span>
+            <span className="text-xl sm:text-2xl font-black text-white font-mono mt-0.5">
+              {metrics.total}
+            </span>
+            <span className="text-[9px] sm:text-[10px] text-on-surface-variant/70 mt-0.5">
+              Tiket Terdaftar
+            </span>
+          </div>
+
+          {/* Valid (Belum Check-In / Ready for first scan) */}
+          <div className="bg-emerald-500/10 backdrop-blur-md border border-emerald-500/30 rounded-2xl p-3 sm:p-3.5 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden">
+            <div className="absolute top-0 inset-x-0 h-1 bg-emerald-500" />
+            <span className="text-[10px] sm:text-[11px] font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" /> Valid
+            </span>
+            <span className="text-xl sm:text-2xl font-black text-emerald-400 font-mono mt-0.5">
+              {metrics.valid}
+            </span>
+            <span className="text-[9px] sm:text-[10px] text-emerald-400/80 mt-0.5">
+              Belum Check-in
+            </span>
+          </div>
+
+          {/* Scanned (Already Checked In) */}
+          <div className="bg-amber-500/10 backdrop-blur-md border border-amber-500/30 rounded-2xl p-3 sm:p-3.5 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden">
+            <div className="absolute top-0 inset-x-0 h-1 bg-amber-500" />
+            <span className="text-[10px] sm:text-[11px] font-semibold text-amber-400 uppercase tracking-wider flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3" /> Scanned
+            </span>
+            <span className="text-xl sm:text-2xl font-black text-amber-400 font-mono mt-0.5">
+              {metrics.scanned}
+            </span>
+            <span className="text-[9px] sm:text-[10px] text-amber-400/80 mt-0.5">
+              Sudah Check-in
+            </span>
+          </div>
+        </div>
+
         {/* Tab 1: SCANNER */}
         {activeTab === "scanner" && (
-          <div className="w-full flex flex-col items-center">
+          <div className="flex flex-col items-center justify-center w-full">
             
-            {/* Camera Viewport Container */}
-            <div className="relative w-full max-w-sm aspect-square border-2 border-white/20 rounded-2xl overflow-hidden shadow-[0_0_35px_rgba(0,0,0,0.7)] flex flex-col items-center justify-center mt-2 bg-surface-container-lowest">
+            {/* Outer Viewport Container (Kotak Besar di Luar) */}
+            <div className="relative w-full max-w-md aspect-square rounded-2xl overflow-hidden border border-white/10 bg-black/40 flex items-center justify-center shadow-[0_0_35px_rgba(0,0,0,0.7)]">
               
-              {/* HTML5 QR Reader Target */}
+              {/* Live HTML5 QR Reader Target / Video Feed */}
               <div 
                 id="qr-reader" 
                 className="w-full h-full object-cover [&>video]:w-full [&>video]:h-full [&>video]:object-cover"
               />
 
-              {/* Scanning Reticle Overlay (Visual Targeting) */}
-              {!result && (
-                <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6">
-                  {/* Outer Targeting Frame */}
-                  <div className="relative w-56 h-56 border-2 border-white/25 rounded-2xl">
-                    {/* Corners */}
-                    <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-secondary rounded-tl-xl"></div>
-                    <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-secondary rounded-tr-xl"></div>
-                    <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-secondary rounded-bl-xl"></div>
-                    <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-secondary rounded-br-xl"></div>
+              {/* Scanning Reticle / Target Area (Kotak Kecil di Dalam) */}
+              {!result && !cameraError && (
+                <div className="absolute inset-0 m-auto w-64 h-64 border-2 border-emerald-500/80 rounded-xl pointer-events-none overflow-hidden shadow-[0_0_20px_rgba(16,185,129,0.25)]">
+                  {/* Corner Guide Markers */}
+                  <div className="absolute top-0 left-0 w-5 h-5 border-t-4 border-l-4 border-emerald-400 rounded-tl-sm pointer-events-none" />
+                  <div className="absolute top-0 right-0 w-5 h-5 border-t-4 border-r-4 border-emerald-400 rounded-tr-sm pointer-events-none" />
+                  <div className="absolute bottom-0 left-0 w-5 h-5 border-b-4 border-l-4 border-emerald-400 rounded-bl-sm pointer-events-none" />
+                  <div className="absolute bottom-0 right-0 w-5 h-5 border-b-4 border-r-4 border-emerald-400 rounded-br-sm pointer-events-none" />
 
-                    {/* Laser Scanner Line */}
-                    <div className="absolute inset-0 w-full h-[3px] scanner-line opacity-80"></div>
-                  </div>
-
-                  <p className="mt-4 text-[12px] font-mono tracking-widest text-on-surface-variant uppercase bg-black/60 px-3 py-1 rounded-full border border-white/10">
-                    Arahkan QR Code Tiket
-                  </p>
+                  {/* Subtle Laser Scanner Line Animation */}
+                  <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_10px_rgba(52,211,153,0.8)] scanner-line opacity-80 pointer-events-none" />
                 </div>
               )}
 
               {/* Camera Error Message if any */}
               {cameraError && (
-                <div className="absolute inset-0 bg-[#0B1026]/90 p-6 flex flex-col items-center justify-center text-center">
+                <div className="absolute inset-0 z-10 bg-[#0B1026]/95 p-6 flex flex-col items-center justify-center text-center">
                   <CameraOff className="w-12 h-12 text-error mb-3" />
                   <p className="text-sm text-error font-medium mb-4">{cameraError}</p>
                   <button
                     onClick={() => setActiveTab("lookup")}
-                    className="px-4 py-2 rounded-xl bg-secondary text-primary-container text-xs font-bold uppercase tracking-wider hover:bg-secondary/90 transition-all"
+                    className="px-4 py-2 rounded-xl bg-secondary text-primary-container text-xs font-bold uppercase tracking-wider hover:bg-secondary/90 transition-all cursor-pointer"
                   >
                     Gunakan Input Manual
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* Guidance Bubble Box (Di Bagian Bawah Luar Kotak Besar) */}
+            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/10 text-gray-300 text-xs font-medium shadow-sm">
+              <QrCode className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Arahkan QR Code Ticket</span>
             </div>
 
             {/* Camera Selector (if multiple cameras available) */}
@@ -395,7 +619,7 @@ export default function SecurityScanner({
                 e.preventDefault();
                 handleVerify(manualToken);
               }}
-              className="w-full max-w-sm mt-6"
+              className="w-full max-w-md mt-4"
             >
               <div className="rounded-2xl flex items-center px-4 py-2.5 border border-white/15 bg-surface-container-high/80 backdrop-blur-md focus-within:border-secondary transition-all shadow-lg">
                 <Search className="w-5 h-5 text-on-surface-variant mr-2 flex-shrink-0" />
@@ -416,23 +640,23 @@ export default function SecurityScanner({
               </div>
             </form>
 
-            {/* Instructions */}
+            {/* Helper Caption */}
             <p className="text-xs text-on-surface-variant/70 text-center mt-3 font-poppins">
-              Sistem Anti-Scan Ganda otomatis memvalidasi keaslian &amp; status scan tiket.
+              Sistem otomatis mendeteksi status tiket: VALID (Check-in baru) atau SCANNED (Sudah Check-in).
             </p>
           </div>
         )}
 
         {/* Tab 2: MANUAL LOOKUP */}
         {activeTab === "lookup" && (
-          <div className="w-full max-w-md mt-4 flex flex-col gap-6">
+          <div className="w-full max-w-md mt-2 flex flex-col gap-6">
             <div className="bg-surface-container-high/50 backdrop-blur-xl border border-white/15 rounded-2xl p-6 shadow-xl">
               <h2 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
                 <Search className="w-5 h-5 text-secondary" />
                 Pemeriksaan Token Manual
               </h2>
               <p className="text-xs text-on-surface-variant mb-6">
-                Gunakan fitur ini jika kamera perangkat tidak tersedia atau barcode pengunjung rusak.
+                Masukkan token tiket untuk memverifikasi status tiket pengunjung.
               </p>
 
               <form
@@ -480,50 +704,119 @@ export default function SecurityScanner({
 
         {/* Tab 3: RECENT SCANS / HISTORY */}
         {activeTab === "history" && (
-          <div className="w-full max-w-md mt-4 flex flex-col gap-4">
-            <div className="flex justify-between items-center mb-2">
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <History className="w-4 h-4 text-secondary" />
-                Riwayat Pemindaian Gate
-              </h2>
+          <div className="w-full max-w-xl mt-1 flex flex-col gap-4">
+            {/* Header & Refresh */}
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                  <History className="w-4 h-4 text-secondary" />
+                  Riwayat Pemindaian Gate
+                </h2>
+                <p className="text-xs text-on-surface-variant mt-0.5">
+                  Klik baris riwayat untuk melihat rincian lengkap tiket.
+                </p>
+              </div>
               <button
-                onClick={loadRecentScans}
-                className="text-xs text-secondary hover:underline flex items-center gap-1 cursor-pointer"
+                onClick={() => {
+                  loadRecentScans();
+                  loadMetrics();
+                }}
+                className="text-xs text-secondary hover:underline flex items-center gap-1.5 cursor-pointer px-3 py-1.5 rounded-lg bg-secondary/10 border border-secondary/20 hover:bg-secondary/20 transition-all"
               >
                 <RotateCcw className="w-3.5 h-3.5" /> Segarkan
               </button>
             </div>
 
-            {recentScans.length === 0 ? (
+            {/* Search Filter Input */}
+            <div className="relative w-full">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+              <input
+                type="text"
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                placeholder="Cari berdasarkan Nama, Nomor BIB, atau Token..."
+                className="w-full bg-surface-container-high/60 border border-white/15 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white placeholder:text-on-surface-variant/60 focus:outline-none focus:border-secondary transition-all"
+              />
+              {historySearch && (
+                <button
+                  type="button"
+                  onClick={() => setHistorySearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Scans List (Contains ONLY Valid or Scanned tickets from Database) */}
+            {filteredScans.length === 0 ? (
               <div className="bg-surface-container-high/40 border border-white/10 rounded-2xl p-8 text-center text-on-surface-variant text-sm">
-                Belum ada data scan pada sesi ini.
+                {historySearch ? "Tidak ada riwayat yang cocok dengan pencarian." : "Belum ada data scan pada sesi ini."}
               </div>
             ) : (
               <div className="flex flex-col gap-2.5">
-                {recentScans.map((item) => (
+                {filteredScans.map((item) => (
                   <div
                     key={item.id}
-                    className="bg-surface-container-high/60 backdrop-blur-md border border-white/10 rounded-xl p-3.5 flex items-center justify-between transition-all hover:border-white/20"
+                    onClick={() => handleOpenHistoryDetail(item)}
+                    className="group bg-surface-container-high/60 hover:bg-surface-container-high/90 backdrop-blur-md border border-white/10 hover:border-secondary/50 rounded-xl p-3.5 flex items-center justify-between transition-all cursor-pointer shadow-md hover:shadow-lg hover:scale-[1.01]"
+                    title="Klik untuk membuka detail tiket"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        item.scanCount === 1 ? "bg-[#4ADE80]/20 text-[#4ADE80] border border-[#4ADE80]/40" : "bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/40"
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* Status Icon */}
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        item.status === "valid"
+                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                          : "bg-amber-500/20 text-amber-400 border border-amber-500/40"
                       }`}>
-                        {item.scanCount === 1 ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                        {item.status === "valid" ? (
+                          <CheckCircle2 className="w-4 h-4" />
+                        ) : (
+                          <AlertTriangle className="w-4 h-4" />
+                        )}
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-white leading-tight">{item.participantName}</p>
-                        <p className="text-xs font-mono text-on-surface-variant mt-0.5">{item.token}</p>
+
+                      {/* Info Details */}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-white leading-tight truncate">
+                            {item.participantName}
+                          </p>
+                          {item.nomorBib && (
+                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-yellow-500/15 text-[#ffd700] border border-yellow-500/30">
+                              BIB {formatBIB(item.nomorBib)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[11px] font-mono text-on-surface-variant truncate max-w-[130px] sm:max-w-[200px]">
+                            {item.token}
+                          </span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                            item.status === "valid"
+                              ? "bg-emerald-500/20 text-emerald-400"
+                              : "bg-amber-500/20 text-amber-400"
+                          }`}>
+                            {item.status === "valid" ? "Valid" : "Scanned"}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="text-right">
+                    {/* Right side Event & Timestamp */}
+                    <div className="text-right flex flex-col items-end flex-shrink-0 ml-3">
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-secondary/15 text-secondary border border-secondary/30">
                         {item.eventType}
                       </span>
-                      <p className="text-[10px] text-on-surface-variant mt-1 font-mono">
-                        {item.scannedAt ? new Date(item.scannedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
+                      <p className="text-[10px] text-on-surface-variant mt-1 font-mono flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-on-surface-variant/70" />
+                        {item.scannedAt
+                          ? new Date(item.scannedAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+                          : "-"}
                       </p>
+                      <span className="text-[10px] text-secondary opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 mt-0.5">
+                        Detail <ArrowRight className="w-2.5 h-2.5" />
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -532,200 +825,163 @@ export default function SecurityScanner({
           </div>
         )}
 
-        {/* ── MODALS / OVERLAYS FOR SCAN RESULTS ── */}
-
-        {/* Case 1: VALID - First Scan (scan_count == 0 -> now 1) GREEN SCREEN */}
-        {result?.status === "valid" && (
-          <div className="fixed inset-4 md:inset-auto md:top-24 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-md z-50 rounded-2xl overlay-success flex flex-col items-center justify-center p-6 text-center shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="w-20 h-20 rounded-full bg-[#4ADE80]/20 flex items-center justify-center mb-4 border-2 border-[#4ADE80] shadow-[0_0_30px_rgba(74,222,128,0.5)] animate-bounce">
-              <CheckCircle2 className="w-12 h-12 text-[#4ADE80]" />
-            </div>
-
-            <h2 className="text-2xl md:text-3xl font-black text-[#4ADE80] tracking-wider uppercase mb-1">
-              Valid Ticket - Access Granted
-            </h2>
-            <p className="text-xs text-[#4ADE80]/80 font-mono uppercase tracking-widest mb-4">
-              Scan Pertama Berhasil • Akses Diterima
-            </p>
-
-            <div className="w-full bg-[#0B1026]/90 border border-[#4ADE80]/30 rounded-xl p-4 my-2 text-left flex flex-col gap-2">
-              <div className="flex justify-between items-center border-b border-white/10 pb-2">
-                <span className="text-xs text-on-surface-variant">Nama Pemilik:</span>
-                <span className="text-sm font-bold text-white">{result.ticket?.participantName}</span>
-              </div>
-              <div className="flex justify-between items-center border-b border-white/10 pb-2">
-                <span className="text-xs text-on-surface-variant">Event / Kategori:</span>
-                <span className="text-xs font-bold text-secondary px-2 py-0.5 rounded bg-secondary/15">
-                  {(result.ticket?.eventType || "").toUpperCase().includes("FESTIVAL") ? "VOITSFEST MAIN FESTIVAL" : "COLORFUN RUN (5K)"}
-                </span>
-              </div>
-              <div className="flex justify-between items-center border-b border-white/10 pb-2">
-                <span className="text-xs text-on-surface-variant">Token Tiket:</span>
-                <span className="text-xs font-mono font-bold text-white">{result.ticket?.token}</span>
-              </div>
-              <div className="flex justify-between items-center pt-1">
-                <span className="text-xs text-on-surface-variant">Nilai Transaksi:</span>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-bold text-[#ffd700]">
-                    {new Intl.NumberFormat("id-ID", {
-                      style: "currency",
-                      currency: "IDR",
-                      minimumFractionDigits: 0,
-                    }).format(result.ticket?.amount || 0)}
-                  </span>
-                  {result.ticket?.ticketPhase && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-secondary/20 text-secondary border border-secondary/30 uppercase">
-                      {result.ticket.ticketPhase}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Auto reset status */}
-            <div className="mt-4 text-xs font-mono text-on-surface-variant flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-[#4ADE80]" />
-              <span>Otomatis siap dalam {countdown ?? 3} detik...</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={resetForNextScan}
-              className="mt-5 w-full py-3.5 rounded-xl bg-[#4ADE80] text-primary-container font-bold text-sm uppercase tracking-wider hover:shadow-[0_0_25px_rgba(74,222,128,0.6)] transition-all cursor-pointer flex items-center justify-center gap-2"
+        {/* ── 2. SCANNER STATUS LOGIC & MODAL BADGING (Two Primary States) ── */}
+        {result && (result.status === "valid" || result.status === "scanned") && (
+          <div 
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div 
+              className={`relative w-full max-w-lg bg-[#0E1530] border rounded-2xl p-6 sm:p-7 shadow-[0_20px_50px_rgba(0,0,0,0.8)] flex flex-col text-left animate-in zoom-in-95 duration-200 ${
+                result.status === "valid"
+                  ? "border-emerald-500/40 shadow-[0_0_35px_rgba(16,185,129,0.25)]"
+                  : "border-amber-500/40 shadow-[0_0_35px_rgba(245,158,11,0.25)]"
+              }`}
+              onClick={(e) => e.stopPropagation()}
             >
-              <span>Scan Tiket Berikutnya</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-
-        {/* Case 2: DUPLICATE SCAN (scan_count >= 1) RED / YELLOW SCREEN */}
-        {result?.status === "duplicate" && (
-          <div className="fixed inset-4 md:inset-auto md:top-24 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-md z-50 rounded-2xl overlay-warning flex flex-col items-center justify-center p-6 text-center shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="w-20 h-20 rounded-full bg-[#F59E0B]/20 flex items-center justify-center mb-4 border-2 border-[#F59E0B] shadow-[0_0_30px_rgba(245,158,11,0.5)]">
-              <AlertTriangle className="w-12 h-12 text-[#F59E0B]" />
-            </div>
-
-            <h2 className="text-xl md:text-2xl font-black text-[#F59E0B] tracking-wider uppercase mb-1">
-              {result.message || `Warning: Ticket Already Scanned ${result.ticket?.scanCount ?? 1} Times`}
-            </h2>
-            <p className="text-xs text-[#F59E0B]/90 font-bold uppercase tracking-wider mb-4">
-              PERINGATAN: Tiket Pernah Digunakan Sebelumnya
-            </p>
-
-            <div className="w-full bg-[#0B1026]/90 border border-[#F59E0B]/30 rounded-xl p-4 my-2 text-left flex flex-col gap-2.5">
-              <div className="flex justify-between items-center border-b border-white/10 pb-2">
-                <span className="text-xs text-on-surface-variant">Pemilik Terdaftar:</span>
-                <span className="text-sm font-bold text-white">{result.ticket?.participantName}</span>
-              </div>
-              <div className="flex justify-between items-center border-b border-white/10 pb-2">
-                <span className="text-xs text-on-surface-variant">Token Tiket:</span>
-                <span className="text-xs font-mono font-bold text-white">{result.ticket?.token}</span>
-              </div>
-              <div className="flex justify-between items-center border-b border-white/10 pb-2">
-                <span className="text-xs text-on-surface-variant">Percobaan Scan Ke:</span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded bg-error/20 text-error border border-error/30">
-                  Scan ke-{(result.ticket?.scanCount ?? 1) + 1}
-                </span>
-              </div>
-              <div className="flex justify-between items-start border-b border-white/10 pb-2">
-                <span className="text-xs text-on-surface-variant">Waktu Scan Pertama:</span>
-                <span className="text-xs font-mono text-white text-right">
-                  {result.ticket?.firstScannedAt 
-                    ? new Date(result.ticket.firstScannedAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "medium" })
-                    : "Waktu tidak tercatat"}
-                </span>
-              </div>
-              <div className="flex justify-between items-center border-b border-white/10 pb-2">
-                <span className="text-xs text-on-surface-variant">Nilai Transaksi:</span>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-[#ffd700]">
-                    {new Intl.NumberFormat("id-ID", {
-                      style: "currency",
-                      currency: "IDR",
-                      minimumFractionDigits: 0,
-                    }).format(result.ticket?.amount || 0)}
-                  </span>
-                  {result.ticket?.ticketPhase && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-secondary/20 text-secondary border border-secondary/30 uppercase">
-                      {result.ticket.ticketPhase}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="flex justify-between items-center pt-1">
-                <span className="text-xs text-on-surface-variant">Petugas Verifikator:</span>
-                <span className="text-xs font-semibold text-secondary">
-                  {result.ticket?.scannedByName || "Petugas Gate"}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-4 flex gap-3 w-full">
+              {/* Manual close X icon */}
               <button
                 type="button"
-                onClick={resetForNextScan}
-                className="flex-1 py-3.5 rounded-xl bg-transparent border-2 border-white/30 text-white font-bold text-xs uppercase tracking-wider hover:bg-white/10 transition-all cursor-pointer"
+                onClick={() => resetForNextScan()}
+                className="absolute top-4 right-4 p-2 rounded-xl text-on-surface-variant hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                aria-label="Tutup Modal"
               >
-                Tutup / Dismiss
+                <X className="w-5 h-5" />
               </button>
-              <button
-                type="button"
-                onClick={resetForNextScan}
-                className="flex-1 py-3.5 rounded-xl bg-[#F59E0B] text-primary-container font-bold text-xs uppercase tracking-wider hover:bg-[#F59E0B]/90 transition-all cursor-pointer"
-              >
-                Scan Selanjutnya
-              </button>
+
+              {/* Header Banner with Primary State Badging */}
+              <div className="flex flex-col items-center text-center mb-5">
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 border-2 ${
+                  result.status === "valid"
+                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500 shadow-[0_0_25px_rgba(16,185,129,0.35)]"
+                    : "bg-amber-500/20 text-amber-400 border-amber-500 shadow-[0_0_25px_rgba(245,158,11,0.35)]"
+                }`}>
+                  {result.status === "valid" ? (
+                    <CheckCircle2 className="w-9 h-9" />
+                  ) : (
+                    <AlertTriangle className="w-9 h-9" />
+                  )}
+                </div>
+
+                <h2 className="text-xl sm:text-2xl font-black uppercase tracking-wider text-white">
+                  {result.status === "valid"
+                    ? "VALID - AKSES DITERIMA"
+                    : "TIKET SUDAH CHECK-IN"}
+                </h2>
+
+                {result.status === "valid" ? (
+                  <p className="text-xs text-emerald-400/90 font-medium mt-0.5">
+                    Check-in Pertama Berhasil • Akses Diberikan
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-400 font-medium mt-0.5">
+                    Tiket Pernah Digunakan Sebelumnya
+                  </p>
+                )}
+
+                {/* Show timestamp of prior scan if already checked in */}
+                {result.status === "scanned" && (
+                  <div className="mt-2.5 px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-[11px] font-mono text-amber-300 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                    <span>Waktu Check-in Sebelumnya: {formatTimestamp(result.ticket?.firstScannedAt)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Strictly Display Data: 7 Required Fields */}
+              <div className="w-full bg-[#141C3B]/90 border border-white/10 rounded-xl overflow-hidden divide-y divide-white/10 my-2 text-xs sm:text-sm shadow-inner">
+                
+                {/* 1. Status Tiket (Prominent Valid / Already Checked In Badge) */}
+                <div className="flex items-center justify-between px-4 py-3 bg-white/[0.02]">
+                  <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Status Tiket</span>
+                  <div>
+                    {result.status === "valid" ? (
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.25)]">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        VALID
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.25)]">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        SCANNED / ALREADY CHECKED IN
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Nomor BIB */}
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Nomor BIB</span>
+                  <span className="font-mono text-base sm:text-lg font-black text-[#ffd700] tracking-widest">
+                    {formatBIB(result.ticket?.nomorBib)}
+                  </span>
+                </div>
+
+                {/* 3. Nama Lengkap */}
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Nama Lengkap</span>
+                  <span className="text-sm font-bold text-white text-right">
+                    {result.ticket?.participantName || "Peserta"}
+                  </span>
+                </div>
+
+                {/* 4. Event / Kategori */}
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Event / Kategori</span>
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-secondary/15 text-secondary border border-secondary/30 text-right">
+                    {result.ticket?.eventType || "VOITSFEST"}
+                  </span>
+                </div>
+
+                {/* 5. Kategori Peserta */}
+                <div className="flex items-start justify-between px-4 py-3 gap-3">
+                  <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider flex-shrink-0">Kategori Peserta</span>
+                  <span className="text-xs font-medium text-white text-right leading-relaxed">
+                    {formatKategoriPeserta(result.ticket)}
+                  </span>
+                </div>
+
+                {/* 6. Token Tiket */}
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Token Tiket</span>
+                  <span className="font-mono text-xs font-bold text-white/90 bg-black/40 px-2 py-1 rounded border border-white/10 select-all text-right break-all">
+                    {result.ticket?.token || result.token || "-"}
+                  </span>
+                </div>
+
+                {/* 7. Nilai Transaksi */}
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Nilai Transaksi</span>
+                  <span className="font-mono text-sm sm:text-base font-bold text-emerald-400">
+                    {formatNilaiTransaksi(result.ticket?.amount)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Manual Dismissal Buttons (Persistent Modal, NO Auto-Close) */}
+              <div className="mt-4 flex flex-col sm:flex-row gap-3 w-full">
+                <button
+                  type="button"
+                  onClick={() => resetForNextScan()}
+                  className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border border-white/20 text-center"
+                >
+                  Tutup
+                </button>
+                <button
+                  type="button"
+                  onClick={() => resetForNextScan("scanner")}
+                  className={`w-full sm:flex-1 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg text-center flex items-center justify-center gap-2 ${
+                    result.status === "valid"
+                      ? "bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20"
+                      : "bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/20"
+                  }`}
+                >
+                  <span>Scan Tiket Berikutnya</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* Case 3: INVALID TOKEN RED SCREEN */}
-        {result?.status === "invalid" && (
-          <div className="fixed inset-4 md:inset-auto md:top-24 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-md z-50 rounded-2xl overlay-error flex flex-col items-center justify-center p-6 text-center shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="w-20 h-20 rounded-full bg-[#F43F5E]/20 flex items-center justify-center mb-4 border-2 border-[#F43F5E] shadow-[0_0_30px_rgba(244,63,94,0.5)]">
-              <XCircle className="w-12 h-12 text-[#F43F5E]" />
-            </div>
-
-            <h2 className="text-2xl md:text-3xl font-black text-[#F43F5E] tracking-wider uppercase mb-1">
-              {result.message || "Invalid Ticket"}
-            </h2>
-            <p className="text-xs text-[#F43F5E]/90 font-bold uppercase tracking-wider mb-4">
-              Tiket Tidak Ditemukan di Sistem VOITSFEST
-            </p>
-
-            <div className="w-full bg-[#0B1026]/90 border border-[#F43F5E]/30 rounded-xl p-4 my-2 text-center">
-              <p className="text-xs text-on-surface-variant mb-1">Token yang Dipindai:</p>
-              <p className="text-base font-mono font-bold text-[#F43F5E] break-all">{result.token || manualToken || "Unknown"}</p>
-            </div>
-
-            <p className="text-xs text-on-surface-variant mt-3 mb-5 max-w-xs">
-              Pastikan pengunjung memperlihatkan QR Code resmi dari User Dashboard VOITSFEST 2026.
-            </p>
-
-            <button
-              type="button"
-              onClick={resetForNextScan}
-              className="w-full py-3.5 rounded-xl bg-[#F43F5E] text-white font-bold text-xs uppercase tracking-wider hover:bg-[#F43F5E]/90 transition-all cursor-pointer shadow-lg"
-            >
-              Coba Pindai Ulang
-            </button>
-          </div>
-        )}
-
-        {/* System Error Modal */}
-        {result?.status === "error" && (
-          <div className="fixed inset-4 md:inset-auto md:top-24 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-md z-50 rounded-2xl overlay-error flex flex-col items-center justify-center p-6 text-center shadow-2xl animate-in zoom-in-95 duration-200">
-            <XCircle className="w-16 h-16 text-error mb-3" />
-            <h2 className="text-xl font-bold text-white mb-2">Terjadi Kesalahan</h2>
-            <p className="text-xs text-on-surface-variant mb-6">{result.message}</p>
-            <button
-              type="button"
-              onClick={resetForNextScan}
-              className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold uppercase transition-all cursor-pointer"
-            >
-              Kembali
-            </button>
           </div>
         )}
 

@@ -16,16 +16,23 @@ import {
   FileText,
   AlertCircle,
   Clock,
-  X
+  X,
+  Download
 } from "lucide-react";
+import { formatBIB, formatBIBCSV, downloadCSV } from "@/lib/bib";
+import { decrementPromoQuota, rollbackPromoQuotaOnReject } from "@/lib/promo";
 
 export type ColorfunRegistration = {
   id: string;
+  nomor_bib?: number | null;
+  group_id?: string | null;
+  is_primary?: boolean | null;
   user_id: string | null;
   nama_lengkap: string;
   email: string;
   whatsapp: string;
   kategori_peserta: string;
+  departemen?: string | null;
   nrp?: string | null;
   ktm_url?: string | null;
   darurat_nama?: string | null;
@@ -38,6 +45,7 @@ export type ColorfunRegistration = {
   payment_status: string;
   amount_paid?: number | null;
   ticket_phase?: string | null;
+  promo_id?: string | null;
   ticket_qr_code?: string | null;
   scan_count?: number | null;
   last_scanned_at?: string | null;
@@ -108,6 +116,17 @@ export default function CFRDatabase() {
     };
   }, [fetchRegistrations, supabase]);
 
+  // Listen for admin-refresh-data event
+  useEffect(() => {
+    const handleAdminRefresh = () => {
+      fetchRegistrations();
+    };
+    window.addEventListener("admin-refresh-data", handleAdminRefresh);
+    return () => {
+      window.removeEventListener("admin-refresh-data", handleAdminRefresh);
+    };
+  }, [fetchRegistrations]);
+
   // Verification Actions (Approve / Reject)
   const handleVerify = async (record: ColorfunRegistration) => {
     const recordId = record.id;
@@ -115,30 +134,87 @@ export default function CFRDatabase() {
     setActionInProgress(recordId);
 
     try {
-      // 1. Generate the Ticket QR String
-      const generatedQR = 'CFR-2026-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+      // 1. Supabase Update Call: if group_id exists, verify all members simultaneously with sequential BIBs & QR codes
+      if (record.group_id) {
+        const { data: members } = await supabase
+          .from("colorfun_registrations")
+          .select("id, ticket_qr_code, nomor_bib, is_primary")
+          .eq("group_id", record.group_id)
+          .order("is_primary", { ascending: false });
 
-      // 2. Supabase Update Call strictly on colorfun_registrations
-      const { error } = await supabase
-        .from('colorfun_registrations')
-        .update({ payment_status: 'verified', ticket_qr_code: generatedQR })
-        .eq('id', recordId);
+        const groupList = members || [];
+        const neededCount = groupList.filter((m) => m.nomor_bib == null).length;
+        let newBibs: number[] = [];
+        if (neededCount > 0) {
+          const { data: rows } = await supabase
+            .from("colorfun_registrations")
+            .select("nomor_bib")
+            .not("nomor_bib", "is", null)
+            .order("nomor_bib", { ascending: false, nullsFirst: false })
+            .limit(10);
 
-      // 3. Error Handling & State Sync
-      if (error) {
-        console.error("Update failed:", error);
-        alert(`Update failed: ${error.message || "Gagal memverifikasi pendaftaran"}`);
-        return;
+          let currentMax = 0;
+          if (rows && rows.length > 0) {
+            for (const r of rows) {
+              const val = Number(r.nomor_bib);
+              if (!isNaN(val) && val > currentMax) {
+                currentMax = val;
+              }
+            }
+          }
+
+          const startBib = currentMax + 1;
+          for (let i = 0; i < neededCount; i++) {
+            newBibs.push(startBib + i);
+          }
+        }
+        let bibIdx = 0;
+
+        await Promise.all(
+          groupList.map((m) => {
+            const bib = m.nomor_bib != null ? m.nomor_bib : newBibs[bibIdx++];
+            const qr = m.ticket_qr_code || ("CFR-2026-" + Math.random().toString(36).substring(2, 8).toUpperCase());
+            return supabase
+              .from("colorfun_registrations")
+              .update({ payment_status: "verified", ticket_qr_code: qr, nomor_bib: bib })
+              .eq("id", m.id);
+          })
+        );
+      } else {
+        let bib = record.nomor_bib;
+        if (bib == null) {
+          const { data: rows } = await supabase
+            .from("colorfun_registrations")
+            .select("nomor_bib")
+            .not("nomor_bib", "is", null)
+            .order("nomor_bib", { ascending: false, nullsFirst: false })
+            .limit(10);
+
+          let currentMax = 0;
+          if (rows && rows.length > 0) {
+            for (const r of rows) {
+              const val = Number(r.nomor_bib);
+              if (!isNaN(val) && val > currentMax) {
+                currentMax = val;
+              }
+            }
+          }
+
+          bib = currentMax + 1;
+        }
+
+        const generatedQR = record.ticket_qr_code || ("CFR-2026-" + Math.random().toString(36).substring(2, 8).toUpperCase());
+        const { error } = await supabase
+          .from("colorfun_registrations")
+          .update({ payment_status: "verified", ticket_qr_code: generatedQR, nomor_bib: bib })
+          .eq("id", recordId);
+
+        if (error) {
+          console.error("Update failed:", error);
+          alert(`Update failed: ${error.message || "Gagal memverifikasi pendaftaran"}`);
+          return;
+        }
       }
-
-      // If successful, ONLY THEN update the local React state and trigger data re-fetch
-      setRegistrations(prev =>
-        prev.map(item =>
-          item.id === recordId
-            ? { ...item, payment_status: "verified", ticket_qr_code: generatedQR }
-            : item
-        )
-      );
 
       // Sync central transactions if matching row exists
       try {
@@ -149,6 +225,43 @@ export default function CFRDatabase() {
           .in("sub_event_type", ["CFR", "cfr", "colorfun"]);
       } catch (txErr) {
         console.warn("Notice syncing transactions:", txErr);
+      }
+
+      // Retrieve the promo_id associated with that group_id
+      let promoId = record.promo_id || null;
+      let capacityCount = 1;
+      if (record.group_id) {
+        const { data: gData } = await supabase
+          .from("colorfun_registrations")
+          .select("promo_id, ticket_phase")
+          .eq("group_id", record.group_id);
+        if (gData && gData.length > 0) {
+          capacityCount = gData.length;
+          const matchPromo = gData.find((r: any) => r.promo_id);
+          if (matchPromo) promoId = matchPromo.promo_id;
+        }
+      }
+
+      if (!promoId && record.ticket_phase) {
+        const match = record.ticket_phase.match(/\[PROMO:([^:\]]+)(?::(\d+))?\]/);
+        if (match) {
+          promoId = match[1];
+          const cap = parseInt(match[2] || "1", 10);
+          if (capacityCount <= 1 && cap > 1) capacityCount = cap;
+        }
+      }
+
+      if (promoId) {
+        const { error: rpcError } = await supabase.rpc("increment_promo_quota", {
+          p_promo_id: promoId,
+          p_amount: capacityCount,
+        });
+        if (rpcError) console.error("increment_promo_quota error:", rpcError);
+      }
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("promo-quota-updated", { detail: { promoId, amount: capacityCount } }));
+        window.dispatchEvent(new CustomEvent("admin-refresh-data"));
       }
 
       await fetchRegistrations();
@@ -169,24 +282,27 @@ export default function CFRDatabase() {
     setActionInProgress(recordId);
 
     try {
-      const { error } = await supabase
-        .from("colorfun_registrations")
-        .update({
-          payment_status: "rejected",
-        })
-        .eq("id", recordId);
+      const wasVerified = (record.payment_status || "").toLowerCase() === "verified";
+      let error;
+      if (record.group_id) {
+        const res = await supabase
+          .from("colorfun_registrations")
+          .update({ payment_status: "rejected" })
+          .eq("group_id", record.group_id);
+        error = res.error;
+      } else {
+        const res = await supabase
+          .from("colorfun_registrations")
+          .update({ payment_status: "rejected" })
+          .eq("id", recordId);
+        error = res.error;
+      }
 
       if (error) {
         console.error("Reject failed:", error);
         alert(`Gagal menolak pendaftaran: ${error.message || "Terjadi kesalahan"}`);
         return;
       }
-
-      setRegistrations(prev =>
-        prev.map(item =>
-          item.id === recordId ? { ...item, payment_status: "rejected" } : item
-        )
-      );
 
       // Sync central transactions if matching row exists
       try {
@@ -197,6 +313,43 @@ export default function CFRDatabase() {
           .in("sub_event_type", ["CFR", "cfr", "colorfun"]);
       } catch (txErr) {
         console.warn("Notice syncing transactions rejection:", txErr);
+      }
+
+      // If clicking Reject on a previously verified transaction, call decrement_promo_quota with the corresponding p_promo_id
+      if (wasVerified) {
+        let promoId = record.promo_id || null;
+        let capacityCount = 1;
+        if (record.group_id) {
+          const { data: gData } = await supabase
+            .from("colorfun_registrations")
+            .select("promo_id, ticket_phase")
+            .eq("group_id", record.group_id);
+          if (gData && gData.length > 0) {
+            capacityCount = gData.length;
+            const matchPromo = gData.find((r: any) => r.promo_id);
+            if (matchPromo) promoId = matchPromo.promo_id;
+          }
+        }
+        if (!promoId && record.ticket_phase) {
+          const match = record.ticket_phase.match(/\[PROMO:([^:\]]+)(?::(\d+))?\]/);
+          if (match) {
+            promoId = match[1];
+            const cap = parseInt(match[2] || "1", 10);
+            if (capacityCount <= 1 && cap > 1) capacityCount = cap;
+          }
+        }
+        if (promoId) {
+          const { error: rpcError } = await supabase.rpc("decrement_promo_quota", {
+            p_promo_id: promoId,
+            p_amount: capacityCount,
+          });
+          if (rpcError) console.error("decrement_promo_quota error:", rpcError);
+        }
+      }
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("promo-quota-updated"));
+        window.dispatchEvent(new CustomEvent("admin-refresh-data"));
       }
 
       await fetchRegistrations();
@@ -251,10 +404,55 @@ export default function CFRDatabase() {
         (r.whatsapp || "").toLowerCase().includes(q) ||
         (r.nrp || "").toLowerCase().includes(q) ||
         (r.kategori_peserta || "").toLowerCase().includes(q) ||
-        (r.ticket_qr_code || "").toLowerCase().includes(q)
+        (r.ticket_qr_code || "").toLowerCase().includes(q) ||
+        formatBIB(r.nomor_bib).toLowerCase().includes(q) ||
+        String(r.nomor_bib || "").toLowerCase().includes(q)
       );
     });
   }, [registrations, filter, search]);
+
+  // Excel-safe CSV Export
+  const handleExportCSV = () => {
+    const headers = [
+      "Nomor BIB",
+      "Nama Lengkap",
+      "Email",
+      "WhatsApp",
+      "Kategori",
+      "Departemen",
+      "NRP",
+      "Status Pembayaran",
+      "Nominal (IDR)",
+      "Fase Tiket",
+      "Rekening Pengirim",
+      "Tiket QR Code",
+      "Jumlah Scan",
+      "Group ID",
+      "Tipe Peserta",
+      "Waktu Daftar",
+    ];
+
+    const rows = filteredData.map(r => [
+      formatBIBCSV(r.nomor_bib),
+      r.nama_lengkap || "-",
+      r.email || "-",
+      r.whatsapp || "-",
+      r.kategori_peserta || "-",
+      r.departemen || "-",
+      r.nrp || "-",
+      r.payment_status || "-",
+      r.amount_paid || 0,
+      r.ticket_phase || "-",
+      r.rekening_pengirim || "-",
+      r.ticket_qr_code || "-",
+      r.scan_count || 0,
+      r.group_id || "-",
+      r.is_primary === false ? "Anggota Group" : "Utama",
+      r.created_at ? new Date(r.created_at).toLocaleString("id-ID") : "-",
+    ]);
+
+    downloadCSV(`colorfun_registrations_${new Date().toISOString().split("T")[0]}`, headers, rows);
+  };
 
   return (
     <section className="bg-surface/50 backdrop-blur-xl border border-white/20 rounded-2xl flex flex-col overflow-hidden relative shadow-2xl">
@@ -284,6 +482,18 @@ export default function CFRDatabase() {
           >
             <RotateCw className={`w-3.5 h-3.5 text-secondary ${loading ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline">Refresh</span>
+          </button>
+
+          {/* Export CSV / Excel Button */}
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            disabled={filteredData.length === 0}
+            className="flex items-center gap-2 px-3 py-2 bg-secondary/15 hover:bg-secondary/25 border border-secondary/30 rounded-xl text-xs font-semibold text-secondary transition-all cursor-pointer disabled:opacity-50"
+            title="Download CSV / Excel (Preserves 4-digit BIB)"
+          >
+            <Download className="w-3.5 h-3.5 text-secondary" />
+            <span className="hidden sm:inline">Export CSV</span>
           </button>
 
           <div className="relative flex-1 sm:flex-initial">
@@ -342,6 +552,7 @@ export default function CFRDatabase() {
         <table className="w-full text-left border-collapse whitespace-nowrap font-poppins">
           <thead>
             <tr className="bg-surface-container-low/60 text-on-surface-variant text-[11px] uppercase tracking-wider border-b border-white/10">
+              <th className="p-4 py-3 font-semibold">Nomor BIB</th>
               <th className="p-4 py-3 font-semibold">Nama Lengkap</th>
               <th className="p-4 py-3 font-semibold">Kategori</th>
               <th className="p-4 py-3 font-semibold">Nominal &amp; Fase</th>
@@ -360,7 +571,7 @@ export default function CFRDatabase() {
           <tbody className="text-sm divide-y divide-white/5">
             {loading && registrations.length === 0 ? (
               <tr>
-                <td colSpan={10} className="p-12 text-center text-on-surface-variant">
+                <td colSpan={11} className="p-12 text-center text-on-surface-variant">
                   <div className="flex items-center justify-center gap-2">
                     <RotateCw className="w-4 h-4 animate-spin text-secondary" />
                     <span>Memuat data dari Supabase...</span>
@@ -369,7 +580,7 @@ export default function CFRDatabase() {
               </tr>
             ) : filteredData.length === 0 ? (
               <tr>
-                <td colSpan={10} className="p-12 text-center text-on-surface-variant">
+                <td colSpan={11} className="p-12 text-center text-on-surface-variant">
                   <p className="text-sm font-medium">Tidak ada data pendaftaran ditemukan.</p>
                   <p className="text-xs text-on-surface-variant/70 mt-1">
                     {search ? "Coba ubah kata kunci pencarian Anda." : "Belum ada pendaftaran di tabel colorfun_registrations."}
@@ -387,6 +598,26 @@ export default function CFRDatabase() {
                 return (
                   <tr key={row.id} className="border-b border-white/5 hover:bg-surface-variant/30 transition-colors">
                     
+                    {/* 0. Nomor BIB (Global 4-digit zero padding) */}
+                    <td className="p-4 py-3">
+                      <div className="flex flex-col gap-1">
+                        {row.nomor_bib != null ? (
+                          <span className="inline-flex items-center gap-1 font-mono font-bold text-xs text-secondary bg-secondary/10 border border-secondary/25 px-2.5 py-1 rounded w-fit">
+                            #{formatBIB(row.nomor_bib)}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 font-mono text-[11px] text-on-surface-variant/60 bg-white/5 border border-white/10 px-2 py-0.5 rounded w-fit">
+                            -
+                          </span>
+                        )}
+                        {row.is_primary === false && (
+                          <span className="text-[10px] font-sans font-medium text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.2 rounded w-fit">
+                            Anggota
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
                     {/* 1. Nama Lengkap & Email */}
                     <td className="p-4 py-3 font-medium text-white">
                       <div>
@@ -420,7 +651,7 @@ export default function CFRDatabase() {
                         </span>
                         {row.ticket_phase && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-secondary/15 text-secondary border border-secondary/30 w-fit">
-                            {row.ticket_phase}
+                            {row.ticket_phase.replace(/\s*\[PROMO:.*\]/, "")}
                           </span>
                         )}
                       </div>
@@ -623,6 +854,9 @@ export default function CFRDatabase() {
             <div className="flex items-center gap-2 mb-2">
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-secondary/15 text-secondary border border-secondary/30">
                 E-Tiket ColorFun Run 2026
+              </span>
+              <span className="font-mono text-xs font-bold text-secondary bg-secondary/10 border border-secondary/30 px-2.5 py-0.5 rounded-full">
+                BIB: {qrModalRecord.nomor_bib != null ? `#${formatBIB(qrModalRecord.nomor_bib)}` : "Menunggu Verifikasi"}
               </span>
             </div>
             <h3 className="text-xl font-bold text-white mb-0.5">
