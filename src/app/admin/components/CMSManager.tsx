@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Settings, Save, Calendar, Clock, MapPin, X, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
 import { parseEventDetails } from "@/lib/cms";
-import { toLocalISOString, wibDatetimeLocalToIso, formatWIB } from "@/lib/date";
+import { toDateTimeLocalInput, formatPayloadToSupabase, formatDisplayWIB } from "@/lib/timeUtils";
 import PromoManager from "./PromoManager";
 import SponsorManager from "./SponsorManager";
 
@@ -98,7 +98,7 @@ export default function CMSManager() {
             const cd = countdownRecord.value as any;
             if (cd.active !== undefined) setCountdownActive(Boolean(cd.active));
             if (cd.description) setCountdownDesc(cd.description);
-            if (cd.date) setCountdownTarget(toLocalISOString(cd.date));
+            if (cd.date) setCountdownTarget(toDateTimeLocalInput(cd.date));
           } else {
             setCountdownActive(Boolean(countdownRecord.value));
           }
@@ -110,7 +110,7 @@ export default function CMSManager() {
           const rawTarget = typeof targetRecord.value === "string" 
             ? targetRecord.value 
             : JSON.stringify(targetRecord.value).replace(/"/g, "");
-          if (rawTarget) setCountdownTarget(toLocalISOString(rawTarget));
+          if (rawTarget) setCountdownTarget(toDateTimeLocalInput(rawTarget));
         }
 
         // Countdown label (key: 'countdown_label')
@@ -220,13 +220,13 @@ export default function CMSManager() {
           value: {
             active: countdownActive,
             description: countdownDesc,
-            date: wibDatetimeLocalToIso(countdownTarget) || countdownTarget,
+            date: formatPayloadToSupabase(countdownTarget) || countdownTarget,
           },
           updated_at: now,
         },
         {
           key: "countdown_target",
-          value: wibDatetimeLocalToIso(countdownTarget) || countdownTarget,
+          value: formatPayloadToSupabase(countdownTarget) || countdownTarget,
           updated_at: now,
         },
         {
@@ -461,7 +461,7 @@ export default function CMSManager() {
               />
               {countdownTarget && (
                 <p className="text-[11px] text-secondary font-mono mt-1">
-                  Target WIB: {formatWIB(wibDatetimeLocalToIso(countdownTarget))}
+                  Target WIB: {formatDisplayWIB(countdownTarget)}
                 </p>
               )}
               <p className="text-[11px] text-on-surface-variant/70 mt-1">

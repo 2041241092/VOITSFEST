@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { formatBIB, formatBIBCSV, downloadCSV } from "@/lib/bib";
 import { decrementPromoQuota, rollbackPromoQuotaOnReject } from "@/lib/promo";
+import { formatDisplayWIB } from "@/lib/timeUtils";
 
 export type ColorfunRegistration = {
   id: string;
@@ -451,7 +452,7 @@ export default function CFRDatabase() {
       r.scan_count || 0,
       r.group_id || "-",
       r.is_primary === false ? "Anggota Group" : "Utama",
-      r.created_at ? new Date(r.created_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }) : "-",
+      formatDisplayWIB(r.created_at),
     ]);
 
     downloadCSV(`colorfun_registrations_${new Date().toISOString().split("T")[0]}`, headers, rows);
@@ -781,13 +782,7 @@ export default function CFRDatabase() {
 
                     {/* 8. Waktu Daftar */}
                     <td className="p-4 py-3 text-xs text-on-surface-variant font-mono">
-                      {row.created_at
-                        ? new Date(row.created_at).toLocaleString("id-ID", {
-                            timeZone: "Asia/Jakarta",
-                            dateStyle: "short",
-                            timeStyle: "short",
-                          })
-                        : "-"}
+                      {formatDisplayWIB(row.created_at)}
                     </td>
 
                     {/* 9. Aksi (Verify / Reject for Pending) */}
@@ -933,11 +928,7 @@ export default function CFRDatabase() {
 
               {qrModalRecord.last_scanned_at && (
                 <p className="text-[11px] font-mono text-on-surface-variant/80 mt-1">
-                  Terakhir: {new Date(qrModalRecord.last_scanned_at).toLocaleString("id-ID", {
-                    timeZone: "Asia/Jakarta",
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
+                  Terakhir: {formatDisplayWIB(qrModalRecord.last_scanned_at)}
                 </p>
               )}
             </div>

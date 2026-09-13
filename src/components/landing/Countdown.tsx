@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { parseWibDate } from "@/lib/timeUtils";
 
 export default function Countdown({ className = "" }: { className?: string }) {
   const [active, setActive] = useState(true);
@@ -54,7 +55,8 @@ export default function Countdown({ className = "" }: { className?: string }) {
     if (!active || !targetDate) return;
 
     const calculateTime = () => {
-      const difference = new Date(targetDate).getTime() - Date.now();
+      const targetWib = parseWibDate(targetDate);
+      const difference = (targetWib ? targetWib.getTime() : 0) - Date.now();
       if (difference > 0) {
         setTimeLeft({
           days: Math.floor(difference / (1000 * 60 * 60 * 24)),

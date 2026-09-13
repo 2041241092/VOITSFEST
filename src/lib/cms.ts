@@ -27,36 +27,18 @@ export function parseEventDetails(value: unknown): boolean {
   return true;
 }
 
+import { formatDisplayDateLongWIB, formatDisplayTimeWIB } from "./timeUtils";
+
 /**
  * Formats a date string into Indonesian locale strictly enforcing the Asia/Jakarta (WIB) timezone.
- * Handles YYYY-MM-DD date-only strings safely by appending +07:00 to prevent backward timezone shifting.
+ * Handles YYYY-MM-DD date-only strings safely to prevent backward timezone shifting.
  *
  * @param dateStr Date string or ISO format from Supabase CMS
  * @param fallback Fallback date string if dateStr is missing or invalid
- * @returns Formatted Indonesian date string (e.g. "Sabtu, 31 Oktober 2026")
+ * @returns Formatted Indonesian date string (e.g. "Sabtu, 24 Oktober 2026")
  */
 export function formatDisplayDate(dateStr?: string, fallback: string = ""): string {
-  if (!dateStr || !dateStr.trim()) return fallback;
-  try {
-    const trimmed = dateStr.trim();
-    let parsedInput = trimmed;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-      parsedInput = `${trimmed}T00:00:00+07:00`;
-    } else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) {
-      parsedInput = `${trimmed}+07:00`;
-    }
-    const d = new Date(parsedInput);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString("id-ID", {
-      timeZone: "Asia/Jakarta",
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-  } catch {
-    return dateStr;
-  }
+  return formatDisplayDateLongWIB(dateStr, fallback, true);
 }
 
 /**
@@ -67,10 +49,5 @@ export function formatDisplayDate(dateStr?: string, fallback: string = ""): stri
  * @returns Formatted time string (e.g. "06:00 WIB - Selesai")
  */
 export function formatDisplayTime(timeStr?: string, fallback: string = "WIB - Selesai"): string {
-  if (!timeStr || !timeStr.trim()) return fallback;
-  const t = timeStr.trim();
-  if (t.toLowerCase().includes("wib") || t.toLowerCase().includes("selesai")) {
-    return t;
-  }
-  return `${t} WIB - Selesai`;
+  return formatDisplayTimeWIB(timeStr, fallback);
 }

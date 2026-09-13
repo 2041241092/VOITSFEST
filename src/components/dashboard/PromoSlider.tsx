@@ -4,7 +4,7 @@ import { useRef } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Promo } from "@/types/database";
-import { formatDateDisplay } from "@/lib/date";
+import { formatDisplayWIB, isEventActive } from "@/lib/timeUtils";
 
 type PromoSliderProps = {
   promos: Promo[];
@@ -12,6 +12,9 @@ type PromoSliderProps = {
 
 export default function PromoSlider({ promos }: PromoSliderProps) {
   const sliderRef = useRef<HTMLDivElement>(null);
+
+  // Filter out any promos that are expired or outside the active WIB date window
+  const activePromos = promos.filter((p) => p.is_active && isEventActive(p.start_date, p.end_date));
 
   const scrollLeft = () => {
     if (sliderRef.current) {
@@ -27,7 +30,7 @@ export default function PromoSlider({ promos }: PromoSliderProps) {
     }
   };
 
-  if (promos.length === 0) {
+  if (activePromos.length === 0) {
     return (
       <div className="bg-slate-950/60 backdrop-blur-xl rounded-2xl p-8 text-center text-slate-300 border-dashed border-white/15 border-2 shadow-[0_4px_25px_rgba(0,0,0,0.5)]">
         No active promos at the moment. Check back later!
@@ -37,7 +40,7 @@ export default function PromoSlider({ promos }: PromoSliderProps) {
 
   return (
     <div className="relative group/slider">
-      {promos.length > 1 && (
+      {activePromos.length > 1 && (
         <>
           <button
             onClick={scrollLeft}
@@ -61,7 +64,7 @@ export default function PromoSlider({ promos }: PromoSliderProps) {
         className="slider-track flex gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4 scroll-smooth"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
-        {promos.map((promo, index) => {
+        {activePromos.map((promo, index) => {
           // Alternate themes for promos
           const isFirstTheme = index % 2 === 0;
           const bgGlow = isFirstTheme ? "bg-[#ffd700]/10" : "bg-[#87CEEB]/10";
@@ -99,7 +102,7 @@ export default function PromoSlider({ promos }: PromoSliderProps) {
                     )}
                     {promo.end_date && (
                       <span className="px-2 py-0.5 text-xs font-mono font-semibold rounded border bg-white/5 border-white/10 text-slate-300">
-                        s/d: {formatDateDisplay(promo.end_date)}
+                        s/d: {formatDisplayWIB(promo.end_date)}
                       </span>
                     )}
                   </div>

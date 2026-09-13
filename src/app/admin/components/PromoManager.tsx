@@ -20,15 +20,16 @@ import {
   dispatchQuotaRefresh,
 } from "@/lib/quota";
 import {
-  formatForSupabase,
-  formatForInput,
+  toDateTimeLocalInput,
+  formatPayloadToSupabase,
+  formatDisplayWIB,
+  formatDateRangeWIB,
+  formatDisplayDateLongWIB,
+  isEventActive,
+  getEventTimeStatus,
   getLocalDatetimeString,
   parseWibDate,
-  formatDateDisplay,
-  formatWIB,
-  formatWibDateTime,
-  formatWibDateRange,
-} from "@/lib/date";
+} from "@/lib/timeUtils";
 
 interface PromoManagerProps {
   onToast?: (type: "success" | "error", message: string) => void;
@@ -283,8 +284,8 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
       return;
     }
 
-    const formattedStartDate = formatForSupabase(form.start_date);
-    const formattedEndDate = formatForSupabase(form.end_date);
+    const formattedStartDate = formatPayloadToSupabase(form.start_date);
+    const formattedEndDate = formatPayloadToSupabase(form.end_date);
     if (!formattedStartDate || !formattedEndDate || formattedEndDate <= formattedStartDate) {
       onToast?.("error", "Tanggal berakhir harus setelah tanggal mulai!");
       return;
@@ -381,8 +382,8 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
       kuota_maksimal: isUnlimited ? "" : String(promo.kuota_maksimal ?? ""),
       kapasitas: String(promo.kapasitas || 1),
       kategori_peserta: promo.kategori_peserta || "Semua",
-      start_date: formatForInput(promo.start_date),
-      end_date: formatForInput(promo.end_date),
+      start_date: toDateTimeLocalInput(promo.start_date),
+      end_date: toDateTimeLocalInput(promo.end_date),
       is_active: promo.is_active ?? true,
     });
     setEditModalOpen(true);
@@ -403,8 +404,8 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
       return;
     }
 
-    const formattedStartDate = formatForSupabase(editForm.start_date);
-    const formattedEndDate = formatForSupabase(editForm.end_date);
+    const formattedStartDate = formatPayloadToSupabase(editForm.start_date);
+    const formattedEndDate = formatPayloadToSupabase(editForm.end_date);
     if (!formattedStartDate || !formattedEndDate || formattedEndDate <= formattedStartDate) {
       onToast?.("error", "Tanggal berakhir harus setelah tanggal mulai!");
       return;
@@ -690,12 +691,8 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                 const liveRemaining = isUnlimited ? null : Math.max(0, (maxQuota as number) - liveUsed);
                 const isPromoFull = !isUnlimited && liveUsed >= (maxQuota as number);
 
-                const nowMs = Date.now();
-                const startDate = parseWibDate(promo.start_date);
-                const endDate = parseWibDate(promo.end_date);
-                const isDateStarted = !startDate || startDate.getTime() <= nowMs;
-                const isDateEnded = Boolean(endDate && !(endDate.getTime() >= nowMs));
-                const isExpired = !isDateStarted || isDateEnded;
+                const { isStarted: isDateStarted, isEnded: isDateEnded, isActive: isDateActive } = getEventTimeStatus(promo.start_date, promo.end_date);
+                const isExpired = !isDateActive;
 
                 return (
                   <tr key={promo.id} className="hover:bg-white/[0.02] transition-colors">
@@ -732,11 +729,11 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                       <div className="flex items-center gap-1.5 text-slate-200 font-mono text-[11px]">
                         <Calendar className="w-3.5 h-3.5 text-secondary shrink-0" />
                         <span>
-                          {formatDateDisplay(promo.start_date)}
+                          {formatDisplayWIB(promo.start_date)}
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-400 ml-5 font-mono mt-0.5">
-                        s/d {formatDateDisplay(promo.end_date)}
+                        s/d {formatDisplayWIB(promo.end_date)}
                       </div>
                     </td>
                     <td className="py-3.5 px-4 text-center">
@@ -917,7 +914,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   <div className="flex items-center gap-1.5 text-slate-300">
                     <Calendar className="w-3.5 h-3.5 text-secondary shrink-0" />
                     <span>
-                      {formatWibDateRange(promo.start_date, promo.end_date)}
+                      {formatDateRangeWIB(promo.start_date, promo.end_date)}
                     </span>
                   </div>
 
@@ -1294,7 +1291,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   />
                   {form.start_date && (
                     <span className="text-[10px] text-slate-400 font-mono mt-1 block">
-                      {formatDateDisplay(form.start_date)}
+                      {formatDisplayWIB(form.start_date)}
                     </span>
                   )}
                 </div>
@@ -1316,7 +1313,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   />
                   {form.end_date && (
                     <span className="text-[10px] text-secondary font-mono mt-1 block font-medium">
-                      {formatDateDisplay(form.end_date)}
+                      {formatDisplayWIB(form.end_date)}
                     </span>
                   )}
                 </div>
@@ -1423,7 +1420,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   />
                   {editForm.start_date && (
                     <span className="text-[10px] text-slate-400 font-mono mt-1 block">
-                      {formatDateDisplay(editForm.start_date)}
+                      {formatDisplayWIB(editForm.start_date)}
                     </span>
                   )}
                 </div>
@@ -1445,7 +1442,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   />
                   {editForm.end_date && (
                     <span className="text-[10px] text-secondary font-mono mt-1 block font-medium">
-                      {formatDateDisplay(editForm.end_date)}
+                      {formatDisplayWIB(editForm.end_date)}
                     </span>
                   )}
                 </div>

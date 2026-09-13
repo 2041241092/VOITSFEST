@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Ticket } from "@/types/database";
 import { Check, Copy, QrCode, X, CheckCircle2, Clock, XCircle, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatBIB } from "@/lib/bib";
+import { formatDisplayWIB } from "@/lib/timeUtils";
 
 type TicketSliderProps = {
   tickets: Ticket[];
@@ -276,10 +277,7 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
                           </span>
                           {ticket.scanned_at && (
                             <span className="text-[10px] font-mono text-on-surface-variant/80">
-                              Terakhir: {new Date(ticket.scanned_at).toLocaleString("id-ID", {
-                                dateStyle: "short",
-                                timeStyle: "short",
-                              })}
+                              Terakhir: {formatDisplayWIB(ticket.scanned_at)}
                             </span>
                           )}
                         </div>
@@ -424,11 +422,7 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
 
               {modalTicket.scanned_at && (
                 <p className="text-[11px] font-mono text-on-surface-variant/80 mt-1">
-                  Waktu Scan Terakhir: {new Date(modalTicket.scanned_at).toLocaleString("id-ID", {
-                    timeZone: "Asia/Jakarta",
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
+                  Waktu Scan Terakhir: {formatDisplayWIB(modalTicket.scanned_at)}
                 </p>
               )}
             </div>

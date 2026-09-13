@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { fetchPricingTiers, PricingEvent, DEFAULT_PRICING_TIERS } from "@/lib/pricing";
 import { Promo } from "@/types/database";
-import { parseWibDate } from "@/lib/date";
+import { getEventTimeStatus, parseWibDate } from "@/lib/timeUtils";
 
 export interface QuotaStatus {
   maxQuota: number;
@@ -303,8 +303,6 @@ export async function fetchPromoQuotas(): Promise<PromoQuotaStatus[]> {
         promoApprovedMap.set(pId, (promoApprovedMap.get(pId) || 0) + 1);
       }
     }
-
-    const now = new Date();
     return (promos as Promo[]).map((promo) => {
       const pendingFromRegs = promoPendingMap.get(promo.id) || 0;
       const approvedFromRegs = promoApprovedMap.get(promo.id) || 0;
@@ -317,12 +315,8 @@ export async function fetchPromoQuotas(): Promise<PromoQuotaStatus[]> {
       const remainingQuota = isUnlimited ? null : Math.max(0, (maxQuota as number) - usedQuota);
       const isFull = !isUnlimited && usedQuota >= (maxQuota as number);
 
-      const nowMs = Date.now();
-      const startDate = parseWibDate(promo.start_date);
-      const endDate = parseWibDate(promo.end_date);
-      const isDateStarted = !startDate || startDate.getTime() <= nowMs;
-      const isDateEnded = Boolean(endDate && !(endDate.getTime() >= nowMs));
-      const isAvailable = promo.is_active && isDateStarted && !isDateEnded && !isFull;
+      const { isStarted: isDateStarted, isEnded: isDateEnded, isActive: isDateActive } = getEventTimeStatus(promo.start_date, promo.end_date);
+      const isAvailable = promo.is_active && isDateActive && !isFull;
 
       return {
         promo,
@@ -379,13 +373,9 @@ export async function checkQuotaAvailability(
     const targetPromo = promoQuotas.find((p) => p.promo.id === promoId);
 
     if (targetPromo) {
-      const now = new Date();
-
       // Condition 3: Date Range Check
-      const nowMs = Date.now();
-      const startDate = parseWibDate(targetPromo.promo.start_date);
-      const endDate = parseWibDate(targetPromo.promo.end_date);
-      if (startDate && startDate.getTime() > nowMs) {
+      const { isStarted, isEnded } = getEventTimeStatus(targetPromo.promo.start_date, targetPromo.promo.end_date);
+      if (!isStarted) {
         return {
           available: false,
           error: `Periode promo/bundling "${targetPromo.promo.title}" belum dimulai.`,
@@ -394,7 +384,7 @@ export async function checkQuotaAvailability(
         };
       }
 
-      if (endDate && !(endDate.getTime() >= nowMs)) {
+      if (isEnded) {
         return {
           available: false,
           error: `Periode promo/bundling "${targetPromo.promo.title}" telah berakhir.`,

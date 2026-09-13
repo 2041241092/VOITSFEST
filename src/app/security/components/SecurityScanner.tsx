@@ -28,6 +28,7 @@ import {
 } from "@/app/actions/tickets";
 import { createClient } from "@/lib/supabase/client";
 import { formatBIB } from "@/lib/bib";
+import { formatDisplayWIB } from "@/lib/timeUtils";
 import SecurityHeader from "./SecurityHeader";
 
 interface SecurityScannerProps {
@@ -84,14 +85,7 @@ function formatNilaiTransaksi(amount?: number): string {
 
 function formatTimestamp(isoString?: string | null): string {
   if (!isoString) return "-";
-  try {
-    return new Date(isoString).toLocaleString("id-ID", {
-      dateStyle: "medium",
-      timeStyle: "medium",
-    });
-  } catch {
-    return isoString;
-  }
+  return formatDisplayWIB(isoString);
 }
 
 export default function SecurityScanner({
@@ -810,9 +804,7 @@ export default function SecurityScanner({
                       </span>
                       <p className="text-[10px] text-on-surface-variant mt-1 font-mono flex items-center gap-1">
                         <Clock className="w-3 h-3 text-on-surface-variant/70" />
-                        {item.scannedAt
-                          ? new Date(item.scannedAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
-                          : "-"}
+                        {formatDisplayWIB(item.scannedAt)}
                       </p>
                       <span className="text-[10px] text-secondary opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 mt-0.5">
                         Detail <ArrowRight className="w-2.5 h-2.5" />

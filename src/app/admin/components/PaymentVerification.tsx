@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Filter, Eye, CheckCircle, XCircle, RotateCw, AlertCircle, Download, Users, X } from "lucide-react";
 import { formatBIB, formatBIBCSV, downloadCSV } from "@/lib/bib";
 import { decrementPromoQuota, rollbackPromoQuotaOnReject } from "@/lib/promo";
+import { formatDisplayWIB } from "@/lib/timeUtils";
 
 export type BundleMember = {
   id: string;
@@ -740,7 +741,7 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
       item.ticket_phase || "-",
       item.status,
       item.ticket_qr_code || "-",
-      item.created_at ? new Date(item.created_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }) : "-",
+      formatDisplayWIB(item.created_at),
       item.group_id || "-",
       item.is_primary === false ? "Anggota Group" : "Utama",
     ]);
@@ -947,13 +948,7 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
                     )}
                   </td>
                   <td className="p-4 py-3 text-xs text-on-surface-variant font-mono">
-                    {item.created_at
-                      ? new Date(item.created_at).toLocaleString("id-ID", {
-                          timeZone: "Asia/Jakarta",
-                          dateStyle: "short",
-                          timeStyle: "short",
-                        })
-                      : "-"}
+                    {formatDisplayWIB(item.created_at)}
                   </td>
                   <td className="p-4 py-3 text-right">
                     <div className="flex justify-end gap-2">
