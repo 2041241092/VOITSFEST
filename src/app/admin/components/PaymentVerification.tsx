@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Filter, Eye, CheckCircle, XCircle, RotateCw, AlertCircle, Download, Users, X } from "lucide-react";
-import { formatBIB, formatBIBCSV, downloadCSV } from "@/lib/bib";
+import { formatBIB, formatBIBCSV, formatFestivalParticipant, formatFestivalParticipantCSV, downloadCSV } from "@/lib/bib";
 import { decrementPromoQuota, rollbackPromoQuotaOnReject } from "@/lib/promo";
 import { formatDisplayWIB } from "@/lib/timeUtils";
 
@@ -712,7 +712,7 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
   const handleExportCSV = () => {
     const headers = [
       "ID",
-      "Nomor BIB",
+      "Nomor BIB / Peserta",
       "Sub Event",
       "Event Source",
       "Nama Peserta",
@@ -728,7 +728,9 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
 
     const rows = filteredRecords.map(item => [
       item.id,
-      formatBIBCSV(item.nomor_bib),
+      item.origin_table === "festival_registrations" || item.sub_event_type?.toLowerCase().includes("fest")
+        ? formatFestivalParticipantCSV(item.nomor_bib)
+        : formatBIBCSV(item.nomor_bib),
       item.sub_event_type,
       item.origin_table === "colorfun_registrations"
         ? "ColorFun Run"
@@ -870,11 +872,15 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
                     <div className="flex flex-wrap items-center gap-1.5 mt-1">
                       {item.nomor_bib != null ? (
                         <span className="font-mono text-xs font-bold text-secondary bg-secondary/10 border border-secondary/25 px-1.5 py-0.2 rounded w-fit">
-                          BIB #{formatBIB(item.nomor_bib)}
+                          {item.origin_table === "festival_registrations" || item.sub_event_type?.toLowerCase().includes("fest")
+                            ? formatFestivalParticipant(item.nomor_bib)
+                            : `BIB #${formatBIB(item.nomor_bib)}`}
                         </span>
                       ) : (
                         <span className="font-mono text-[11px] text-on-surface-variant/60 bg-white/5 border border-white/10 px-1.5 py-0.2 rounded w-fit">
-                          BIB: Menunggu Verifikasi
+                          {item.origin_table === "festival_registrations" || item.sub_event_type?.toLowerCase().includes("fest")
+                            ? "Pass Festival"
+                            : "BIB: Menunggu Verifikasi"}
                         </span>
                       )}
                       {item.extra_members && item.extra_members.length > 0 && (
@@ -1037,11 +1043,15 @@ export default function PaymentVerification({ onTransactionUpdated }: PaymentVer
                     </div>
                     {member.nomor_bib != null ? (
                       <span className="font-mono text-xs font-bold text-secondary bg-secondary/15 border border-secondary/35 px-2 py-0.5 rounded">
-                        BIB #{formatBIB(member.nomor_bib)}
+                        {membersModalRecord.origin_table === "festival_registrations" || membersModalRecord.sub_event_type?.toLowerCase().includes("fest")
+                          ? formatFestivalParticipant(member.nomor_bib)
+                          : `BIB #${formatBIB(member.nomor_bib)}`}
                       </span>
                     ) : (
                       <span className="font-mono text-xs text-on-surface-variant/60 bg-white/5 border border-white/10 px-2 py-0.5 rounded">
-                        BIB: Menunggu Verifikasi
+                        {membersModalRecord.origin_table === "festival_registrations" || membersModalRecord.sub_event_type?.toLowerCase().includes("fest")
+                          ? "Pass Festival"
+                          : "BIB: Menunggu Verifikasi"}
                       </span>
                     )}
                   </div>

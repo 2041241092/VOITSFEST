@@ -27,7 +27,7 @@ import {
   TicketMetrics 
 } from "@/app/actions/tickets";
 import { createClient } from "@/lib/supabase/client";
-import { formatBIB } from "@/lib/bib";
+import { formatBIB, formatFestivalParticipant } from "@/lib/bib";
 import { formatDisplayWIB } from "@/lib/timeUtils";
 import SecurityHeader from "./SecurityHeader";
 
@@ -452,7 +452,10 @@ export default function SecurityScanner({
     const q = historySearch.trim().toLowerCase();
     if (!q) return recentScans;
     return recentScans.filter((item) => {
-      const bibStr = formatBIB(item.nomorBib).toLowerCase();
+      const isFest = (item.eventType || "").toLowerCase().includes("fest");
+      const bibStr = isFest
+        ? formatFestivalParticipant(item.nomorBib).toLowerCase()
+        : formatBIB(item.nomorBib).toLowerCase();
       const name = (item.participantName || "").toLowerCase();
       const token = (item.token || "").toLowerCase();
       const kat = (item.kategoriPeserta || "").toLowerCase();
@@ -728,7 +731,7 @@ export default function SecurityScanner({
                 type="text"
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
-                placeholder="Cari berdasarkan Nama, Nomor BIB, atau Token..."
+                placeholder="Cari berdasarkan Nama, Nomor Peserta / BIB, atau Token..."
                 className="w-full bg-surface-container-high/60 border border-white/15 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white placeholder:text-on-surface-variant/60 focus:outline-none focus:border-secondary transition-all"
               />
               {historySearch && (
@@ -778,7 +781,9 @@ export default function SecurityScanner({
                           </p>
                           {item.nomorBib && (
                             <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-yellow-500/15 text-[#ffd700] border border-yellow-500/30">
-                              BIB {formatBIB(item.nomorBib)}
+                              {(item.eventType || "").toLowerCase().includes("fest")
+                                ? formatFestivalParticipant(item.nomorBib)
+                                : `BIB ${formatBIB(item.nomorBib)}`}
                             </span>
                           )}
                         </div>
@@ -902,11 +907,15 @@ export default function SecurityScanner({
                   </div>
                 </div>
 
-                {/* 2. Nomor BIB */}
+                {/* 2. Nomor Peserta / BIB */}
                 <div className="flex items-center justify-between px-4 py-3">
-                  <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Nomor BIB</span>
+                  <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
+                    {(result.ticket?.eventType || "").toLowerCase().includes("fest") ? "Nomor Peserta" : "Nomor BIB"}
+                  </span>
                   <span className="font-mono text-base sm:text-lg font-black text-[#ffd700] tracking-widest">
-                    {formatBIB(result.ticket?.nomorBib)}
+                    {(result.ticket?.eventType || "").toLowerCase().includes("fest")
+                      ? formatFestivalParticipant(result.ticket?.nomorBib)
+                      : formatBIB(result.ticket?.nomorBib)}
                   </span>
                 </div>
 

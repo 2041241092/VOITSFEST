@@ -46,6 +46,48 @@ export function formatBIBWithHash(
 }
 
 /**
+ * Formats a numeric or string Festival participant identifier into a festival-specific format:
+ * 'FEST-0001', 'FEST-0015', 'FEST-0142', etc.
+ */
+export function formatFestivalParticipant(
+  num: number | string | null | undefined,
+  fallback: string = "-"
+): string {
+  if (
+    num === null ||
+    num === undefined ||
+    num === "" ||
+    num === "null" ||
+    num === "undefined"
+  ) {
+    return fallback;
+  }
+  if (typeof num === "string" && num.startsWith("FEST-")) {
+    return num;
+  }
+  const parsed = typeof num === "number" ? num : Number(num);
+  if (isNaN(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return `FEST-${String(parsed).padStart(4, "0")}`;
+}
+
+/**
+ * Excel-safe CSV Festival Participant Number formatter: ="FEST-0001"
+ */
+export function formatFestivalParticipantCSV(
+  num: number | string | null | undefined,
+  fallback: string = ""
+): string {
+  if (num === null || num === undefined || num === "") {
+    return fallback;
+  }
+  const formatted = formatFestivalParticipant(num, "");
+  if (!formatted) return fallback;
+  return `="${formatted}"`;
+}
+
+/**
  * Excel-safe CSV BIB formatter.
  * When Excel opens a CSV, it automatically drops leading zeros on numeric strings like "0001" -> 1.
  * Wrapping the value in the formula format `="0001"` forces Excel to treat it strictly as a text string.

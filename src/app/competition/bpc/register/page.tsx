@@ -22,8 +22,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import GatewayGuard from "@/components/gateway/GatewayGuard";
-import { fetchPricingTiers, EventPricing, DEFAULT_PRICING_TIERS } from "@/lib/pricing";
 import { checkQuotaAvailability, dispatchQuotaRefresh } from "@/lib/quota";
+import { useLivePricingAndQuota } from "@/hooks/useLivePricingAndQuota";
+import SubEventQuotaBadge from "@/components/registration/SubEventQuotaBadge";
+import PromoVoucherInput from "@/components/registration/PromoVoucherInput";
+import { incrementPromoQuota } from "@/lib/promo";
+import { Promo } from "@/types/database";
+import { validatePreCheckoutGuard } from "@/app/actions/checkout";
 
 export default function BpcRegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,18 +36,21 @@ export default function BpcRegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Dynamic Pricing from cms_settings
-  const [cmsPricing, setCmsPricing] = useState<EventPricing>(DEFAULT_PRICING_TIERS.bpc);
+  // Dynamic Pricing & Two-Tier Quota via Supabase Realtime
+  const {
+    pricing: cmsPricing,
+    quota: subQuota,
+    activePromos,
+    isPhaseFull,
+    isEventFull,
+    isAvailable,
+    availabilityReason,
+  } = useLivePricingAndQuota("bpc");
 
-  useEffect(() => {
-    async function loadPricing() {
-      const tiers = await fetchPricingTiers();
-      if (tiers.bpc) {
-        setCmsPricing(tiers.bpc);
-      }
-    }
-    loadPricing();
-  }, []);
+  const [appliedPromo, setAppliedPromo] = useState<Promo | null>(null);
+  const [promoDiscount, setPromoDiscount] = useState(0);
+
+  const effectivePrice = Math.max(0, cmsPricing.price - promoDiscount);
 
   // Form State
   const [teamName, setTeamName] = useState("");
@@ -170,9 +178,30 @@ export default function BpcRegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isFormValid || isSubmitting) return;
-    // Lifecycle Rule 1: Verify remaining quota before permitting submission
-    const quotaCheck = await checkQuotaAvailability("bpc", 1);
+    if (!isFormValid || isSubmitting || !isAvailable) {
+      if (!isAvailable) {
+        setError(
+          isEventFull
+            ? "Sold Out / Kapasitas Penuh. Total kuota pendaftaran telah mencapai batas maksimal."
+            : isPhaseFull
+            ? "Kuota Fase Penuh. Kuota pendaftaran fase ini sudah habis terjual."
+            : availabilityReason === "phase_date_not_started"
+            ? "Periode Belum Dimulai. Pendaftaran belum dibuka."
+            : "Periode Berakhir. Periode pendaftaran telah berakhir."
+        );
+      }
+      return;
+    }
+
+    // Lifecycle Rule 1: Server-Side Pre-Checkout Guard
+    const serverGuard = await validatePreCheckoutGuard("bpc", 1, appliedPromo?.id);
+    if (!serverGuard.valid) {
+      setError(serverGuard.error || "Pendaftaran tidak dapat diproses karena batas kuota atau periode aktif.");
+      return;
+    }
+
+    // Quota Availability Check with Guard 1 & Guard 2
+    const quotaCheck = await checkQuotaAvailability("bpc", 1, appliedPromo?.id);
     if (!quotaCheck.available) {
       setError(quotaCheck.error || "Maaf, kuota pendaftaran Business Plan Competition (BPC) sudah penuh.");
       return;
@@ -275,12 +304,18 @@ export default function BpcRegisterPage() {
           source_type: "bpc",
           source_id: bpcData.id,
           sub_event_type: "BPC",
-          amount: cmsPricing.price,
+          amount: effectivePrice,
           payment_proof_url: paymentProofUrl,
-          status: "Pending"
+          status: "Pending",
+          ticket_phase: cmsPricing.phase || "Normal Price",
+          promo_id: appliedPromo?.id || null,
         });
 
       if (txError) throw txError;
+
+      if (appliedPromo) {
+        await incrementPromoQuota(supabase, appliedPromo.id, 1);
+      }
 
       dispatchQuotaRefresh();
       setIsSuccess(true);
@@ -328,6 +363,14 @@ export default function BpcRegisterPage() {
             Complete your team details, business proposal, and payment in one seamless step.
           </p>
         </div>
+
+        {/* Real-time SubEvent Quota & Availability Badge */}
+        <SubEventQuotaBadge
+          eventName="Business Plan Competition (BPC)"
+          pricing={cmsPricing}
+          quota={subQuota}
+          className="mb-8 max-w-4xl mx-auto"
+        />
 
         {error && (
           <div className="mb-8 p-4 bg-error-container/20 border border-error text-error rounded-xl flex items-center gap-3">
@@ -544,10 +587,27 @@ export default function BpcRegisterPage() {
                     Total Biaya Pendaftaran (Fase: {cmsPricing.phase})
                   </h3>
                   <p className="font-headline-md text-2xl text-white font-bold mt-1">
-                    Rp {cmsPricing.price.toLocaleString("id-ID")}
+                    Rp {effectivePrice.toLocaleString("id-ID")}
                   </p>
                 </div>
               </div>
+
+              {/* Promo / Voucher Input */}
+              <PromoVoucherInput
+                activePromos={activePromos}
+                targetEventContext="BPC"
+                basePrice={cmsPricing.price}
+                appliedPromo={appliedPromo}
+                onApplyPromo={(p, discount) => {
+                  setAppliedPromo(p);
+                  setPromoDiscount(discount);
+                }}
+                onRemovePromo={() => {
+                  setAppliedPromo(null);
+                  setPromoDiscount(0);
+                }}
+                disabled={isEventFull || isPhaseFull}
+              />
 
               {/* Metode Pembayaran */}
               <div className="space-y-4">
@@ -677,22 +737,42 @@ export default function BpcRegisterPage() {
 
           <div className="flex flex-col items-end gap-2 pt-8">
             <button 
-              disabled={!isFormValid || isSubmitting} 
+              disabled={!isFormValid || isSubmitting || !isAvailable} 
               type="submit" 
               className={`px-8 py-4 rounded-full font-medium tracking-wider uppercase flex items-center gap-3 transition-all font-poppins ${
-                !isFormValid || isSubmitting 
+                !isFormValid || isSubmitting || !isAvailable
                   ? "bg-primary-container text-primary opacity-50 cursor-not-allowed" 
                   : "bg-primary-container text-primary hover:bg-primary-container/80 shadow-[0_0_20px_rgba(176,198,255,0.2)] cursor-pointer"
               }`}
             >
-              {isSubmitting ? "Submitting..." : "Submit Registration"}
-              {!isSubmitting && <ArrowRight className="w-5 h-5" />}
+              {isSubmitting
+                ? "Submitting..."
+                : isEventFull
+                ? "Sold Out / Kapasitas Penuh"
+                : isPhaseFull
+                ? "Kuota Fase Penuh"
+                : !isAvailable
+                ? availabilityReason === "phase_date_not_started" ? "Periode Belum Dimulai" : "Periode Berakhir"
+                : "Submit Registration"}
+              {!isSubmitting && isAvailable && <ArrowRight className="w-5 h-5" />}
             </button>
-            {!isFormValid && (
+            {isEventFull ? (
+              <p className="text-xs text-error font-medium">
+                Pendaftaran ditutup karena kapasitas maksimal BPC telah penuh (Sold Out / Kapasitas Penuh).
+              </p>
+            ) : isPhaseFull ? (
+              <p className="text-xs text-amber-300 font-medium">
+                Kuota pendaftaran untuk fase aktif ini sudah habis (Kuota Fase Penuh). Silakan menunggu pembukaan fase berikutnya.
+              </p>
+            ) : !isAvailable ? (
+              <p className="text-xs text-slate-300 font-medium">
+                {availabilityReason === "phase_date_not_started" ? "Periode pendaftaran belum dimulai." : "Periode pendaftaran telah berakhir."}
+              </p>
+            ) : !isFormValid ? (
               <p className="text-xs text-on-surface-variant/70 font-poppins">
                 Lengkapi seluruh data tim, ide bisnis, berkas BMC, persyaratan, dan pembayaran untuk mengirim pendaftaran.
               </p>
-            )}
+            ) : null}
           </div>
         </form>
       </main>

@@ -48,8 +48,8 @@ export default function AdminPageClient() {
       />
 
       {/* Main Content Area */}
-      <main className="pt-8 px-6 min-h-screen">
-        <div className="max-w-[1600px] mx-auto flex flex-col gap-12">
+      <main className="pt-8 px-6 pb-6 min-h-screen">
+        <div className="max-w-[1600px] mx-auto flex flex-col gap-6 lg:gap-8">
           
           {/* Page Header */}
           <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">

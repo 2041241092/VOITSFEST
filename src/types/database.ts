@@ -100,6 +100,9 @@ export interface Ticket {
   group_id?: string | null;
   is_primary?: boolean | null;
   promo_id?: string | null;
+  nama_lengkap?: string | null;
+  email?: string | null;
+  whatsapp?: string | null;
 }
 
 export interface CmsSetting {

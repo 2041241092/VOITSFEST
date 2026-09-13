@@ -6,7 +6,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { createClient } from "@/lib/supabase/client";
 import { Ticket } from "@/types/database";
 import { Check, Copy, QrCode, X, CheckCircle2, Clock, XCircle, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
-import { formatBIB } from "@/lib/bib";
+import { formatBIB, formatFestivalParticipant } from "@/lib/bib";
 import { formatDisplayWIB } from "@/lib/timeUtils";
 
 type TicketSliderProps = {
@@ -189,7 +189,22 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
                     <span className="px-3 py-1 bg-[#87CEEB]/20 text-[#87CEEB] font-label-md text-xs rounded-full border border-[#87CEEB]/30 font-medium">
                       {ticket.event_type === "FESTIVAL" ? "Festival" : "ColorFun Run"}
                     </span>
+
+                    {/* Promo or Bundle Badge */}
+                    {(ticket.promo_id || ticket.ticket_phase?.includes("[PROMO:")) && (
+                      <span className="px-2.5 py-1 bg-amber-500/15 text-amber-300 font-label-md text-xs rounded-full border border-amber-500/30 font-semibold">
+                        Promo: {ticket.promo_id || ticket.ticket_phase?.match(/\[PROMO:([^:\]]+)\]/)?.[1]}
+                      </span>
+                    )}
                   </div>
+
+                  {/* Participant Name */}
+                  {ticket.nama_lengkap && (
+                    <div className="text-xs text-slate-300 mb-1 flex items-center gap-1.5">
+                      <span className="text-slate-400 uppercase text-[10px] tracking-wider font-semibold">Peserta:</span>
+                      <span className="text-white font-bold">{ticket.nama_lengkap}</span>
+                    </div>
+                  )}
 
                   {/* Rejected Alert Banner */}
                   {isRejected && (
@@ -202,9 +217,16 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
                   <h4 className="font-headline-sm text-2xl font-bold mb-1">
                     {ticket.event_type === "FESTIVAL" ? "VOITSFEST Main Festival" : "ColorFun Run (5K)"}
                   </h4>
-                  <p className="text-on-surface-variant font-body-md text-sm mb-3">
-                    {ticket.event_type === "FESTIVAL" ? "Sat, 24 Oct 2026" : "Sun, 25 Oct 2026"}
+                  <p className="text-on-surface-variant font-body-md text-sm mb-1">
+                    {ticket.event_type === "FESTIVAL" ? "Sabtu, 24 Okt 2026 • 15:00 WIB" : "Minggu, 25 Okt 2026 • 06:00 WIB"}
                   </p>
+
+                  {/* Registration timestamp formatted in WIB */}
+                  {ticket.created_at && (
+                    <p className="text-xs text-slate-400 mb-3">
+                      Terdaftar: <span className="font-mono text-slate-300">{formatDisplayWIB(ticket.created_at)}</span>
+                    </p>
+                  )}
 
                   {/* Dynamic Amount & Phase Badge */}
                   <div className="flex items-center gap-2 mb-6">
@@ -217,7 +239,7 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
                     </span>
                     {ticket.ticket_phase && (
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-secondary/15 text-secondary border border-secondary/30">
-                        {ticket.ticket_phase}
+                        {ticket.ticket_phase.replace(/\s*\[PROMO:.*?\]/, "")}
                       </span>
                     )}
                   </div>
@@ -228,9 +250,15 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
                     </div>
                     {!isRejected && (
                       <div className="text-right">
-                        <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">NOMOR BIB</p>
+                        <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">
+                          {ticket.event_type === "FESTIVAL" ? "NOMOR PESERTA" : "NOMOR BIB"}
+                        </p>
                         <p className={`font-mono font-bold tracking-wider ${ticket.nomor_bib != null ? "text-base text-secondary" : "text-xs text-on-surface-variant/70"}`}>
-                          {ticket.nomor_bib != null ? `#${formatBIB(ticket.nomor_bib)}` : "Menunggu Verifikasi"}
+                          {ticket.nomor_bib != null
+                            ? (ticket.event_type === "FESTIVAL"
+                                ? formatFestivalParticipant(ticket.nomor_bib)
+                                : `#${formatBIB(ticket.nomor_bib)}`)
+                            : "Menunggu Verifikasi"}
                         </p>
                       </div>
                     )}
@@ -355,12 +383,19 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
                 {modalTicket.event_type === "FESTIVAL" ? "VOITSFEST 2026 FESTIVAL" : "COLORFUN RUN (5K)"}
               </span>
               <span className="px-3 py-1 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider bg-secondary/20 text-secondary border border-secondary/40 shadow-[0_0_12px_rgba(240,192,77,0.25)]">
-                BIB: {modalTicket.nomor_bib != null ? `#${formatBIB(modalTicket.nomor_bib)}` : "Menunggu Verifikasi"}
+                {modalTicket.event_type === "FESTIVAL"
+                  ? `Nomor Peserta: ${modalTicket.nomor_bib != null ? formatFestivalParticipant(modalTicket.nomor_bib) : "Menunggu Verifikasi"}`
+                  : `BIB: ${modalTicket.nomor_bib != null ? `#${formatBIB(modalTicket.nomor_bib)}` : "Menunggu Verifikasi"}`}
               </span>
             </div>
             <h3 className="text-xl font-bold text-white mb-1">
               {modalTicket.event_type === "FESTIVAL" ? "Official Festival Pass" : "ColorFun Run E-Ticket"}
             </h3>
+            {modalTicket.nama_lengkap && (
+              <p className="text-xs text-white font-semibold mb-1">
+                Atas Nama: <span className="text-secondary">{modalTicket.nama_lengkap}</span>
+              </p>
+            )}
             <p className="text-xs text-on-surface-variant mb-2">
               Tunjukkan QR Code ini kepada Petugas Security di Gate Masuk.
             </p>
@@ -376,7 +411,7 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
               </span>
               {modalTicket.ticket_phase && (
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-secondary/15 text-secondary border border-secondary/30">
-                  {modalTicket.ticket_phase}
+                  {modalTicket.ticket_phase.replace(/\s*\[PROMO:.*?\]/, "")}
                 </span>
               )}
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
@@ -37,10 +37,12 @@ import { fetchPricingTiers, EventPricing, DEFAULT_PRICING_TIERS } from "@/lib/pr
 import { itsDepartments } from "@/lib/departments";
 import { Promo } from "@/types/database";
 import { validatePromoForEvent, incrementPromoQuota, calculatePromoPrice } from "@/lib/promo";
-import { checkQuotaAvailability, fetchAllSubEventQuotas, dispatchQuotaRefresh, listenToQuotaRefresh } from "@/lib/quota";
+import { checkQuotaAvailability, fetchAllSubEventQuotas, dispatchQuotaRefresh, listenToQuotaRefresh, QuotaStatus } from "@/lib/quota";
 import { formatDisplayWIB, getEventTimeStatus, parseWibDate } from "@/lib/timeUtils";
 import { formatBIB } from "@/lib/bib";
+import SubEventQuotaBadge from "@/components/registration/SubEventQuotaBadge";
 import imageCompression from "browser-image-compression";
+import { validatePreCheckoutGuard, validateRegistrationBeforeInsert } from "@/app/actions/checkout";
 
 async function compressImage(file: File): Promise<File> {
   if (!file.type.startsWith("image/")) {
@@ -138,18 +140,30 @@ export default function ColorFunCheckoutPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const ktmInputRef = useRef<HTMLInputElement>(null);
 
-  // Dynamic Pricing from cms_settings
+  // Dynamic Pricing & Quota from cms_settings & live registrations
   const [cmsPricing, setCmsPricing] = useState<EventPricing>(DEFAULT_PRICING_TIERS.colorfun);
+  const [subQuota, setSubQuota] = useState<QuotaStatus | null>(null);
 
-  useEffect(() => {
-    async function loadPricing() {
-      const tiers = await fetchPricingTiers();
+  const loadPricingAndQuota = useCallback(async () => {
+    try {
+      const [tiers, allQuotas] = await Promise.all([
+        fetchPricingTiers(),
+        fetchAllSubEventQuotas(),
+      ]);
       if (tiers.colorfun) {
         setCmsPricing(tiers.colorfun);
       }
+      if (allQuotas.colorfun) {
+        setSubQuota(allQuotas.colorfun);
+      }
+    } catch (err) {
+      console.warn("Error loading colorfun pricing and quota:", err);
     }
-    loadPricing();
   }, []);
+
+  useEffect(() => {
+    loadPricingAndQuota();
+  }, [loadPricingAndQuota]);
 
   // Fetch active promo bundles targeting ColorFun Run
   useEffect(() => {
@@ -176,9 +190,34 @@ export default function ColorFunCheckoutPage() {
 
     const unsubscribe = listenToQuotaRefresh(() => {
       loadActivePromos();
+      loadPricingAndQuota();
     });
-    return () => unsubscribe();
-  }, [supabase]);
+
+    const channel = supabase
+      .channel(`realtime-colorfun-checkout-${Math.random().toString(36).substring(2, 7)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cms_settings" }, () => {
+        loadActivePromos();
+        loadPricingAndQuota();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "promos" }, () => {
+        loadActivePromos();
+        loadPricingAndQuota();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "colorfun_registrations" }, () => {
+        loadActivePromos();
+        loadPricingAndQuota();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, () => {
+        loadActivePromos();
+        loadPricingAndQuota();
+      })
+      .subscribe();
+
+    return () => {
+      unsubscribe();
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, loadPricingAndQuota]);
 
   // Read URL query parameter ?promoId=... on mount
   const [urlPromoId, setUrlPromoId] = useState<string | null>(null);
@@ -593,9 +632,19 @@ export default function ColorFunCheckoutPage() {
         return;
       }
 
-      const result = validatePromoForEvent(data as Promo, "ColorFun Run", CFR_TICKET_PRICE);
+      const p = data as Promo;
+      const { isActive } = getEventTimeStatus(p.start_date, p.end_date);
+      const isQuotaFull = p.kuota_maksimal !== null && p.kuota_maksimal !== undefined && (p.kuota_terpakai ?? 0) >= p.kuota_maksimal;
+      if (!p.is_active || !isActive || isQuotaFull) {
+        setPromoError("Kode promo sudah melewati periode aktif atau kuota telah habis");
+        setAppliedPromo(null);
+        setSelectedPricingId("standard");
+        return;
+      }
+
+      const result = validatePromoForEvent(p, "ColorFun Run", CFR_TICKET_PRICE);
       if (!result.valid) {
-        setPromoError(result.error || "Kode promo tidak valid.");
+        setPromoError(result.error || "Kode promo sudah melewati periode aktif atau kuota telah habis");
         setAppliedPromo(null);
         setSelectedPricingId("standard");
         return;
@@ -789,8 +838,27 @@ export default function ColorFunCheckoutPage() {
       }
     }
 
-    // Lifecycle Rule 1: Verify remaining quota before permitting submission
+    if (subQuota?.isEventFull || (selectedPricingId === "standard" && subQuota && !subQuota.isAvailable)) {
+      setError(
+        subQuota?.isEventFull
+          ? "Sold Out / Kapasitas Penuh. Total kuota pendaftaran untuk event ini telah mencapai kapasitas maksimal."
+          : subQuota?.isPhaseFull
+          ? "Kuota Fase Penuh. Kuota tiket fase ini sudah habis terjual."
+          : subQuota?.availabilityReason === "phase_date_not_started"
+          ? "Periode Belum Dimulai. Pendaftaran belum dibuka."
+          : "Periode Berakhir. Periode pendaftaran telah berakhir."
+      );
+      return;
+    }
+
+    // Lifecycle Rule 1: Verify remaining quota & execute Server-Side Pre-Checkout Guard
     const registrantCount = Math.max(appliedPromo?.kapasitas || 1, 1 + extraMembers.length);
+    const serverGuard = await validatePreCheckoutGuard("colorfun", registrantCount, appliedPromo?.id);
+    if (!serverGuard.valid) {
+      setError(serverGuard.error || "Pendaftaran tidak dapat diproses karena batas kuota atau periode aktif.");
+      return;
+    }
+
     const quotaCheck = await checkQuotaAvailability("colorfun", registrantCount, appliedPromo?.id);
     if (!quotaCheck.available) {
       setError(quotaCheck.error || "Maaf, kuota tiket ColorFun Run 5K tidak mencukupi.");
@@ -951,6 +1019,13 @@ export default function ColorFunCheckoutPage() {
 
       // Combine into single array for atomic bulk insert (DB SERIAL nomor_bib auto-assigns sequential BIBs)
       const participantsArray = [primaryRow, ...additionalRows];
+
+      // Pre-Submission Final Guard: validate sub-event status & promo before database insert
+      setSubmittingStep("Memvalidasi status pendaftaran & kuota promo...");
+      const finalGuard = await validateRegistrationBeforeInsert("colorfun", participantsArray.length, appliedPromo?.id || null);
+      if (!finalGuard.valid) {
+        throw new Error(finalGuard.error || "Pendaftaran untuk sub-event ini sedang ditutup atau kuota promo telah habis.");
+      }
 
       let { data: regResults, error: regError } = await supabase
         .from("colorfun_registrations")
@@ -1163,6 +1238,14 @@ export default function ColorFunCheckoutPage() {
               Confirm your details for the cosmic 5K race. Lengkapi formulir pendaftaran dan pembayaran di bawah ini.
             </p>
           </div>
+
+          {/* Real-time SubEvent Quota & Availability Badge */}
+          <SubEventQuotaBadge
+            eventName="ColorFun Run 5K"
+            pricing={cmsPricing}
+            quota={subQuota}
+            className="mb-8 max-w-4xl mx-auto"
+          />
 
           {/* Global Error Banner */}
           {error && (
@@ -1687,8 +1770,37 @@ export default function ColorFunCheckoutPage() {
                   </div>
                 ) : activePromos.length === 0 ? (
                   /* Scenario A: No Active Promos -> Dynamic Base Price Card */
-                  <div className="p-5 md:p-6 rounded-2xl bg-gradient-to-r from-secondary/15 via-slate-800/80 to-primary/15 border-2 border-secondary/50 shadow-[0_0_25px_rgba(176,198,255,0.15)] flex items-center justify-between gap-4">
+                  <div className={`p-5 md:p-6 rounded-2xl border-2 transition-all flex items-center justify-between gap-4 ${
+                    subQuota && !subQuota.isAvailable
+                      ? "bg-black/20 border-white/10 opacity-60 pointer-events-none cursor-not-allowed backdrop-blur-sm grayscale-[25%]"
+                      : "bg-gradient-to-r from-secondary/15 via-slate-800/80 to-primary/15 border-secondary/50 shadow-[0_0_25px_rgba(176,198,255,0.15)]"
+                  }`}>
                     <div>
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider text-slate-300 bg-white/10 border border-white/20">
+                          Fase Pendaftaran Aktif
+                        </span>
+                        {subQuota?.isEventFull ? (
+                          <span className="text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-error/20 text-error border border-error/40 uppercase tracking-wider flex items-center gap-1">
+                            <Ban className="w-2.5 h-2.5" />
+                            Sold Out / Kapasitas Penuh
+                          </span>
+                        ) : subQuota?.isPhaseFull ? (
+                          <span className="text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-wider flex items-center gap-1">
+                            <Ban className="w-2.5 h-2.5" />
+                            Kuota Fase Penuh
+                          </span>
+                        ) : subQuota && !subQuota.isPhaseDateActive ? (
+                          <span className="text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-slate-500/20 text-slate-300 border border-slate-500/40 uppercase tracking-wider flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" />
+                            {subQuota.availabilityReason === "phase_date_not_started" ? "Periode Belum Dimulai" : "Periode Berakhir"}
+                          </span>
+                        ) : subQuota?.remainingPhaseQuota !== null && subQuota?.remainingPhaseQuota !== undefined ? (
+                          <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10">
+                            Sisa: {subQuota.remainingPhaseQuota} Slot
+                          </span>
+                        ) : null}
+                      </div>
                       <h3 className="text-xl md:text-2xl font-bold text-white tracking-wide">
                         {cmsPricing?.phase?.trim() || "Tiket Reguler"}
                       </h3>
@@ -1704,44 +1816,109 @@ export default function ColorFunCheckoutPage() {
                   /* Scenario B: Active Promos Exist (Side-by-Side Selectable Cards) */
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {/* Left Card: Dynamic Phase Name / Base Ticket */}
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={handleSelectStandardPrice}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleSelectStandardPrice(); }}
-                      className={`relative cursor-pointer rounded-2xl p-5 border-2 transition-all duration-300 flex flex-col justify-between select-none ${
-                        selectedPricingId === "standard"
-                          ? "bg-secondary/15 border-secondary shadow-[0_0_25px_rgba(176,198,255,0.2)] ring-1 ring-secondary/50"
-                          : "bg-black/30 border-white/10 hover:border-white/20 hover:bg-black/40 opacity-90 hover:opacity-100"
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider text-slate-300 bg-white/10 border border-white/20">
-                            Fase Pendaftaran Aktif
-                          </span>
+                    {(() => {
+                      const isBaseAvailable = !subQuota || subQuota.isAvailable;
+                      return (
+                        <div
+                          role="button"
+                          tabIndex={isBaseAvailable ? 0 : -1}
+                          aria-disabled={!isBaseAvailable}
+                          onClick={() => {
+                            if (!isBaseAvailable) {
+                              if (subQuota?.isEventFull) {
+                                setError("Maaf, Sold Out / Kapasitas Penuh.");
+                              } else if (subQuota?.isPhaseFull) {
+                                setError("Maaf, Kuota Fase Penuh.");
+                              } else if (subQuota && !subQuota.isPhaseDateActive) {
+                                setError(
+                                  subQuota.availabilityReason === "phase_date_not_started"
+                                    ? "Periode Belum Dimulai. Pendaftaran belum dibuka."
+                                    : "Periode Berakhir. Periode pendaftaran telah berakhir."
+                                );
+                              }
+                              return;
+                            }
+                            handleSelectStandardPrice();
+                          }}
+                          onKeyDown={(e) => {
+                            if ((e.key === "Enter" || e.key === " ") && isBaseAvailable) {
+                              handleSelectStandardPrice();
+                            }
+                          }}
+                          className={`relative rounded-2xl p-5 border-2 transition-all duration-300 flex flex-col justify-between select-none ${
+                            !isBaseAvailable
+                              ? "bg-black/20 border-white/10 opacity-60 pointer-events-none cursor-not-allowed backdrop-blur-sm grayscale-[25%]"
+                              : selectedPricingId === "standard"
+                              ? "bg-secondary/15 border-secondary shadow-[0_0_25px_rgba(176,198,255,0.2)] ring-1 ring-secondary/50 cursor-pointer"
+                              : "bg-black/30 border-white/10 hover:border-white/20 hover:bg-black/40 opacity-90 hover:opacity-100 cursor-pointer"
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider text-slate-300 bg-white/10 border border-white/20">
+                                  Fase Aktif
+                                </span>
+                                {subQuota?.isEventFull ? (
+                                  <span className="text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-error/20 text-error border border-error/40 uppercase tracking-wider flex items-center gap-1">
+                                    <Ban className="w-2.5 h-2.5" />
+                                    Sold Out / Kapasitas Penuh
+                                  </span>
+                                ) : subQuota?.isPhaseFull ? (
+                                  <span className="text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-wider flex items-center gap-1">
+                                    <Ban className="w-2.5 h-2.5" />
+                                    Kuota Fase Penuh
+                                  </span>
+                                ) : subQuota && !subQuota.isPhaseDateActive ? (
+                                  <span className="text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-slate-500/20 text-slate-300 border border-slate-500/40 uppercase tracking-wider flex items-center gap-1">
+                                    <Clock className="w-2.5 h-2.5" />
+                                    {subQuota.availabilityReason === "phase_date_not_started" ? "Periode Belum Dimulai" : "Periode Berakhir"}
+                                  </span>
+                                ) : subQuota?.remainingPhaseQuota !== null && subQuota?.remainingPhaseQuota !== undefined ? (
+                                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10">
+                                    Sisa: {subQuota.remainingPhaseQuota}
+                                  </span>
+                                ) : null}
+                              </div>
 
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0 ${
-                            selectedPricingId === "standard" ? "border-secondary bg-secondary" : "border-neutral-600"
-                          }`}>
-                            {selectedPricingId === "standard" && (
-                              <Check className="w-3 h-3 text-primary-container font-bold stroke-[3]" />
-                            )}
+                              {!isBaseAvailable ? (
+                                <span className="text-[10px] font-bold font-mono px-2.5 py-1 rounded-full bg-error/20 text-error border border-error/40 uppercase tracking-wider flex items-center gap-1 shrink-0">
+                                  <Ban className="w-3 h-3" />
+                                  {subQuota?.isEventFull
+                                    ? "Sold Out / Kapasitas Penuh"
+                                    : subQuota?.isPhaseFull
+                                    ? "Kuota Fase Penuh"
+                                    : subQuota?.availabilityReason === "phase_date_not_started"
+                                    ? "Periode Belum Dimulai"
+                                    : "Periode Berakhir"}
+                                </span>
+                              ) : (
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0 ${
+                                  selectedPricingId === "standard"
+                                    ? "border-secondary bg-secondary"
+                                    : "border-neutral-600"
+                                }`}>
+                                  {selectedPricingId === "standard" && (
+                                    <Check className="w-3 h-3 text-primary-container font-bold stroke-[3]" />
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            <h4 className="font-bold text-base text-white mb-1">
+                              {cmsPricing?.phase?.trim() || "Tiket Reguler"}
+                            </h4>
+                          </div>
+
+                          <div className="pt-3 border-t border-white/10 flex items-baseline justify-between">
+                            <span className="text-[11px] text-slate-400 uppercase tracking-wider">Total</span>
+                            <span className="text-xl font-bold font-headline-md text-white">
+                              Rp {CFR_TICKET_PRICE.toLocaleString("id-ID")}
+                            </span>
                           </div>
                         </div>
-
-                        <h4 className="font-bold text-base text-white mb-1">
-                          {cmsPricing?.phase?.trim() || "Tiket Reguler"}
-                        </h4>
-                      </div>
-
-                      <div className="pt-3 border-t border-white/10 flex items-baseline justify-between">
-                        <span className="text-[11px] text-slate-400 uppercase tracking-wider">Total</span>
-                        <span className="text-xl font-bold font-headline-md text-white">
-                          Rp {CFR_TICKET_PRICE.toLocaleString("id-ID")}
-                        </span>
-                      </div>
-                    </div>
+                      );
+                    })()}
 
                     {/* Right Card(s): Promo / Bundling Options */}
                     {activePromos.map((promo) => {
@@ -1788,7 +1965,7 @@ export default function ColorFunCheckoutPage() {
                           }}
                           className={`relative rounded-2xl p-5 border-2 transition-all duration-300 flex flex-col justify-between select-none overflow-hidden ${
                             !isAvailable
-                              ? "bg-black/20 border-white/10 opacity-60 cursor-not-allowed"
+                              ? "bg-black/20 border-white/10 opacity-60 pointer-events-none cursor-not-allowed backdrop-blur-sm"
                               : isSelected
                               ? "bg-[#ffd700]/15 border-[#ffd700] shadow-[0_0_25px_rgba(255,215,0,0.25)] ring-1 ring-[#ffd700]/60 cursor-pointer"
                               : "bg-black/30 border-[#ffd700]/30 hover:border-[#ffd700]/60 hover:bg-black/40 cursor-pointer"
@@ -1813,22 +1990,22 @@ export default function ColorFunCheckoutPage() {
                                   </span>
                                 )}
 
-                                {/* Condition 1: Sold Out */}
+                                {/* Condition 1: Quota Full */}
                                 {isSoldOut ? (
                                   <span className="text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-error/20 text-error border border-error/40 uppercase tracking-wider flex items-center gap-1">
                                     <Ban className="w-2.5 h-2.5" />
-                                    Habis / Sold Out
+                                    Kuota Habis
                                   </span>
                                 ) : isDateEnded ? (
                                   /* Condition 3: Date Expired */
                                   <span className="text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-wider flex items-center gap-1">
                                     <Clock className="w-2.5 h-2.5" />
-                                    Periode Berakhir
+                                    Promo Berakhir
                                   </span>
                                 ) : !isDateStarted ? (
                                   <span className="text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-slate-500/20 text-slate-300 border border-slate-500/40 uppercase tracking-wider flex items-center gap-1">
                                     <Clock className="w-2.5 h-2.5" />
-                                    Belum Dimulai
+                                    Periode Belum Dimulai
                                   </span>
                                 ) : isUnlimited ? (
                                   /* Condition 2: Unlimited Quota */
@@ -1843,20 +2020,22 @@ export default function ColorFunCheckoutPage() {
                                 ) : null}
                               </div>
 
-                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0 ${
-                                !isAvailable
-                                  ? "border-slate-700 bg-slate-800/40 text-slate-500"
-                                  : isSelected 
-                                  ? "border-[#ffd700] bg-[#ffd700]" 
-                                  : "border-neutral-600"
-                              }`}>
-                                {isAvailable && isSelected && (
-                                  <Check className="w-3 h-3 text-neutral-950 font-bold stroke-[3]" />
-                                )}
-                                {!isAvailable && (
-                                  <Ban className="w-2.5 h-2.5 text-slate-500" />
-                                )}
-                              </div>
+                              {!isAvailable ? (
+                                <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-slate-800/80 text-slate-400 border border-slate-700 uppercase tracking-wider flex items-center gap-1 shrink-0">
+                                  <Ban className="w-2.5 h-2.5" />
+                                  {isSoldOut ? "Kuota Habis" : "Promo Berakhir"}
+                                </span>
+                              ) : (
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0 ${
+                                  isSelected 
+                                    ? "border-[#ffd700] bg-[#ffd700]" 
+                                    : "border-neutral-600"
+                                }`}>
+                                  {isSelected && (
+                                    <Check className="w-3 h-3 text-neutral-950 font-bold stroke-[3]" />
+                                  )}
+                                </div>
+                              )}
                             </div>
 
                             <h4 className={`font-bold text-base mb-1 relative z-10 ${!isAvailable ? "text-slate-300" : "text-white"}`}>
@@ -2279,10 +2458,10 @@ export default function ColorFunCheckoutPage() {
             {/* Submit Button */}
             <div className="flex flex-col items-end gap-2 pt-4">
               <button 
-                disabled={!isFormValid || isSubmitting} 
+                disabled={!isFormValid || isSubmitting || Boolean(subQuota?.isEventFull) || (selectedPricingId === "standard" && Boolean(subQuota && !subQuota.isAvailable))} 
                 type="submit" 
                 className={`bg-primary-container text-primary px-10 py-4 rounded-full font-medium tracking-wider uppercase flex items-center gap-3 transition-all ${
-                  !isFormValid || isSubmitting 
+                  !isFormValid || isSubmitting || subQuota?.isEventFull || (selectedPricingId === "standard" && subQuota && !subQuota.isAvailable)
                     ? "opacity-50 cursor-not-allowed" 
                     : "hover:bg-primary-container/80 shadow-[0_0_20px_rgba(176,198,255,0.2)] cursor-pointer"
                 }`}
@@ -2292,6 +2471,12 @@ export default function ColorFunCheckoutPage() {
                     <Loader2 className="w-5 h-5 animate-spin" />
                     <span>{submittingStep || "Mengompresi gambar..."}</span>
                   </>
+                ) : subQuota?.isEventFull ? (
+                  <span>Sold Out / Kapasitas Penuh</span>
+                ) : selectedPricingId === "standard" && subQuota?.isPhaseFull ? (
+                  <span>Kuota Fase Penuh</span>
+                ) : selectedPricingId === "standard" && subQuota && !subQuota.isPhaseDateActive ? (
+                  <span>{subQuota.availabilityReason === "phase_date_not_started" ? "Periode Belum Dimulai" : "Periode Berakhir"}</span>
                 ) : (
                   <>
                     <span>Kirim Pembayaran</span>
@@ -2299,11 +2484,23 @@ export default function ColorFunCheckoutPage() {
                   </>
                 )}
               </button>
-              {!isFormValid && (
+              {subQuota?.isEventFull ? (
+                <p className="text-xs text-error font-medium">
+                  Pendaftaran ColorFun Run saat ini ditutup karena kapasitas maksimal event telah penuh (Sold Out / Kapasitas Penuh).
+                </p>
+              ) : selectedPricingId === "standard" && subQuota?.isPhaseFull ? (
+                <p className="text-xs text-amber-300 font-medium">
+                  Kuota tiket fase ini telah habis (Kuota Fase Penuh). Silakan pilih paket bundling atau tunggu pembukaan fase berikutnya.
+                </p>
+              ) : selectedPricingId === "standard" && subQuota && !subQuota.isPhaseDateActive ? (
+                <p className="text-xs text-slate-300 font-medium">
+                  {subQuota.availabilityReason === "phase_date_not_started" ? "Periode pendaftaran tiket belum dimulai." : "Periode pendaftaran tiket telah berakhir."}
+                </p>
+              ) : !isFormValid ? (
                 <p className="text-xs text-on-surface-variant/70 font-poppins">
                   Lengkapi seluruh data wajib &amp; persetujuan di atas untuk dapat mengirim pembayaran.
                 </p>
-              )}
+              ) : null}
             </div>
           </form>
 

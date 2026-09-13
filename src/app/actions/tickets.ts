@@ -232,7 +232,7 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
           nomorBib: festRecord.nomor_bib ?? null,
           kategoriPeserta: festRecord.kategori_peserta || "Umum",
           departemen: festRecord.departemen || null,
-          nrp: null,
+          nrp: festRecord.nrp || null,
           isCheckedIn: true,
         },
       };
@@ -258,7 +258,7 @@ export async function verifyTicket(rawToken: string): Promise<VerificationResult
         nomorBib: festRecord.nomor_bib ?? null,
         kategoriPeserta: festRecord.kategori_peserta || "Umum",
         departemen: festRecord.departemen || null,
-        nrp: null,
+        nrp: festRecord.nrp || null,
         isCheckedIn: true,
       },
     };
@@ -523,7 +523,7 @@ export async function getRecentScans(limit = 30): Promise<RecentScanItem[]> {
     nomorBib: f.nomor_bib ?? null,
     kategoriPeserta: f.kategori_peserta || "Umum",
     departemen: f.departemen || null,
-    nrp: null,
+    nrp: f.nrp || null,
     status: (f.scan_count || 1) === 1 ? "valid" : "scanned",
     amount: Number(f.amount_paid || 0),
     ticketPhase: f.ticket_phase || "",

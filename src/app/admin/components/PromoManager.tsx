@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Tag, Plus, Trash2, Calendar, Sparkles, X, Loader2, Banknote, Check, Users, AlertCircle, RefreshCw, Edit, LayoutGrid, List } from "lucide-react";
 import { Promo, DiscountType } from "@/types/database";
@@ -20,6 +21,8 @@ import {
   dispatchQuotaRefresh,
 } from "@/lib/quota";
 import {
+  getInputValue,
+  formatTableDate,
   toDateTimeLocalInput,
   formatPayloadToSupabase,
   formatDisplayWIB,
@@ -30,6 +33,9 @@ import {
   getLocalDatetimeString,
   parseWibDate,
 } from "@/lib/timeUtils";
+
+// Re-export for direct consumer access
+export { getInputValue, formatTableDate };
 
 interface PromoManagerProps {
   onToast?: (type: "success" | "error", message: string) => void;
@@ -47,6 +53,7 @@ export const PROMO_TARGET_EVENTS = [
 export type PromoTargetEvent = (typeof PROMO_TARGET_EVENTS)[number];
 
 export default function PromoManager({ onToast }: PromoManagerProps) {
+  const router = useRouter();
   const [promos, setPromos] = useState<Promo[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -98,6 +105,101 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
   const [loadingPricing, setLoadingPricing] = useState(true);
   const [savingPricing, setSavingPricing] = useState(false);
 
+  // Sub-Event Dual-Quota & Pricing Edit Modal State
+  const [subEventModalOpen, setSubEventModalOpen] = useState(false);
+  const [editingEventKey, setEditingEventKey] = useState<PricingEvent | null>(null);
+  const [savingSubEventPricing, setSavingSubEventPricing] = useState(false);
+  const [subEventForm, setSubEventForm] = useState({
+    phase: "",
+    price: 0,
+    start_date: "",
+    end_date: "",
+    is_phase_unlimited: false,
+    phase_quota: "250",
+    is_event_unlimited: false,
+    event_quota: "500",
+  });
+
+  const openSubEventModal = (eventKey: PricingEvent) => {
+    const current = pricingTiers[eventKey] || DEFAULT_PRICING_TIERS[eventKey];
+    setEditingEventKey(eventKey);
+
+    // CRITICAL RULE: Maintain backward compatibility if existing records still use max_quota by falling back event_quota = item.event_quota ?? item.max_quota
+    const currentEventQuota = current.event_quota !== undefined
+      ? current.event_quota
+      : (current.total_event_quota !== undefined ? current.total_event_quota : current.max_quota);
+
+    setSubEventForm({
+      phase: current.phase || "",
+      price: current.price ?? 0,
+      start_date: getInputValue(current.start_date),
+      end_date: getInputValue(current.end_date),
+      is_phase_unlimited: current.phase_quota === null,
+      phase_quota:
+        current.phase_quota !== null && current.phase_quota !== undefined
+          ? String(current.phase_quota)
+          : "250",
+      is_event_unlimited: currentEventQuota === null,
+      event_quota:
+        currentEventQuota !== null && currentEventQuota !== undefined
+          ? String(currentEventQuota)
+          : "500",
+    });
+    setSubEventModalOpen(true);
+  };
+
+  const handleSaveSubEventPricing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEventKey) return;
+
+    setSavingSubEventPricing(true);
+    try {
+      const phaseQuotaVal = subEventForm.is_phase_unlimited
+        ? null
+        : Math.max(1, parseInt(subEventForm.phase_quota, 10) || 1);
+
+      const eventQuotaVal = subEventForm.is_event_unlimited
+        ? null
+        : Math.max(1, parseInt(subEventForm.event_quota, 10) || 1);
+
+      const updatedTiers: PricingTiersConfig = {
+        ...pricingTiers,
+        [editingEventKey]: {
+          ...pricingTiers[editingEventKey],
+          phase: subEventForm.phase.trim() || "Normal Price",
+          price: Math.max(0, Number(subEventForm.price) || 0),
+          start_date: subEventForm.start_date ? formatPayloadToSupabase(subEventForm.start_date) : null,
+          end_date: subEventForm.end_date ? formatPayloadToSupabase(subEventForm.end_date) : null,
+          phase_quota: phaseQuotaVal,
+          event_quota: eventQuotaVal,
+          total_event_quota: eventQuotaVal,
+          max_quota: eventQuotaVal ?? (phaseQuotaVal ?? 500),
+        },
+      };
+
+      const { error } = await supabase
+        .from("cms_settings")
+        .upsert({
+          key: "pricing_tiers",
+          value: updatedTiers,
+          updated_at: new Date().toISOString(),
+        });
+
+      if (error) throw error;
+
+      setPricingTiers(updatedTiers);
+      onToast?.("success", `Pengaturan kuota & fase untuk ${PRICING_EVENT_NAMES[editingEventKey]} berhasil disimpan!`);
+      setSubEventModalOpen(false);
+      await fetchQuotas();
+      dispatchQuotaRefresh();
+    } catch (err: any) {
+      console.error("Save sub-event pricing error:", err);
+      onToast?.("error", `Gagal menyimpan kuota & fase: ${err.message}`);
+    } finally {
+      setSavingSubEventPricing(false);
+    }
+  };
+
   const supabase = createClient();
 
   // Load sub-event quotas and promo live calculations
@@ -129,21 +231,35 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
 
   const handlePricingChange = (
     eventKey: PricingEvent,
-    field: "phase" | "price" | "max_quota",
+    field: "phase" | "price" | "max_quota" | "phase_quota" | "event_quota",
     val: any
   ) => {
-    setPricingTiers((prev) => ({
-      ...prev,
-      [eventKey]: {
-        ...prev[eventKey],
-        [field]:
-          field === "price"
-            ? Math.max(0, parseInt(val, 10) || 0)
-            : field === "max_quota"
-            ? Math.max(1, parseInt(val, 10) || 1)
-            : val,
-      },
-    }));
+    setPricingTiers((prev) => {
+      const current = prev[eventKey];
+      let updatedVal = val;
+      if (field === "price") {
+        updatedVal = Math.max(0, parseInt(val, 10) || 0);
+      } else if (field === "phase_quota") {
+        updatedVal = val === null ? null : Math.max(1, parseInt(val, 10) || 1);
+      } else if (field === "event_quota" || field === "max_quota") {
+        updatedVal = val === null ? null : Math.max(1, parseInt(val, 10) || 1);
+      }
+
+      const newTier = {
+        ...current,
+        [field]: updatedVal,
+      };
+      if (field === "event_quota" || field === "max_quota") {
+        newTier.event_quota = updatedVal;
+        newTier.total_event_quota = updatedVal;
+        newTier.max_quota = updatedVal ?? 500;
+      }
+
+      return {
+        ...prev,
+        [eventKey]: newTier,
+      };
+    });
   };
 
   const handleSavePricing = async () => {
@@ -206,6 +322,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
 
     const channel = supabase
       .channel("promo-manager-realtime-quota")
+      .on("postgres_changes", { event: "*", schema: "public", table: "cms_settings" }, handleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "promos" }, handleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "festival_registrations" }, handleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "colorfun_registrations" }, handleRefresh)
@@ -248,6 +365,10 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
           "success",
           `Promo "${promo.title}" sekarang ${newStatus ? "Aktif" : "Nonaktif"}.`
         );
+        router.refresh();
+        await fetchPromos(true);
+        await fetchQuotas();
+        dispatchQuotaRefresh();
       }
     } catch (err: any) {
       onToast?.("error", `Terjadi kesalahan: ${err.message}`);
@@ -265,6 +386,10 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
       } else {
         setPromos((prev) => prev.filter((p) => p.id !== id));
         onToast?.("success", `Promo "${title}" berhasil dihapus.`);
+        router.refresh();
+        await fetchPromos(true);
+        await fetchQuotas();
+        dispatchQuotaRefresh();
       }
     } catch (err: any) {
       onToast?.("error", `Gagal menghapus promo: ${err.message}`);
@@ -358,6 +483,8 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
           end_date: getLocalDatetimeString(new Date(Date.now() + 30 * 86400000)),
           is_active: true,
         });
+        router.refresh();
+        await fetchPromos(true);
         await fetchQuotas();
         dispatchQuotaRefresh();
       }
@@ -368,7 +495,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
     }
   };
 
-  // Open Edit Modal for a promo
+  // Open Edit Modal for a promo (Direct extraction without timezone offset)
   const openEditModal = (promo: Promo) => {
     setEditingPromo(promo);
     const isUnlimited = promo.kuota_maksimal === null || promo.kuota_maksimal === undefined;
@@ -382,8 +509,8 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
       kuota_maksimal: isUnlimited ? "" : String(promo.kuota_maksimal ?? ""),
       kapasitas: String(promo.kapasitas || 1),
       kategori_peserta: promo.kategori_peserta || "Semua",
-      start_date: toDateTimeLocalInput(promo.start_date),
-      end_date: toDateTimeLocalInput(promo.end_date),
+      start_date: getInputValue(promo.start_date),
+      end_date: getInputValue(promo.end_date),
       is_active: promo.is_active ?? true,
     });
     setEditModalOpen(true);
@@ -448,13 +575,26 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
         throw error;
       }
 
-      onToast?.("success", `Promo "${editForm.title}" berhasil diperbarui!`);
-      if (data) {
-        setPromos((prev) => prev.map((p) => (p.id === editingPromo.id ? (data as Promo) : p)));
-      }
+      // Optimistically update local component state immediately so table updates without full manual refresh
+      const updatedPromo: Promo = (data as Promo) || {
+        ...editingPromo,
+        ...updatePayload,
+        updated_at: new Date().toISOString(),
+      };
+      setPromos((prev) =>
+        prev.map((p) => (p.id === editingPromo.id ? updatedPromo : p))
+      );
       setEditModalOpen(false);
+
+      onToast?.("success", `Promo "${editForm.title}" berhasil diperbarui!`);
+
+      // Immediately trigger table refetch & revalidation
+      router.refresh();
+      await fetchPromos(true);
       await fetchQuotas();
       dispatchQuotaRefresh();
+      window.dispatchEvent(new CustomEvent("promo-quota-updated"));
+      window.dispatchEvent(new CustomEvent("admin-refresh-data"));
     } catch (err: any) {
       console.error("Save promo edit error:", err);
       onToast?.("error", `Gagal memperbarui promo: ${err.message}`);
@@ -528,10 +668,16 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
               <tr className="bg-surface-container-high text-on-surface-variant uppercase tracking-wider text-[11px] border-b border-white/10">
                 <th className="py-3 px-4 font-semibold">Sub-Event</th>
                 <th className="py-3 px-4 font-semibold">Fase &amp; Harga</th>
-                <th className="py-3 px-4 font-semibold text-center">Total Kuota</th>
-                <th className="py-3 px-4 font-semibold text-center">Terpakai (Pending + Approved)</th>
-                <th className="py-3 px-4 font-semibold text-center">Sisa Kuota Aktif</th>
-                <th className="py-3 px-4 font-semibold text-right">Status</th>
+                <th className="py-3 px-4 font-semibold text-center">
+                  <div>Total Kuota (Fase Pendaftaran)</div>
+                  <div className="text-[9px] font-normal text-on-surface-variant normal-case">Fase Aktif: [Terpakai / Kuota]</div>
+                </th>
+                <th className="py-3 px-4 font-semibold text-center">
+                  <div>Total Kuota (Slot Peserta)</div>
+                  <div className="text-[9px] font-normal text-on-surface-variant normal-case">Sub-Event: [Total Terdaftar / Kapasitas]</div>
+                </th>
+                <th className="py-3 px-4 font-semibold text-center">Status Pendaftaran</th>
+                <th className="py-3 px-4 font-semibold text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 font-mono">
@@ -539,11 +685,17 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                 const item = pricingTiers[eventKey] || DEFAULT_PRICING_TIERS[eventKey];
                 const eventName = PRICING_EVENT_NAMES[eventKey];
                 const q = subEventQuotas?.[eventKey];
-                const max = item.max_quota || q?.maxQuota || DEFAULT_PRICING_TIERS[eventKey].max_quota;
-                const used = q ? q.usedQuota : 0;
-                const remaining = q ? q.remainingQuota : max;
-                const isFull = q ? q.isFull : false;
-                const isLow = remaining > 0 && remaining <= 20;
+
+                const isPhaseUnlimited = item.phase_quota === null;
+                const usedInPhase = q ? q.usedInPhase : 0;
+                const remainingPhase = q ? q.remainingPhaseQuota : item.phase_quota;
+                const isPhaseFull = q ? q.isPhaseFull : false;
+
+                const effectiveEventQuota = item.event_quota !== undefined ? item.event_quota : (item.total_event_quota !== undefined ? item.total_event_quota : item.max_quota ?? null);
+                const isEventUnlimited = effectiveEventQuota === null;
+                const totalRegistered = q ? q.totalEventRegistered : 0;
+                const remainingEvent = q ? q.remainingEventQuota : effectiveEventQuota;
+                const isEventFull = q ? q.isEventFull : false;
 
                 return (
                   <tr key={eventKey} className="hover:bg-white/[0.02] transition-colors">
@@ -558,38 +710,72 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                       <span className="font-medium text-white">{item.phase}</span>
                       <span className="block text-[11px] text-[#ffd700] font-mono">{formatRupiah(item.price)}</span>
                     </td>
-                    <td className="py-3 px-4 text-center text-white font-bold text-sm">
-                      {max}
-                    </td>
                     <td className="py-3 px-4 text-center">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 font-bold text-white">
-                        <span>{used}</span>
-                        <span className="text-[10px] font-sans font-normal text-on-surface-variant">
-                          ({q?.pendingCount || 0} P / {q?.approvedCount || 0} A)
+                      <div className="inline-flex flex-col items-center gap-1">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 font-bold text-white text-xs">
+                          <span>{usedInPhase}</span>
+                          <span className="text-on-surface-variant font-normal">/</span>
+                          <span className={isPhaseUnlimited ? "text-secondary font-normal" : "text-white"}>
+                            {isPhaseUnlimited ? "Unlimited" : item.phase_quota}
+                          </span>
                         </span>
-                      </span>
+                        <span className={`text-[10px] font-sans font-medium ${
+                          isPhaseFull
+                            ? "text-error"
+                            : remainingPhase !== null && remainingPhase <= 20
+                            ? "text-amber-300"
+                            : "text-slate-400"
+                        }`}>
+                          {isPhaseFull ? "Kuota Fase Habis" : remainingPhase !== null ? `Sisa: ${remainingPhase} Slot` : "Tanpa Batas"}
+                        </span>
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <span className={`inline-block px-2.5 py-1 rounded-md font-bold text-sm ${
-                        isFull
-                          ? "bg-error/15 text-error border border-error/30"
-                          : isLow
-                          ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                          : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                      }`}>
-                        {remaining}
-                      </span>
+                      <div className="inline-flex flex-col items-center gap-1">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 font-bold text-white text-xs">
+                          <span>{totalRegistered}</span>
+                          <span className="text-on-surface-variant font-normal">/</span>
+                          <span className={isEventUnlimited ? "text-secondary font-normal" : "text-white"}>
+                            {isEventUnlimited ? "Unlimited" : effectiveEventQuota}
+                          </span>
+                        </span>
+                        <span className="text-[10px] font-sans text-on-surface-variant">
+                          ({q?.pendingCount || 0} P / {q?.approvedCount || 0} A) &bull;{" "}
+                          <span className={isEventFull ? "text-error font-medium" : "text-slate-400"}>
+                            {isEventFull ? "Penuh" : remainingEvent !== null ? `Sisa: ${remainingEvent} Slot` : "Tanpa Batas"}
+                          </span>
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-center font-sans">
+                      {isEventFull ? (
+                        <span className="text-[10.5px] font-semibold px-2.5 py-1 rounded-full inline-flex items-center gap-1 bg-error/20 text-error border border-error/30 whitespace-nowrap">
+                          Kapasitas Event Penuh / Sold Out
+                        </span>
+                      ) : isPhaseFull ? (
+                        <span className="text-[10.5px] font-semibold px-2.5 py-1 rounded-full inline-flex items-center gap-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 whitespace-nowrap">
+                          Kuota Fase Ini Habis
+                        </span>
+                      ) : q && !q.isPhaseDateActive ? (
+                        <span className="text-[10.5px] font-semibold px-2.5 py-1 rounded-full inline-flex items-center gap-1 bg-slate-500/20 text-slate-300 border border-slate-500/30 whitespace-nowrap">
+                          {q.availabilityReason === "phase_date_not_started" ? "Fase Belum Dimulai" : "Fase Berakhir"}
+                        </span>
+                      ) : (
+                        <span className="text-[10.5px] font-semibold px-2.5 py-1 rounded-full inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 whitespace-nowrap">
+                          Tersedia
+                        </span>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-right font-sans">
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
-                        isFull
-                          ? "bg-error/20 text-error"
-                          : isLow
-                          ? "bg-amber-500/20 text-amber-300"
-                          : "bg-emerald-500/20 text-emerald-300"
-                      }`}>
-                        {isFull ? "Habis / Penuh" : isLow ? "Hampir Penuh" : "Tersedia"}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openSubEventModal(eventKey)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-secondary/10 hover:bg-secondary/20 text-secondary border border-secondary/20 text-xs font-semibold transition-all cursor-pointer"
+                        title="Edit Kuota, Harga & Fase"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
                     </td>
                   </tr>
                 );
@@ -729,11 +915,11 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                       <div className="flex items-center gap-1.5 text-slate-200 font-mono text-[11px]">
                         <Calendar className="w-3.5 h-3.5 text-secondary shrink-0" />
                         <span>
-                          {formatDisplayWIB(promo.start_date)}
+                          {formatTableDate(promo.start_date)}
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-400 ml-5 font-mono mt-0.5">
-                        s/d {formatDisplayWIB(promo.end_date)}
+                        s/d {formatTableDate(promo.end_date)}
                       </div>
                     </td>
                     <td className="py-3.5 px-4 text-center">
@@ -914,7 +1100,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   <div className="flex items-center gap-1.5 text-slate-300">
                     <Calendar className="w-3.5 h-3.5 text-secondary shrink-0" />
                     <span>
-                      {formatDateRangeWIB(promo.start_date, promo.end_date)}
+                      {formatTableDate(promo.start_date)} - {formatTableDate(promo.end_date)}
                     </span>
                   </div>
 
@@ -990,100 +1176,136 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
             const item = pricingTiers[eventKey] || DEFAULT_PRICING_TIERS[eventKey];
             const eventName = PRICING_EVENT_NAMES[eventKey];
             const q = subEventQuotas?.[eventKey];
-            const currentMax = item.max_quota || q?.maxQuota || DEFAULT_PRICING_TIERS[eventKey].max_quota;
+
+            const isPhaseUnlimited = item.phase_quota === null;
+            const usedInPhase = q ? q.usedInPhase : 0;
+            const remainingPhase = q ? q.remainingPhaseQuota : item.phase_quota;
+            const isPhaseFull = q ? q.isPhaseFull : false;
+
+            const effectiveEventQuota = item.event_quota !== undefined ? item.event_quota : (item.total_event_quota !== undefined ? item.total_event_quota : item.max_quota ?? null);
+            const isEventUnlimited = effectiveEventQuota === null;
+            const totalRegistered = q ? q.totalEventRegistered : 0;
+            const remainingEvent = q ? q.remainingEventQuota : effectiveEventQuota;
+            const isEventFull = q ? q.isEventFull : false;
 
             return (
               <div
                 key={eventKey}
-                className="p-5 rounded-xl bg-surface-container-low/60 border border-white/10 hover:border-secondary/30 transition-all shadow-md flex flex-col justify-between gap-4"
+                className="p-5 rounded-2xl bg-surface-container-low/60 border border-white/10 hover:border-secondary/30 transition-all shadow-md flex flex-col justify-between gap-4"
               >
                 <div>
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <h4 className="font-semibold text-sm text-white truncate" title={eventName}>
-                      {eventName}
-                    </h4>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 text-secondary border border-white/10 uppercase">
-                      {eventKey}
-                    </span>
-                  </div>
-
-                  <div className="space-y-3">
-                    {/* a) Nama Fase Aktif */}
+                  {/* Header: Title, Key & Status Badge */}
+                  <div className="flex items-start justify-between gap-2 mb-3">
                     <div>
-                      <label className="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider block mb-1">
-                        Nama Fase Aktif
-                      </label>
-                      <input
-                        type="text"
-                        value={item.phase}
-                        onChange={(e) => handlePricingChange(eventKey, "phase", e.target.value)}
-                        placeholder="e.g. Presale 1, Normal Price"
-                        className="w-full bg-[#0b1026]/70 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/30 focus:border-secondary focus:outline-none transition-colors"
-                      />
+                      <h4 className="font-semibold text-sm text-white" title={eventName}>
+                        {eventName}
+                      </h4>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 text-secondary border border-white/10 uppercase">
+                        {eventKey}
+                      </span>
                     </div>
 
-                    {/* b) Total Biaya Pendaftaran */}
                     <div>
-                      <div className="flex justify-between items-center mb-1">
-                        <label className="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider block">
-                          Total Biaya (Rp)
-                        </label>
+                      {isEventFull ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-error/20 text-error border border-error/30">
+                          Event Penuh
+                        </span>
+                      ) : isPhaseFull ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          Fase Habis
+                        </span>
+                      ) : q && !q.isPhaseDateActive ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-300 border border-slate-500/30">
+                          {q.availabilityReason === "phase_date_not_started" ? "Belum Mulai" : "Berakhir"}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          Tersedia
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 font-poppins">
+                    {/* Fase & Harga */}
+                    <div className="p-3 rounded-xl bg-white/[0.02] border border-white/10 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] text-on-surface-variant uppercase tracking-wider block font-semibold">
+                          Fase Aktif
+                        </span>
+                        <span className="text-xs font-bold text-white">{item.phase}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-on-surface-variant uppercase tracking-wider block font-semibold">
+                          Biaya
+                        </span>
                         <span className="text-xs font-mono font-bold text-[#ffd700]">
                           {formatRupiah(item.price)}
                         </span>
                       </div>
-                      <input
-                        type="number"
-                        min="0"
-                        step="1000"
-                        value={item.price}
-                        onChange={(e) => handlePricingChange(eventKey, "price", e.target.value)}
-                        className="w-full bg-[#0b1026]/70 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/30 focus:border-secondary focus:outline-none transition-colors font-mono"
-                      />
                     </div>
 
-                    {/* c) Maksimal Kuota (Slot) */}
-                    <div>
-                      <div className="flex justify-between items-center mb-1">
-                        <label className="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider block">
-                          Total Kuota (Slot)
-                        </label>
-                        <span className="text-xs font-mono font-bold text-secondary">
-                          {currentMax} Slot
-                        </span>
-                      </div>
-                      <input
-                        type="number"
-                        min="1"
-                        value={currentMax}
-                        onChange={(e) => handlePricingChange(eventKey, "max_quota", e.target.value)}
-                        className="w-full bg-[#0b1026]/70 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/30 focus:border-secondary focus:outline-none transition-colors font-mono"
-                      />
+                    {/* Jadwal Fase */}
+                    <div className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5 px-1">
+                      <Calendar className="w-3.5 h-3.5 text-secondary shrink-0" />
+                      <span className="truncate">
+                        {item.start_date || item.end_date
+                          ? `${formatTableDate(item.start_date)} - ${formatTableDate(item.end_date)}`
+                          : "Jadwal fase tidak dibatasi tanggal"}
+                      </span>
                     </div>
 
-                    {/* Live Quota Status Box */}
-                    <div className="p-3 rounded-lg bg-surface-container-highest/30 border border-white/5 space-y-1.5 text-xs font-mono">
+                    {/* Tier 1: Total Kuota (Fase Pendaftaran) */}
+                    <div className="p-3 rounded-xl bg-surface-container-high/40 border border-white/5 space-y-1 text-xs">
                       <div className="flex justify-between items-center">
-                        <span className="text-[11px] font-sans text-on-surface-variant">Terpakai (Pending + Approved):</span>
-                        <span className="text-white font-bold">
-                          {q ? `${q.usedQuota} (${q.pendingCount} P / ${q.approvedCount} A)` : "..."}
+                        <span className="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider">
+                          Total Kuota (Fase Pendaftaran)
+                        </span>
+                        <span className="font-mono font-bold text-white">
+                          {usedInPhase} / {isPhaseUnlimited ? <span className="text-secondary font-normal">Unlimited</span> : item.phase_quota}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[11px] font-sans text-on-surface-variant">Sisa Kuota Aktif:</span>
-                        <span className={`font-bold ${q && q.remainingQuota <= 20 ? "text-error" : "text-emerald-400"}`}>
-                          {q ? `${q.remainingQuota} Slot` : "..."}
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-on-surface-variant">Sisa Kuota Fase:</span>
+                        <span className={`font-bold font-mono ${isPhaseFull ? "text-error" : "text-emerald-400"}`}>
+                          {isPhaseFull ? "Kuota Fase Habis" : remainingPhase !== null ? `${remainingPhase} Slot` : "Tanpa Batas"}
                         </span>
+                      </div>
+                    </div>
+
+                    {/* Tier 2: Total Kuota (Slot Peserta Sub-Event) */}
+                    <div className="p-3 rounded-xl bg-surface-container-high/40 border border-white/5 space-y-1 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider">
+                          Total Kuota (Slot Peserta)
+                        </span>
+                        <span className="font-mono font-bold text-white">
+                          {totalRegistered} / {isEventUnlimited ? <span className="text-secondary font-normal">Unlimited</span> : effectiveEventQuota}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-on-surface-variant">Sisa Kapasitas Total:</span>
+                        <span className={`font-bold font-mono ${isEventFull ? "text-error" : "text-slate-300"}`}>
+                          {isEventFull ? "Kapasitas Penuh" : remainingEvent !== null ? `${remainingEvent} Slot` : "Tanpa Batas"}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-right text-on-surface-variant font-mono">
+                        ({q?.pendingCount || 0} Pending / {q?.approvedCount || 0} Approved)
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-on-surface-variant">
-                  <span>Status:</span>
-                  <span className="text-secondary font-medium">
-                    {item.phase} &bull; {formatRupiah(item.price)}
-                  </span>
+                {/* Edit Button */}
+                <div className="pt-2 border-t border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => openSubEventModal(eventKey)}
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-secondary/15 hover:bg-secondary/25 text-secondary border border-secondary/30 text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    <span>Edit Kuota, Harga &amp; Fase</span>
+                  </button>
                 </div>
               </div>
             );
@@ -1291,7 +1513,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   />
                   {form.start_date && (
                     <span className="text-[10px] text-slate-400 font-mono mt-1 block">
-                      {formatDisplayWIB(form.start_date)}
+                      {formatTableDate(form.start_date)}
                     </span>
                   )}
                 </div>
@@ -1313,7 +1535,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   />
                   {form.end_date && (
                     <span className="text-[10px] text-secondary font-mono mt-1 block font-medium">
-                      {formatDisplayWIB(form.end_date)}
+                      {formatTableDate(form.end_date)}
                     </span>
                   )}
                 </div>
@@ -1420,7 +1642,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   />
                   {editForm.start_date && (
                     <span className="text-[10px] text-slate-400 font-mono mt-1 block">
-                      {formatDisplayWIB(editForm.start_date)}
+                      {formatTableDate(editForm.start_date)}
                     </span>
                   )}
                 </div>
@@ -1442,7 +1664,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   />
                   {editForm.end_date && (
                     <span className="text-[10px] text-secondary font-mono mt-1 block font-medium">
-                      {formatDisplayWIB(editForm.end_date)}
+                      {formatTableDate(editForm.end_date)}
                     </span>
                   )}
                 </div>
@@ -1592,6 +1814,214 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                 >
                   {savingEdit && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>{savingEdit ? "Menyimpan..." : "Simpan Perubahan"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sub-Event Quota, Pricing & Phase Edit Modal ── */}
+      {subEventModalOpen && editingEventKey && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="bg-[#0B1026] border border-white/20 rounded-2xl p-6 max-w-xl w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center mb-5 pb-3 border-b border-white/10">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Banknote className="w-5 h-5 text-[#ffd700]" />
+                  Edit Kuota, Harga &amp; Fase Pendaftaran
+                </h3>
+                <p className="text-xs text-secondary font-medium mt-0.5">
+                  {PRICING_EVENT_NAMES[editingEventKey]} ({editingEventKey.toUpperCase()})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSubEventModalOpen(false)}
+                className="text-on-surface-variant hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSubEventPricing} className="flex flex-col gap-4 text-xs font-poppins">
+              {/* 1. Nama Fase Aktif */}
+              <div>
+                <label className="block text-on-surface-variant font-semibold mb-1 uppercase tracking-wider">
+                  Nama Fase Aktif *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={subEventForm.phase}
+                  onChange={(e) => setSubEventForm({ ...subEventForm, phase: e.target.value })}
+                  placeholder="e.g. Early Bird, Presale 1, Normal Price"
+                  className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-secondary outline-none transition-all"
+                />
+              </div>
+
+              {/* 2. Total Biaya (Price) */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-on-surface-variant font-semibold uppercase tracking-wider">
+                    Total Biaya Pendaftaran (Rp) *
+                  </label>
+                  <span className="text-xs font-mono font-bold text-[#ffd700]">
+                    {formatRupiah(subEventForm.price)}
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  required
+                  value={subEventForm.price}
+                  onChange={(e) => setSubEventForm({ ...subEventForm, price: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                  className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-secondary outline-none transition-all font-mono"
+                />
+              </div>
+
+              {/* 3. Tanggal Mulai & Berakhir Fase (using timeUtils.ts) */}
+              <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/10 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-secondary" />
+                  <span className="font-semibold text-white text-xs uppercase tracking-wider">
+                    Jadwal Fase Pendaftaran (WIB)
+                  </span>
+                </div>
+                <p className="text-[11px] text-on-surface-variant">
+                  Format waktu Waktu Indonesia Barat (WIB). Kosongkan tanggal jika fase pendaftaran berlaku terus tanpa batas waktu.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-on-surface-variant text-[11px] font-medium mb-1">
+                      Tanggal Mulai Fase
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={subEventForm.start_date}
+                      onChange={(e) => setSubEventForm({ ...subEventForm, start_date: e.target.value })}
+                      className="w-full bg-surface-container-high border border-white/15 rounded-lg px-3 py-2 text-xs text-white focus:border-secondary outline-none transition-all font-mono"
+                    />
+                    <span className="text-[10px] text-slate-400 block mt-1">
+                      Preview: {subEventForm.start_date ? formatTableDate(subEventForm.start_date) : "Tidak dibatasi"}
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-on-surface-variant text-[11px] font-medium mb-1">
+                      Tanggal Berakhir Fase
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={subEventForm.end_date}
+                      onChange={(e) => setSubEventForm({ ...subEventForm, end_date: e.target.value })}
+                      className="w-full bg-surface-container-high border border-white/15 rounded-lg px-3 py-2 text-xs text-white focus:border-secondary outline-none transition-all font-mono"
+                    />
+                    <span className="text-[10px] text-slate-400 block mt-1">
+                      Preview: {subEventForm.end_date ? formatTableDate(subEventForm.end_date) : "Tidak dibatasi"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Kuota Fase Pendaftaran (phase_quota) */}
+              <div className="p-3.5 rounded-xl bg-surface-container-high/40 border border-white/10 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-on-surface-variant font-semibold uppercase tracking-wider block">
+                    Total Kuota (Fase Pendaftaran)
+                  </label>
+                  <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={subEventForm.is_phase_unlimited}
+                      onChange={(e) => setSubEventForm({ ...subEventForm, is_phase_unlimited: e.target.checked })}
+                      className="w-4 h-4 rounded border-white/20 bg-surface-container-highest text-secondary focus:ring-secondary/50 accent-secondary cursor-pointer"
+                    />
+                    <span className="text-xs text-secondary font-medium">Unlimited Kuota Fase</span>
+                  </label>
+                </div>
+                <p className="text-[11px] text-on-surface-variant">
+                  Alokasi batas maksimal tiket khusus untuk fase pendaftaran aktif ini. Terpakai saat ini di fase:{" "}
+                  <span className="text-white font-bold font-mono">
+                    {subEventQuotas?.[editingEventKey]?.usedInPhase ?? 0}
+                  </span>{" "}
+                  peserta.
+                </p>
+
+                <input
+                  type="number"
+                  min="1"
+                  disabled={subEventForm.is_phase_unlimited}
+                  value={subEventForm.is_phase_unlimited ? "" : subEventForm.phase_quota}
+                  onChange={(e) => setSubEventForm({ ...subEventForm, phase_quota: e.target.value })}
+                  placeholder={subEventForm.is_phase_unlimited ? "Tanpa batas (Unlimited - NULL di DB)" : "Masukkan kuota fase..."}
+                  className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-secondary outline-none transition-all font-mono disabled:opacity-40 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              {/* 5. Total Kuota (Slot Peserta Sub-Event / event_quota) */}
+              <div className="p-3.5 rounded-xl bg-surface-container-high/40 border border-white/10 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-on-surface-variant font-semibold uppercase tracking-wider block">
+                    Total Kuota (Slot Peserta)
+                  </label>
+                  <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={subEventForm.is_event_unlimited}
+                      onChange={(e) => setSubEventForm({ ...subEventForm, is_event_unlimited: e.target.checked })}
+                      className="w-4 h-4 rounded border-white/20 bg-surface-container-highest text-secondary focus:ring-secondary/50 accent-secondary cursor-pointer"
+                    />
+                    <span className="text-xs text-secondary font-medium">Unlimited</span>
+                  </label>
+                </div>
+                <p className="text-[11px] text-on-surface-variant">
+                  Batas kapasitas maksimal peserta sub-event di seluruh fase gabungan (event_quota). Total terdaftar saat ini:{" "}
+                  <span className="text-white font-bold font-mono">
+                    {subEventQuotas?.[editingEventKey]?.totalEventRegistered ?? 0}
+                  </span>{" "}
+                  peserta ({subEventQuotas?.[editingEventKey]?.pendingCount ?? 0} Pending / {subEventQuotas?.[editingEventKey]?.approvedCount ?? 0} Approved).
+                </p>
+
+                <input
+                  type="number"
+                  min="1"
+                  disabled={subEventForm.is_event_unlimited}
+                  value={subEventForm.is_event_unlimited ? "" : subEventForm.event_quota}
+                  onChange={(e) => setSubEventForm({ ...subEventForm, event_quota: e.target.value })}
+                  placeholder={subEventForm.is_event_unlimited ? "Tanpa batas (Unlimited - NULL di DB)" : "Masukkan kapasitas total..."}
+                  className="w-full bg-surface-container-high border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-secondary outline-none transition-all font-mono disabled:opacity-40 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setSubEventModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white transition-all font-semibold"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingSubEventPricing}
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-secondary text-primary-container font-bold text-xs uppercase tracking-wider hover:bg-secondary-fixed transition-all cursor-pointer shadow-lg disabled:opacity-50"
+                >
+                  {savingSubEventPricing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Simpan Konfigurasi</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

@@ -78,11 +78,15 @@ export function validatePromoForEvent(
 
   // 2. Condition 3: Date-based validity check
   const { isStarted, isEnded } = getEventTimeStatus(promo.start_date, promo.end_date);
-  if (!isStarted) {
-    return { valid: false, error: "Periode promo belum dimulai.", isExpired: true, discountAmount, finalPrice, isUnlimited };
-  }
-  if (isEnded) {
-    return { valid: false, error: "Periode promo telah berakhir.", isExpired: true, discountAmount, finalPrice, isUnlimited };
+  if (!isStarted || isEnded) {
+    return {
+      valid: false,
+      error: "Kode promo sudah melewati periode aktif atau kuota telah habis",
+      isExpired: true,
+      discountAmount,
+      finalPrice,
+      isUnlimited,
+    };
   }
 
   // 3. Event Target Match
@@ -101,14 +105,10 @@ export function validatePromoForEvent(
     const usedQuota = promo.kuota_terpakai ?? 0;
     const remaining = Math.max(0, maxQuota - usedQuota);
 
-    if (usedQuota >= maxQuota) {
-      return { valid: false, error: "Maaf, kuota promo ini sudah habis (Sold Out).", isSoldOut: true, discountAmount, finalPrice, isUnlimited: false };
-    }
-
-    if (remaining < requestedCount) {
+    if (usedQuota >= maxQuota || remaining < requestedCount) {
       return {
         valid: false,
-        error: `Maaf, sisa kuota promo ini tidak mencukupi (Tersisa: ${remaining} tiket/bundle, dibutuhkan: ${requestedCount}).`,
+        error: "Kode promo sudah melewati periode aktif atau kuota telah habis",
         isSoldOut: true,
         discountAmount,
         finalPrice,

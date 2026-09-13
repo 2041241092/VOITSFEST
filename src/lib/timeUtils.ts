@@ -24,6 +24,36 @@ const ID_DAYS = [
 ];
 
 /**
+ * Direct extraction without timezone offset
+ * For pre-filling <input type="datetime-local"> (format: YYYY-MM-DDTHH:mm)
+ * Converts "2026-09-27 23:59:00" or "2026-09-27T23:59:00" to "2026-09-27T23:59"
+ */
+export const getInputValue = (dbDateString: string | null | undefined): string => {
+  if (!dbDateString) return '';
+  // Converts "2026-09-27 23:59:00" or "2026-09-27T23:59:00" to "2026-09-27T23:59"
+  return dbDateString.replace(' ', 'T').slice(0, 16);
+};
+
+/**
+ * Table & Card Display Formatter: formatTableDate
+ * Ensure the table display formatter treats the string as literal time without adding the +7 timezone offset
+ */
+export const formatTableDate = (dateString: string | null | undefined): string => {
+  if (!dateString) return '-';
+  const clean = dateString.replace(' ', 'T').slice(0, 19);
+  const date = new Date(clean + 'Z'); // Treat as UTC literal to prevent double offset
+  return new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'UTC',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date) + ' WIB';
+};
+
+/**
  * 1. Form Pre-filling Helper: toDateTimeLocalInput
  * For pre-filling <input type="datetime-local"> (format: YYYY-MM-DDTHH:mm)
  * Accurately extracts the literal date/time from Supabase strings or formats Dates in WIB.
@@ -130,8 +160,8 @@ export function parseWibDate(dateValue?: string | Date | null): Date | null {
     return isNaN(d.getTime()) ? new Date(clean) : d;
   }
 
-  // Literal YYYY-MM-DDTHH:mm:ss or YYYY-MM-DD HH:mm:ss
-  const match = clean.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}(?::\d{2})?)$/);
+  // Literal YYYY-MM-DDTHH:mm:ss or YYYY-MM-DD HH:mm:ss (stored as literal WIB time)
+  const match = clean.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}(?::\d{2})?)/);
   if (match) {
     const time = match[2].length === 5 ? `${match[2]}:00` : match[2];
     const wibStr = `${match[1]}T${time}+07:00`;
@@ -179,8 +209,8 @@ export function formatDisplayWIB(storedDate?: string | Date | null): string {
     return `${day} ${monthStr} ${year}`;
   }
 
-  // Literal stored string without offset: extract literal numbers directly to guarantee zero shift
-  const match = clean.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  // Literal stored string: extract literal numbers directly to guarantee zero shift
+  const match = clean.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
   if (match) {
     const year = match[1];
     const monthIndex = parseInt(match[2], 10) - 1;
@@ -287,7 +317,7 @@ export function formatDateRangeWIB(
   const startFormatted = formatDisplayWIB(startDate);
   const endFormatted = formatDisplayWIB(endDate);
 
-  return `${startFormatted} - ${endFormatted}`;
+  return `${startFormatted} s.d. ${endFormatted}`;
 }
 
 /**

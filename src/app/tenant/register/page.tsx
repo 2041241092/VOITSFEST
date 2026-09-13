@@ -20,11 +20,24 @@ import {
 import Link from "next/link";
 import GatewayGuard from "@/components/gateway/GatewayGuard";
 import { checkQuotaAvailability, dispatchQuotaRefresh } from "@/lib/quota";
+import { useLivePricingAndQuota } from "@/hooks/useLivePricingAndQuota";
+import SubEventQuotaBadge from "@/components/registration/SubEventQuotaBadge";
+import { validatePreCheckoutGuard } from "@/app/actions/checkout";
 
 export default function TenantRegistrationPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Dynamic Pricing & Two-Tier Quota via Supabase Realtime
+  const {
+    pricing: cmsPricing,
+    quota: subQuota,
+    isPhaseFull,
+    isEventFull,
+    isAvailable,
+    availabilityReason,
+  } = useLivePricingAndQuota("tenant");
 
   // SECTION 1: Profil Penanggung Jawab & Usaha
   const [namaLengkap, setNamaLengkap] = useState("");
@@ -117,7 +130,27 @@ export default function TenantRegistrationPage() {
       return;
     }
 
-    // Quota Availability Check
+    if (!isAvailable) {
+      setError(
+        isEventFull
+          ? "Sold Out / Kapasitas Penuh. Total kuota pendaftaran tenant telah mencapai batas maksimal."
+          : isPhaseFull
+          ? "Kuota Fase Penuh. Kuota pendaftaran tenant fase ini sudah habis."
+          : availabilityReason === "phase_date_not_started"
+          ? "Periode Belum Dimulai. Pendaftaran tenant belum dibuka."
+          : "Periode Berakhir. Periode pendaftaran tenant telah berakhir."
+      );
+      return;
+    }
+
+    // Lifecycle Rule 1: Server-Side Pre-Checkout Guard
+    const serverGuard = await validatePreCheckoutGuard("tenant", 1);
+    if (!serverGuard.valid) {
+      setError(serverGuard.error || "Pendaftaran tidak dapat diproses karena batas kuota atau periode aktif.");
+      return;
+    }
+
+    // Quota Availability Check with Guard 1 & Guard 2
     const quotaCheck = await checkQuotaAvailability("tenant", 1);
     if (!quotaCheck.available) {
       setError(quotaCheck.error || "Kuota pendaftaran tenant telah penuh. Silakan hubungi panitia.");
@@ -231,6 +264,14 @@ export default function TenantRegistrationPage() {
             <p className="font-poppins text-sm font-medium">{error}</p>
           </div>
         )}
+
+        {/* Real-time SubEvent Quota & Availability Badge */}
+        <SubEventQuotaBadge
+          eventName="Tenant & Expo Bazaar"
+          pricing={cmsPricing}
+          quota={subQuota}
+          className="mb-8"
+        />
 
         <form onSubmit={handleSubmit} className="space-y-12">
           
@@ -723,16 +764,47 @@ export default function TenantRegistrationPage() {
 
           {/* Form Actions */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
-            <p className="text-xs md:text-sm font-poppins text-on-surface-variant text-center sm:text-left">
-              Pastikan seluruh data yang diisi telah sesuai dan lengkap sebelum submit.
-            </p>
+            <div>
+              <p className="text-xs md:text-sm font-poppins text-on-surface-variant text-center sm:text-left">
+                Pastikan seluruh data yang diisi telah sesuai dan lengkap sebelum submit.
+              </p>
+              {isEventFull ? (
+                <p className="text-xs text-error font-medium mt-1">
+                  Pendaftaran tenant saat ini ditutup karena kapasitas stand telah penuh (Sold Out / Kapasitas Penuh).
+                </p>
+              ) : isPhaseFull ? (
+                <p className="text-xs text-amber-300 font-medium mt-1">
+                  Kuota pendaftaran tenant untuk fase aktif ini sudah habis (Kuota Fase Penuh). Silakan menunggu pembukaan fase berikutnya.
+                </p>
+              ) : !isAvailable ? (
+                <p className="text-xs text-slate-300 font-medium mt-1">
+                  {availabilityReason === "phase_date_not_started"
+                    ? "Periode pendaftaran tenant belum dimulai (Periode Belum Dimulai)."
+                    : "Periode pendaftaran tenant telah berakhir (Periode Berakhir)."}
+                </p>
+              ) : null}
+            </div>
             <button 
-              disabled={isSubmitting || !isFormValid} 
+              disabled={isSubmitting || !isFormValid || !isAvailable} 
               type="submit" 
-              className="w-full sm:w-auto bg-primary-container text-primary px-10 py-4 rounded-full font-semibold tracking-wider uppercase flex items-center justify-center gap-3 hover:bg-primary-container/80 transition-all font-poppins disabled:opacity-40 disabled:cursor-not-allowed shadow-lg hover:shadow-primary-container/25 active:scale-95"
+              className={`w-full sm:w-auto px-10 py-4 rounded-full font-semibold tracking-wider uppercase flex items-center justify-center gap-3 transition-all font-poppins shadow-lg ${
+                isSubmitting || !isFormValid || !isAvailable
+                  ? "bg-primary-container text-primary opacity-40 cursor-not-allowed pointer-events-none"
+                  : "bg-primary-container text-primary hover:bg-primary-container/80 shadow-primary-container/25 active:scale-95 cursor-pointer"
+              }`}
             >
-              {isSubmitting ? "Mengirim Pendaftaran..." : "Kirim Pendaftaran"}
-              {!isSubmitting && <ArrowRight className="w-5 h-5" />}
+              {isSubmitting
+                ? "Mengirim Pendaftaran..."
+                : isEventFull
+                ? "Sold Out / Kapasitas Penuh"
+                : isPhaseFull
+                ? "Kuota Fase Penuh"
+                : !isAvailable
+                ? availabilityReason === "phase_date_not_started"
+                  ? "Periode Belum Dimulai"
+                  : "Periode Berakhir"
+                : "Kirim Pendaftaran"}
+              {!isSubmitting && isAvailable && <ArrowRight className="w-5 h-5" />}
             </button>
           </div>
 

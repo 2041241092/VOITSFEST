@@ -1,9 +1,35 @@
 import { createClient } from "@/lib/supabase/client";
-import { fetchPricingTiers, PricingEvent, DEFAULT_PRICING_TIERS } from "@/lib/pricing";
+import { fetchPricingTiers, PricingEvent, DEFAULT_PRICING_TIERS, EventPricing, PRICING_EVENT_NAMES } from "@/lib/pricing";
 import { Promo } from "@/types/database";
 import { getEventTimeStatus, parseWibDate } from "@/lib/timeUtils";
 
 export interface QuotaStatus {
+  // Dual Quota Hierarchy
+  // Tier 1: Phase Quota
+  phaseName: string;
+  phasePrice: number;
+  phaseStartDate: string | null;
+  phaseEndDate: string | null;
+  phaseQuota: number | null; // specific limit for active phase; null represents 'Unlimited'
+  isPhaseUnlimited: boolean;
+  usedInPhase: number;
+  remainingPhaseQuota: number | null; // null if unlimited, otherwise Math.max(0, phaseQuota - usedInPhase)
+  isPhaseFull: boolean;
+  isPhaseDateActive: boolean;
+
+  // Tier 2: Overall Event/Venue Participant Ceiling
+  eventQuota: number | null; // Total Kuota Slot Peserta Sub-Event (maps to tierConfig.event_quota, null if unlimited)
+  totalEventQuota: number | null; // null if unbounded (alias for eventQuota)
+  isEventUnlimited: boolean;
+  totalEventRegistered: number; // cumulative non-rejected registrations across all phases
+  remainingEventQuota: number | null; // Math.max(0, eventQuota - totalEventRegistered)
+  isEventFull: boolean;
+
+  // Dual Guard Combined Availability
+  isAvailable: boolean;
+  availabilityReason?: "available" | "phase_quota_full" | "event_capacity_full" | "phase_date_ended" | "phase_date_not_started";
+
+  // Legacy fields for full backward compatibility
   maxQuota: number;
   usedQuota: number;
   remainingQuota: number;
@@ -62,10 +88,134 @@ export function isStatusPending(status: unknown): boolean {
 }
 
 /**
+ * Determines whether a registration record belongs to the active registration phase.
+ * Considers ticket_phase matching, created_at range within phase start/end dates,
+ * or fallback to active phase if no dates configured.
+ */
+function isRecordInPhase(
+  record: { ticket_phase?: string | null; created_at?: string | null },
+  phase: string,
+  startDate?: string | null,
+  endDate?: string | null
+): boolean {
+  // 1. If record has ticket_phase that matches the current phase name
+  if (record.ticket_phase) {
+    const cleanRecordPhase = record.ticket_phase.replace(/\[PROMO:.*?\]/, "").trim().toLowerCase();
+    const cleanTargetPhase = phase.trim().toLowerCase();
+    if (cleanRecordPhase && (cleanRecordPhase.includes(cleanTargetPhase) || cleanTargetPhase.includes(cleanRecordPhase))) {
+      return true;
+    }
+  }
+
+  // 2. If phase has explicit start/end dates, verify created_at falls into the date range
+  if (startDate && record.created_at) {
+    const startObj = parseWibDate(startDate);
+    const endObj = endDate ? parseWibDate(endDate) : null;
+    const recObj = parseWibDate(record.created_at);
+    if (startObj && recObj) {
+      if (recObj.getTime() < startObj.getTime()) return false;
+      if (endObj && recObj.getTime() > endObj.getTime()) return false;
+      return true;
+    }
+  }
+
+  // 3. Fallback: if no explicit dates configured and ticket_phase is not explicitly for another known phase
+  if (!startDate && (!record.ticket_phase || record.ticket_phase.trim() === "")) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Builds a standardized QuotaStatus combining both Tier 1 (Phase) and Tier 2 (Event) metrics.
+ */
+function buildSubEventQuota(
+  tier: EventPricing,
+  usedInPhase: number,
+  totalEventRegistered: number,
+  pendingCount: number,
+  approvedCount: number
+): QuotaStatus {
+  const isPhaseUnlimited = tier.phase_quota == null;
+  const phaseQuota = tier.phase_quota;
+  const remainingPhaseQuota = isPhaseUnlimited ? null : Math.max(0, (phaseQuota as number) - usedInPhase);
+  const isPhaseFull = !isPhaseUnlimited && usedInPhase >= (phaseQuota as number);
+
+  // CRITICAL RULE: Maintain backward compatibility if existing records still use max_quota by falling back event_quota = item.event_quota ?? item.max_quota
+  const rawEventQuota = tier.event_quota !== undefined
+    ? tier.event_quota
+    : (tier.total_event_quota !== undefined ? tier.total_event_quota : tier.max_quota);
+  const isEventUnlimited = rawEventQuota === null;
+  const eventQuota = isEventUnlimited ? null : (typeof rawEventQuota === "number" && rawEventQuota > 0 ? rawEventQuota : 500);
+  const remainingEventQuota = isEventUnlimited || eventQuota === null ? null : Math.max(0, eventQuota - totalEventRegistered);
+  const isEventFull = !isEventUnlimited && eventQuota !== null && totalEventRegistered >= eventQuota;
+
+  // Phase Date Window (using standardized literal WIB timeUtils)
+  const { isActive: isPhaseDateActive, isStarted: isPhaseStarted, isEnded: isPhaseEnded } = getEventTimeStatus(
+    tier.start_date,
+    tier.end_date
+  );
+
+  // Dual Guard Availability
+  let isAvailable = true;
+  let availabilityReason: QuotaStatus["availabilityReason"] = "available";
+
+  if (!isPhaseStarted) {
+    isAvailable = false;
+    availabilityReason = "phase_date_not_started";
+  } else if (isPhaseEnded) {
+    isAvailable = false;
+    availabilityReason = "phase_date_ended";
+  } else if (isEventFull) {
+    isAvailable = false;
+    availabilityReason = "event_capacity_full";
+  } else if (isPhaseFull) {
+    isAvailable = false;
+    availabilityReason = "phase_quota_full";
+  }
+
+  return {
+    // Dual Quota Hierarchy Tier 1: Phase Quota
+    phaseName: tier.phase,
+    phasePrice: tier.price,
+    phaseStartDate: tier.start_date || null,
+    phaseEndDate: tier.end_date || null,
+    phaseQuota,
+    isPhaseUnlimited,
+    usedInPhase,
+    remainingPhaseQuota,
+    isPhaseFull,
+    isPhaseDateActive,
+
+    // Dual Quota Hierarchy Tier 2: Overall Event/Venue Participant Ceiling
+    eventQuota,
+    totalEventQuota: eventQuota,
+    isEventUnlimited,
+    totalEventRegistered,
+    remainingEventQuota,
+    isEventFull,
+
+    // Dual Guard Combined Availability
+    isAvailable,
+    availabilityReason,
+
+    // Backward compatibility aliases
+    maxQuota: eventQuota ?? 500,
+    usedQuota: totalEventRegistered,
+    remainingQuota: remainingEventQuota ?? 0,
+    pendingCount,
+    approvedCount,
+    isFull: isEventFull || isPhaseFull,
+  };
+}
+
+/**
  * Fetches real-time quota calculations for all 6 sub-events.
- * Strictly adheres to the formula:
+ * Strictly adheres to the two-tier quota hierarchy:
+ * - Tier 1: Phase Quota (specific to active registration phase)
+ * - Tier 2: Overall Venue/Sub-Event Capacity (cumulative across all phases)
  * - Used Quota: status IN ('pending', 'approved') (or status != 'rejected')
- * - Remaining Quota: Math.max(0, Max Quota - Used Quota)
  */
 export async function fetchAllSubEventQuotas(): Promise<SubEventQuotaMap> {
   const supabase = createClient();
@@ -73,50 +223,73 @@ export async function fetchAllSubEventQuotas(): Promise<SubEventQuotaMap> {
 
   try {
     const [festRes, cfrRes, bpcRes, bccRes, semRes, tenRes, txRes] = await Promise.all([
-      supabase.from("festival_registrations").select("id, payment_status"),
-      supabase.from("colorfun_registrations").select("id, payment_status"),
-      supabase.from("bpc_registrations").select("id, status"),
-      supabase.from("bcc_registrations").select("id, status"),
-      supabase.from("seminar_registrations").select("id"),
-      supabase.from("tenant_registrations").select("id, status"),
-      supabase.from("transactions").select("source_id, status, sub_event_type"),
+      supabase.from("festival_registrations").select("id, payment_status, ticket_phase, created_at"),
+      supabase.from("colorfun_registrations").select("id, payment_status, ticket_phase, created_at"),
+      supabase.from("bpc_registrations").select("id, status, created_at"),
+      supabase.from("bcc_registrations").select("id, status, created_at"),
+      supabase.from("seminar_registrations").select("id, created_at"),
+      supabase.from("tenant_registrations").select("id, status, created_at"),
+      supabase.from("transactions").select("source_id, status, sub_event_type, created_at, ticket_phase"),
     ]);
 
-    // 1. Festival Quota
-    const festRows = festRes.data || [];
-    let festPending = 0;
-    let festApproved = 0;
-    for (const r of festRows) {
-      if (isStatusPending(r.payment_status)) festPending++;
-      else if (isStatusApproved(r.payment_status)) festApproved++;
-    }
-    const festUsed = festPending + festApproved;
-    const festMax = pricingTiers.festival.max_quota;
-
-    // 2. ColorFun Run Quota
-    const cfrRows = cfrRes.data || [];
-    let cfrPending = 0;
-    let cfrApproved = 0;
-    for (const r of cfrRows) {
-      if (isStatusPending(r.payment_status)) cfrPending++;
-      else if (isStatusApproved(r.payment_status)) cfrApproved++;
-    }
-    const cfrUsed = cfrPending + cfrApproved;
-    const cfrMax = pricingTiers.colorfun.max_quota;
-
     // Map transactions by source_id for sub-events that track payments in transactions
-    const txMap = new Map<string, { status: string; subEvent: string }>();
+    const txMap = new Map<string, { status: string; subEvent: string; ticketPhase?: string | null; createdAt?: string | null }>();
     (txRes.data || []).forEach((t: any) => {
       if (t.source_id) {
         const sub = (t.sub_event_type || t.source_type || "").toUpperCase();
-        txMap.set(t.source_id, { status: normalizeStatus(t.status), subEvent: sub });
+        txMap.set(t.source_id, {
+          status: normalizeStatus(t.status),
+          subEvent: sub,
+          ticketPhase: t.ticket_phase || null,
+          createdAt: t.created_at || null,
+        });
       }
     });
 
+    // 1. Festival Quota
+    const festTier = pricingTiers.festival;
+    const festRows = festRes.data || [];
+    let festPending = 0;
+    let festApproved = 0;
+    let festPhaseUsed = 0;
+    for (const r of festRows) {
+      const isPending = isStatusPending(r.payment_status);
+      const isApproved = isStatusApproved(r.payment_status);
+      if (isPending) festPending++;
+      else if (isApproved) festApproved++;
+      if (isPending || isApproved) {
+        if (isRecordInPhase(r, festTier.phase, festTier.start_date, festTier.end_date)) {
+          festPhaseUsed++;
+        }
+      }
+    }
+    const festTotalUsed = festPending + festApproved;
+
+    // 2. ColorFun Run Quota
+    const cfrTier = pricingTiers.colorfun;
+    const cfrRows = cfrRes.data || [];
+    let cfrPending = 0;
+    let cfrApproved = 0;
+    let cfrPhaseUsed = 0;
+    for (const r of cfrRows) {
+      const isPending = isStatusPending(r.payment_status);
+      const isApproved = isStatusApproved(r.payment_status);
+      if (isPending) cfrPending++;
+      else if (isApproved) cfrApproved++;
+      if (isPending || isApproved) {
+        if (isRecordInPhase(r, cfrTier.phase, cfrTier.start_date, cfrTier.end_date)) {
+          cfrPhaseUsed++;
+        }
+      }
+    }
+    const cfrTotalUsed = cfrPending + cfrApproved;
+
     // 3. BPC Quota
+    const bpcTier = pricingTiers.bpc;
     const bpcRows = bpcRes.data || [];
     let bpcPending = 0;
     let bpcApproved = 0;
+    let bpcPhaseUsed = 0;
     for (const r of bpcRows) {
       const txInfo = txMap.get(r.id);
       const effectiveStatus = (txInfo && txInfo.subEvent.includes("BPC")) ? txInfo.status : normalizeStatus(r.status);
@@ -127,14 +300,18 @@ export async function fetchAllSubEventQuotas(): Promise<SubEventQuotaMap> {
       } else {
         bpcPending++;
       }
+      if (isRecordInPhase({ ticket_phase: txInfo?.ticketPhase, created_at: r.created_at }, bpcTier.phase, bpcTier.start_date, bpcTier.end_date)) {
+        bpcPhaseUsed++;
+      }
     }
-    const bpcUsed = bpcPending + bpcApproved;
-    const bpcMax = pricingTiers.bpc.max_quota;
+    const bpcTotalUsed = bpcPending + bpcApproved;
 
     // 4. BCC Quota
+    const bccTier = pricingTiers.bcc;
     const bccRows = bccRes.data || [];
     let bccPending = 0;
     let bccApproved = 0;
+    let bccPhaseUsed = 0;
     for (const r of bccRows) {
       const txInfo = txMap.get(r.id);
       const effectiveStatus = (txInfo && txInfo.subEvent.includes("BCC")) ? txInfo.status : normalizeStatus(r.status);
@@ -145,14 +322,18 @@ export async function fetchAllSubEventQuotas(): Promise<SubEventQuotaMap> {
       } else {
         bccPending++;
       }
+      if (isRecordInPhase({ ticket_phase: txInfo?.ticketPhase, created_at: r.created_at }, bccTier.phase, bccTier.start_date, bccTier.end_date)) {
+        bccPhaseUsed++;
+      }
     }
-    const bccUsed = bccPending + bccApproved;
-    const bccMax = pricingTiers.bcc.max_quota;
+    const bccTotalUsed = bccPending + bccApproved;
 
     // 5. Tenant Quota
+    const tenTier = pricingTiers.tenant;
     const tenRows = tenRes.data || [];
     let tenPending = 0;
     let tenApproved = 0;
+    let tenPhaseUsed = 0;
     for (const r of tenRows) {
       const txInfo = txMap.get(r.id);
       const effectiveStatus = (txInfo && txInfo.subEvent.includes("TENANT")) ? txInfo.status : normalizeStatus(r.status);
@@ -163,12 +344,14 @@ export async function fetchAllSubEventQuotas(): Promise<SubEventQuotaMap> {
       } else {
         tenPending++;
       }
+      if (isRecordInPhase({ ticket_phase: txInfo?.ticketPhase, created_at: r.created_at }, tenTier.phase, tenTier.start_date, tenTier.end_date)) {
+        tenPhaseUsed++;
+      }
     }
-    const tenUsed = tenPending + tenApproved;
-    const tenMax = pricingTiers.tenant.max_quota;
+    const tenTotalUsed = tenPending + tenApproved;
 
     // 6. Seminar Quota
-    // Seminar registrations map to transactions for paid registrants or direct entries
+    const semTier = pricingTiers.seminar;
     const semRows = semRes.data || [];
     const semTxMap = new Map<string, string>();
     (txRes.data || [])
@@ -179,88 +362,89 @@ export async function fetchAllSubEventQuotas(): Promise<SubEventQuotaMap> {
 
     let semPending = 0;
     let semApproved = 0;
+    let semPhaseUsed = 0;
     for (const r of semRows) {
       const txStatus = semTxMap.get(r.id);
       if (txStatus === "rejected") {
-        continue; // Rejected transaction -> slot released
+        continue; // Released
       } else if (txStatus === "verified" || txStatus === "approved") {
         semApproved++;
       } else {
-        // Unpaid or pending transaction -> pending slot held
         semPending++;
       }
+      if (isRecordInPhase({ ticket_phase: null, created_at: r.created_at }, semTier.phase, semTier.start_date, semTier.end_date)) {
+        semPhaseUsed++;
+      }
     }
-    const semUsed = semPending + semApproved;
-    const semMax = pricingTiers.seminar.max_quota;
+    const semTotalUsed = semPending + semApproved;
 
     return {
-      festival: {
-        maxQuota: festMax,
-        usedQuota: festUsed,
-        remainingQuota: Math.max(0, festMax - festUsed),
-        pendingCount: festPending,
-        approvedCount: festApproved,
-        isFull: festUsed >= festMax,
-      },
-      colorfun: {
-        maxQuota: cfrMax,
-        usedQuota: cfrUsed,
-        remainingQuota: Math.max(0, cfrMax - cfrUsed),
-        pendingCount: cfrPending,
-        approvedCount: cfrApproved,
-        isFull: cfrUsed >= cfrMax,
-      },
-      bpc: {
-        maxQuota: bpcMax,
-        usedQuota: bpcUsed,
-        remainingQuota: Math.max(0, bpcMax - bpcUsed),
-        pendingCount: bpcPending,
-        approvedCount: bpcApproved,
-        isFull: bpcUsed >= bpcMax,
-      },
-      bcc: {
-        maxQuota: bccMax,
-        usedQuota: bccUsed,
-        remainingQuota: Math.max(0, bccMax - bccUsed),
-        pendingCount: bccPending,
-        approvedCount: bccApproved,
-        isFull: bccUsed >= bccMax,
-      },
-      seminar: {
-        maxQuota: semMax,
-        usedQuota: semUsed,
-        remainingQuota: Math.max(0, semMax - semUsed),
-        pendingCount: semPending,
-        approvedCount: semApproved,
-        isFull: semUsed >= semMax,
-      },
-      tenant: {
-        maxQuota: tenMax,
-        usedQuota: tenUsed,
-        remainingQuota: Math.max(0, tenMax - tenUsed),
-        pendingCount: tenPending,
-        approvedCount: tenApproved,
-        isFull: tenUsed >= tenMax,
-      },
+      festival: buildSubEventQuota(festTier, festPhaseUsed, festTotalUsed, festPending, festApproved),
+      colorfun: buildSubEventQuota(cfrTier, cfrPhaseUsed, cfrTotalUsed, cfrPending, cfrApproved),
+      bpc: buildSubEventQuota(bpcTier, bpcPhaseUsed, bpcTotalUsed, bpcPending, bpcApproved),
+      bcc: buildSubEventQuota(bccTier, bccPhaseUsed, bccTotalUsed, bccPending, bccApproved),
+      seminar: buildSubEventQuota(semTier, semPhaseUsed, semTotalUsed, semPending, semApproved),
+      tenant: buildSubEventQuota(tenTier, tenPhaseUsed, tenTotalUsed, tenPending, tenApproved),
     };
   } catch (err) {
     console.error("Error fetching sub-event quotas:", err);
     return {
-      festival: createFallbackQuota(pricingTiers.festival.max_quota),
-      colorfun: createFallbackQuota(pricingTiers.colorfun.max_quota),
-      bpc: createFallbackQuota(pricingTiers.bpc.max_quota),
-      bcc: createFallbackQuota(pricingTiers.bcc.max_quota),
-      seminar: createFallbackQuota(pricingTiers.seminar.max_quota),
-      tenant: createFallbackQuota(pricingTiers.tenant.max_quota),
+      festival: createFallbackQuota(pricingTiers.festival),
+      colorfun: createFallbackQuota(pricingTiers.colorfun),
+      bpc: createFallbackQuota(pricingTiers.bpc),
+      bcc: createFallbackQuota(pricingTiers.bcc),
+      seminar: createFallbackQuota(pricingTiers.seminar),
+      tenant: createFallbackQuota(pricingTiers.tenant),
     };
   }
 }
 
-function createFallbackQuota(max: number): QuotaStatus {
+export function createFallbackQuota(pricingTier: EventPricing | number): QuotaStatus {
+  const tier: EventPricing = typeof pricingTier === "number"
+    ? {
+        phase: "Regular",
+        price: 0,
+        start_date: null,
+        end_date: null,
+        phase_quota: pricingTier,
+        event_quota: pricingTier,
+        total_event_quota: pricingTier,
+        max_quota: pricingTier,
+      }
+    : pricingTier;
+
+  // CRITICAL RULE: Maintain backward compatibility if existing records still use max_quota by falling back event_quota = item.event_quota ?? item.max_quota
+  const rawEventQuota = tier.event_quota !== undefined
+    ? tier.event_quota
+    : (tier.total_event_quota !== undefined ? tier.total_event_quota : tier.max_quota);
+  const isEventUnlimited = rawEventQuota === null;
+  const eventQuota = isEventUnlimited ? null : (typeof rawEventQuota === "number" && rawEventQuota > 0 ? rawEventQuota : 500);
+
   return {
-    maxQuota: max,
+    phaseName: tier.phase,
+    phasePrice: tier.price,
+    phaseStartDate: tier.start_date || null,
+    phaseEndDate: tier.end_date || null,
+    phaseQuota: tier.phase_quota,
+    isPhaseUnlimited: tier.phase_quota == null,
+    usedInPhase: 0,
+    remainingPhaseQuota: tier.phase_quota,
+    isPhaseFull: false,
+    isPhaseDateActive: true,
+
+    eventQuota,
+    totalEventQuota: eventQuota,
+    isEventUnlimited,
+    totalEventRegistered: 0,
+    remainingEventQuota: eventQuota,
+    isEventFull: false,
+
+    isAvailable: true,
+    availabilityReason: "available",
+
+    maxQuota: eventQuota ?? 500,
     usedQuota: 0,
-    remainingQuota: max,
+    remainingQuota: eventQuota ?? 500,
     pendingCount: 0,
     approvedCount: 0,
     isFull: false,
@@ -340,12 +524,13 @@ export async function fetchPromoQuotas(): Promise<PromoQuotaStatus[]> {
 
 /**
  * Validates whether sufficient quota exists before allowing a user to submit checkout.
- * Checks both sub-event capacity and (if applicable) promo/bundle capacity and date validity.
- *
- * Conditions:
- * - Condition 1: If max_quota is NOT null and used_quota >= max_quota, block submission (Sold Out).
- * - Condition 2: If max_quota is null (Unlimited), bypass quota limit check completely.
- * - Condition 3: If current time is outside [start_date, end_date], block submission (Periode Berakhir).
+ * Enforces the strict Dual Guard Availability Rules:
+ * - Guard 2 (Sub-Event Cap Check): total_event_quota == null OR total_subevent_registered (pending + approved) < total_event_quota.
+ *   (If full, display 'Kapasitas Event Penuh / Sold Out').
+ * - Guard 1 (Phase Check): phase_quota == null OR used_in_phase (pending + approved) < phase_quota.
+ *   (If full, display 'Kuota Fase Ini Habis').
+ * - Date Range Check: using literal WIB timeUtils.
+ * - Promo Check: verifies promo active status, date range, and quota if promoId provided.
  */
 export async function checkQuotaAvailability(
   event: PricingEvent,
@@ -354,20 +539,69 @@ export async function checkQuotaAvailability(
 ): Promise<{
   available: boolean;
   error?: string;
+  guardTriggered?: "subevent_cap" | "phase_quota" | "phase_date" | "promo";
   remainingSubEventQuota: number;
+  remainingPhaseQuota?: number | null;
   remainingPromoQuota?: number | null;
 }> {
   const subEventQuotas = await fetchAllSubEventQuotas();
-  const eventStatus = subEventQuotas[event] || createFallbackQuota(DEFAULT_PRICING_TIERS[event].max_quota);
+  const eventStatus = subEventQuotas[event] || createFallbackQuota(DEFAULT_PRICING_TIERS[event]);
 
-  if (eventStatus.remainingQuota < requestedQuantity) {
+  // Guard 2: Sub-Event Overall Limit (event_quota: overall venue capacity across all phases)
+  const effectiveEventQuota = eventStatus.eventQuota ?? eventStatus.totalEventQuota;
+  if (
+    !eventStatus.isEventUnlimited &&
+    effectiveEventQuota != null &&
+    eventStatus.totalEventRegistered + requestedQuantity > effectiveEventQuota
+  ) {
     return {
       available: false,
-      error: `Maaf, sisa kuota tiket untuk ${event.toUpperCase()} tidak mencukupi (Tersisa: ${eventStatus.remainingQuota} tiket). Pendaftaran sementara tidak dapat diproses.`,
-      remainingSubEventQuota: eventStatus.remainingQuota,
+      error: `Kapasitas Event Penuh / Sold Out. Total kuota pendaftaran untuk ${PRICING_EVENT_NAMES[event]} telah mencapai kapasitas maksimal (${effectiveEventQuota} slot).`,
+      guardTriggered: "subevent_cap",
+      remainingSubEventQuota: Math.max(0, effectiveEventQuota - eventStatus.totalEventRegistered),
+      remainingPhaseQuota: eventStatus.remainingPhaseQuota,
     };
   }
 
+  // Guard 1: Phase Limit (phase_quota: active phase quota limit)
+  if (
+    !eventStatus.isPhaseUnlimited &&
+    eventStatus.phaseQuota != null &&
+    eventStatus.usedInPhase + requestedQuantity > eventStatus.phaseQuota
+  ) {
+    return {
+      available: false,
+      error: `Kuota Fase Ini Habis. Kuota pendaftaran untuk fase "${eventStatus.phaseName}" (${PRICING_EVENT_NAMES[event]}) sudah habis terjual (${eventStatus.phaseQuota} slot).`,
+      guardTriggered: "phase_quota",
+      remainingSubEventQuota: effectiveEventQuota !== null ? Math.max(0, effectiveEventQuota - eventStatus.totalEventRegistered) : 999999,
+      remainingPhaseQuota: Math.max(0, eventStatus.phaseQuota - eventStatus.usedInPhase),
+    };
+  }
+
+  // Phase Date Window Check
+  if (eventStatus.phaseStartDate || eventStatus.phaseEndDate) {
+    const { isStarted, isEnded } = getEventTimeStatus(eventStatus.phaseStartDate, eventStatus.phaseEndDate);
+    if (!isStarted) {
+      return {
+        available: false,
+        error: `Periode pendaftaran untuk fase "${eventStatus.phaseName}" belum dimulai.`,
+        guardTriggered: "phase_date",
+        remainingSubEventQuota: eventStatus.remainingQuota,
+        remainingPhaseQuota: eventStatus.remainingPhaseQuota,
+      };
+    }
+    if (isEnded) {
+      return {
+        available: false,
+        error: `Periode pendaftaran untuk fase "${eventStatus.phaseName}" telah berakhir.`,
+        guardTriggered: "phase_date",
+        remainingSubEventQuota: eventStatus.remainingQuota,
+        remainingPhaseQuota: eventStatus.remainingPhaseQuota,
+      };
+    }
+  }
+
+  // Promo Check (if promoId is provided)
   if (promoId) {
     const promoQuotas = await fetchPromoQuotas();
     const targetPromo = promoQuotas.find((p) => p.promo.id === promoId);
@@ -379,7 +613,9 @@ export async function checkQuotaAvailability(
         return {
           available: false,
           error: `Periode promo/bundling "${targetPromo.promo.title}" belum dimulai.`,
+          guardTriggered: "promo",
           remainingSubEventQuota: eventStatus.remainingQuota,
+          remainingPhaseQuota: eventStatus.remainingPhaseQuota,
           remainingPromoQuota: targetPromo.remainingQuota,
         };
       }
@@ -388,7 +624,9 @@ export async function checkQuotaAvailability(
         return {
           available: false,
           error: `Periode promo/bundling "${targetPromo.promo.title}" telah berakhir.`,
+          guardTriggered: "promo",
           remainingSubEventQuota: eventStatus.remainingQuota,
+          remainingPhaseQuota: eventStatus.remainingPhaseQuota,
           remainingPromoQuota: targetPromo.remainingQuota,
         };
       }
@@ -399,7 +637,9 @@ export async function checkQuotaAvailability(
           return {
             available: false,
             error: `Maaf, kuota untuk promo/bundling "${targetPromo.promo.title}" sudah habis (Sold Out).`,
+            guardTriggered: "promo",
             remainingSubEventQuota: eventStatus.remainingQuota,
+            remainingPhaseQuota: eventStatus.remainingPhaseQuota,
             remainingPromoQuota: 0,
           };
         }
@@ -408,7 +648,9 @@ export async function checkQuotaAvailability(
           return {
             available: false,
             error: `Maaf, sisa kuota untuk promo/bundling "${targetPromo.promo.title}" tidak mencukupi (Tersisa: ${targetPromo.remainingQuota}).`,
+            guardTriggered: "promo",
             remainingSubEventQuota: eventStatus.remainingQuota,
+            remainingPhaseQuota: eventStatus.remainingPhaseQuota,
             remainingPromoQuota: targetPromo.remainingQuota,
           };
         }
@@ -418,6 +660,7 @@ export async function checkQuotaAvailability(
       return {
         available: true,
         remainingSubEventQuota: eventStatus.remainingQuota,
+        remainingPhaseQuota: eventStatus.remainingPhaseQuota,
         remainingPromoQuota: targetPromo.remainingQuota,
       };
     }
@@ -426,6 +669,7 @@ export async function checkQuotaAvailability(
   return {
     available: true,
     remainingSubEventQuota: eventStatus.remainingQuota,
+    remainingPhaseQuota: eventStatus.remainingPhaseQuota,
   };
 }
 

@@ -21,8 +21,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import GatewayGuard from "@/components/gateway/GatewayGuard";
-import { fetchPricingTiers, EventPricing, DEFAULT_PRICING_TIERS } from "@/lib/pricing";
 import { checkQuotaAvailability, dispatchQuotaRefresh } from "@/lib/quota";
+import { useLivePricingAndQuota } from "@/hooks/useLivePricingAndQuota";
+import SubEventQuotaBadge from "@/components/registration/SubEventQuotaBadge";
+import PromoVoucherInput from "@/components/registration/PromoVoucherInput";
+import { incrementPromoQuota } from "@/lib/promo";
+import { Promo } from "@/types/database";
+import { validatePreCheckoutGuard } from "@/app/actions/checkout";
 
 export default function SeminarRegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,21 +57,25 @@ export default function SeminarRegisterPage() {
   const [igProof, setIgProof] = useState<File | null>(null);
   const [storyProof, setStoryProof] = useState<File | null>(null);
 
-  // Dynamic Pricing from cms_settings
-  const [cmsPricing, setCmsPricing] = useState<EventPricing>(DEFAULT_PRICING_TIERS.seminar);
+  // Dynamic Pricing & Two-Tier Quota via Supabase Realtime
+  const {
+    pricing: cmsPricing,
+    quota: subQuota,
+    activePromos,
+    isPhaseFull,
+    isEventFull,
+    isAvailable,
+    availabilityReason,
+  } = useLivePricingAndQuota("seminar");
 
-  useEffect(() => {
-    async function loadPricing() {
-      const tiers = await fetchPricingTiers();
-      if (tiers.seminar) {
-        setCmsPricing(tiers.seminar);
-      }
-    }
-    loadPricing();
-  }, []);
+  const [appliedPromo, setAppliedPromo] = useState<Promo | null>(null);
+  const [promoDiscount, setPromoDiscount] = useState(0);
 
   // CRITICAL EXCEPTION LOGIC: Vokasi ITS & BPC/BCC participants are free (Rp 0)
-  const effectivePrice = (category === "vokasi_its" || category === "bpc_bcc") ? 0 : cmsPricing.price;
+  const isFreeCategory = category === "vokasi_its" || category === "bpc_bcc";
+  const effectivePrice = isFreeCategory
+    ? 0
+    : Math.max(0, cmsPricing.price - promoDiscount);
 
   const supabase = createClient();
 
@@ -136,9 +145,29 @@ export default function SeminarRegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isFormValid || isSubmitting) return;
-    // Lifecycle Rule 1: Verify remaining quota before permitting submission
-    const quotaCheck = await checkQuotaAvailability("seminar", 1);
+    if (!isFormValid || isSubmitting || !isAvailable) {
+      if (!isAvailable) {
+        setError(
+          isEventFull
+            ? "Sold Out / Kapasitas Penuh. Total kuota pendaftaran telah mencapai batas maksimal."
+            : isPhaseFull
+            ? "Kuota Fase Penuh. Kuota pendaftaran fase ini sudah habis terjual."
+            : availabilityReason === "phase_date_not_started"
+            ? "Periode Belum Dimulai. Pendaftaran belum dibuka."
+            : "Periode Berakhir. Periode pendaftaran telah berakhir."
+        );
+      }
+      return;
+    }
+
+    // Lifecycle Rule 1: Server-Side Pre-Checkout Guard
+    const serverGuard = await validatePreCheckoutGuard("seminar", 1, appliedPromo?.id);
+    if (!serverGuard.valid) {
+      setError(serverGuard.error || "Pendaftaran tidak dapat diproses karena batas kuota atau periode aktif.");
+      return;
+    }
+
+    const quotaCheck = await checkQuotaAvailability("seminar", 1, appliedPromo?.id);
     if (!quotaCheck.available) {
       setError(quotaCheck.error || "Maaf, kuota pendaftaran Seminar Kewirausahaan sudah penuh.");
       return;
@@ -203,10 +232,16 @@ export default function SeminarRegisterPage() {
             sub_event_type: "SEMINAR",
             amount: effectivePrice,
             payment_proof_url: paymentProofUrl,
-            status: "Pending"
+            status: "Pending",
+            ticket_phase: cmsPricing.phase || "Normal Price",
+            promo_id: appliedPromo?.id || null,
           });
 
         if (txError) throw txError;
+
+        if (appliedPromo) {
+          await incrementPromoQuota(supabase, appliedPromo.id, 1);
+        }
       }
 
       dispatchQuotaRefresh();
@@ -262,6 +297,13 @@ export default function SeminarRegisterPage() {
             <p>{error}</p>
           </div>
         )}
+
+        <SubEventQuotaBadge
+          eventName="Cosmic Seminar Kewirausahaan"
+          pricing={cmsPricing}
+          quota={subQuota}
+          className="mb-8 max-w-3xl mx-auto"
+        />
 
         <form onSubmit={handleSubmit} className="space-y-12 max-w-3xl mx-auto">
           {/* SECTION 1: DATA DIRI PESERTA */}
@@ -371,6 +413,23 @@ export default function SeminarRegisterPage() {
                     </p>
                   </div>
                 </div>
+
+                {/* Promo / Voucher Input */}
+                <PromoVoucherInput
+                  activePromos={activePromos}
+                  targetEventContext="Seminar"
+                  basePrice={cmsPricing.price}
+                  appliedPromo={appliedPromo}
+                  onApplyPromo={(promo, discount) => {
+                    setAppliedPromo(promo);
+                    setPromoDiscount(discount);
+                  }}
+                  onRemovePromo={() => {
+                    setAppliedPromo(null);
+                    setPromoDiscount(0);
+                  }}
+                  disabled={isEventFull || isPhaseFull}
+                />
 
                 <div className="space-y-4">
                   <label className="font-semibold text-sm text-slate-100 uppercase tracking-wider block">Metode Pembayaran *</label>
@@ -519,22 +578,42 @@ export default function SeminarRegisterPage() {
 
           <div className="flex flex-col items-end gap-2 pt-4">
             <button 
-              disabled={!isFormValid || isSubmitting} 
+              disabled={!isFormValid || isSubmitting || !isAvailable} 
               type="submit" 
               className={`px-8 py-4 rounded-full font-medium tracking-wider uppercase flex items-center gap-3 transition-all ${
-                !isFormValid || isSubmitting 
+                !isFormValid || isSubmitting || !isAvailable
                   ? "bg-primary-container text-primary opacity-50 cursor-not-allowed" 
                   : "bg-primary-container text-primary hover:bg-primary-container/80 shadow-[0_0_20px_rgba(176,198,255,0.2)] cursor-pointer"
               }`}
             >
-              {isSubmitting ? "Submitting..." : "Submit Registration"}
-              {!isSubmitting && <ArrowRight className="w-5 h-5" />}
+              {isSubmitting
+                ? "Submitting..."
+                : isEventFull
+                ? "Sold Out / Kapasitas Penuh"
+                : isPhaseFull
+                ? "Kuota Fase Penuh"
+                : !isAvailable
+                ? availabilityReason === "phase_date_not_started" ? "Periode Belum Dimulai" : "Periode Berakhir"
+                : "Submit Registration"}
+              {!isSubmitting && isAvailable && <ArrowRight className="w-5 h-5" />}
             </button>
-            {!isFormValid && (
+            {isEventFull ? (
+              <p className="text-xs text-error font-medium">
+                Pendaftaran ditutup karena kapasitas maksimal seminar telah penuh (Sold Out / Kapasitas Penuh).
+              </p>
+            ) : isPhaseFull ? (
+              <p className="text-xs text-amber-300 font-medium">
+                Kuota pendaftaran untuk fase aktif ini sudah habis (Kuota Fase Penuh). Silakan menunggu pembukaan fase berikutnya.
+              </p>
+            ) : !isAvailable ? (
+              <p className="text-xs text-slate-300 font-medium">
+                {availabilityReason === "phase_date_not_started" ? "Periode pendaftaran belum dimulai." : "Periode pendaftaran telah berakhir."}
+              </p>
+            ) : !isFormValid ? (
               <p className="text-xs text-on-surface-variant/70 font-poppins">
                 Lengkapi seluruh data wajib &amp; persyaratan di atas untuk dapat mengirim pendaftaran.
               </p>
-            )}
+            ) : null}
           </div>
         </form>
       </main>

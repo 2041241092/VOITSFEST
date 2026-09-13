@@ -12,13 +12,23 @@ import {
   QrCode, 
   Copy, 
   Check, 
-  Filter,
-  AlertCircle,
-  Clock,
-  X,
-  Download
+  Filter, 
+  FileText, 
+  AlertCircle, 
+  Clock, 
+  X, 
+  Download,
+  Eye,
+  Users,
+  CreditCard,
+  Maximize2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  ShieldCheck
 } from "lucide-react";
-import { formatBIB, formatBIBCSV, downloadCSV } from "@/lib/bib";
+import { formatFestivalParticipant, formatFestivalParticipantCSV, downloadCSV } from "@/lib/bib";
 import { decrementPromoQuota, rollbackPromoQuotaOnReject } from "@/lib/promo";
 import { formatDisplayWIB } from "@/lib/timeUtils";
 
@@ -29,8 +39,8 @@ export type FestivalRegistration = {
   is_primary?: boolean | null;
   user_id: string | null;
   nama_lengkap: string;
-  whatsapp: string;
   email: string;
+  whatsapp: string;
   kategori_peserta?: string | null;
   departemen?: string | null;
   nrp?: string | null;
@@ -56,6 +66,19 @@ export default function FestivalDatabase() {
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [qrModalRecord, setQrModalRecord] = useState<FestivalRegistration | null>(null);
+  const [selectedDetailRecord, setSelectedDetailRecord] = useState<FestivalRegistration | null>(null);
+  const [groupMembers, setGroupMembers] = useState<FestivalRegistration[]>([]);
+  const [loadingGroupMembers, setLoadingGroupMembers] = useState(false);
+  const [imagePreview, setImagePreview] = useState<{ url: string; title: string } | null>(null);
+
+  // Pagination State (10 items per page)
+  const ITEMS_PER_PAGE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Automatically reset to page 1 whenever filter or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, search]);
 
   const supabase = createClient();
 
@@ -97,11 +120,8 @@ export default function FestivalDatabase() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "festival_registrations" },
-        (payload) => {
+        () => {
           fetchRegistrations();
-          if (payload.new && typeof payload.new === "object" && "id" in payload.new) {
-            setQrModalRecord(prev => (prev && prev.id === (payload.new as any).id ? (payload.new as FestivalRegistration) : prev));
-          }
         }
       )
       .subscribe();
@@ -109,9 +129,9 @@ export default function FestivalDatabase() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchRegistrations, supabase]);
+  }, [supabase, fetchRegistrations]);
 
-  // Listen for admin-refresh-data event
+  // Listen to custom admin refresh event
   useEffect(() => {
     const handleAdminRefresh = () => {
       fetchRegistrations();
@@ -121,6 +141,32 @@ export default function FestivalDatabase() {
       window.removeEventListener("admin-refresh-data", handleAdminRefresh);
     };
   }, [fetchRegistrations]);
+
+  // Fetch group members if selectedDetailRecord belongs to a group
+  useEffect(() => {
+    if (!selectedDetailRecord?.group_id) {
+      setGroupMembers([]);
+      return;
+    }
+    const fetchGroup = async () => {
+      setLoadingGroupMembers(true);
+      try {
+        const { data, error } = await supabase
+          .from("festival_registrations")
+          .select("*")
+          .eq("group_id", selectedDetailRecord.group_id)
+          .order("is_primary", { ascending: false });
+        if (!error && data) {
+          setGroupMembers(data);
+        }
+      } catch (err) {
+        console.error("Error fetching festival group members:", err);
+      } finally {
+        setLoadingGroupMembers(false);
+      }
+    };
+    fetchGroup();
+  }, [selectedDetailRecord, supabase]);
 
   // Verify Action
   const handleVerify = async (record: FestivalRegistration) => {
@@ -257,14 +303,14 @@ export default function FestivalDatabase() {
       }
 
       if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("promo-quota-updated", { detail: { promoId, amount: capacityCount } }));
+        window.dispatchEvent(new CustomEvent("promo-quota-updated"));
         window.dispatchEvent(new CustomEvent("admin-refresh-data"));
       }
 
       await fetchRegistrations();
     } catch (err: any) {
-      console.error("Update failed:", err);
-      alert(`Update failed: ${err?.message || "Terjadi kesalahan tidak terduga"}`);
+      console.error("Gagal memverifikasi pendaftaran:", err);
+      alert("Gagal memverifikasi: " + (err.message || "Terjadi kesalahan"));
     } finally {
       setActionInProgress(null);
     }
@@ -274,15 +320,16 @@ export default function FestivalDatabase() {
   const handleReject = async (record: FestivalRegistration) => {
     const recordId = record.id;
     if (actionInProgress) return;
-    if (!confirm(`Apakah Anda yakin ingin menolak pembayaran atas nama ${record.nama_lengkap}?`)) {
-      return;
-    }
+
+    const confirmReject = confirm(`Apakah Anda yakin ingin menolak pembayaran pendaftar "${record.nama_lengkap}"?`);
+    if (!confirmReject) return;
+
     setActionInProgress(recordId);
 
     try {
-      // Any non-rejected record (pending or verified) holds quota and must be released immediately upon rejection
-      const wasHoldingQuota = (record.payment_status || "").toLowerCase() !== "rejected";
-      let error;
+      const wasHoldingQuota = record.payment_status?.toLowerCase() !== "rejected";
+      let error = null;
+
       if (record.group_id) {
         const res = await supabase
           .from("festival_registrations")
@@ -299,11 +346,11 @@ export default function FestivalDatabase() {
 
       if (error) {
         console.error("Reject failed:", error);
-        alert(`Gagal menolak pendaftaran: ${error.message || "Terjadi kesalahan"}`);
+        alert(`Gagal menolak pendaftaran Festival: ${error.message || "Terjadi kesalahan"}`);
         return;
       }
 
-      // Also update central transactions table
+      // Sync central transactions if matching row exists
       try {
         await supabase
           .from("transactions")
@@ -372,57 +419,70 @@ export default function FestivalDatabase() {
     let pending = 0;
     let verified = 0;
     let rejected = 0;
-    for (const r of registrations) {
+
+    registrations.forEach(r => {
       const s = (r.payment_status || "").toLowerCase();
       if (s === "pending") pending++;
       else if (s === "verified") verified++;
       else if (s === "rejected") rejected++;
-    }
-    return {
-      all: registrations.length,
-      pending,
-      verified,
-      rejected,
-    };
+    });
+
+    return { all: registrations.length, pending, verified, rejected };
   }, [registrations]);
 
-  // Filter & Search
+  // Filtered and Searched data
   const filteredData = useMemo(() => {
     return registrations.filter(r => {
-      // Filter tab
+      // 1. Status Filter
       if (filter !== "all") {
         const s = (r.payment_status || "").toLowerCase();
-        if (s !== filter) return false;
+        if (filter === "pending" && s !== "pending") return false;
+        if (filter === "verified" && s !== "verified") return false;
+        if (filter === "rejected" && s !== "rejected") return false;
       }
-      // Search
+
+      // 2. Search Query
       if (!search.trim()) return true;
       const q = search.toLowerCase();
       return (
         (r.nama_lengkap || "").toLowerCase().includes(q) ||
         (r.email || "").toLowerCase().includes(q) ||
         (r.whatsapp || "").toLowerCase().includes(q) ||
+        (r.nrp || "").toLowerCase().includes(q) ||
+        (r.kategori_peserta || "").toLowerCase().includes(q) ||
+        (r.departemen || "").toLowerCase().includes(q) ||
         (r.rekening_pengirim || "").toLowerCase().includes(q) ||
         (r.ticket_qr_code || "").toLowerCase().includes(q) ||
-        formatBIB(r.nomor_bib).toLowerCase().includes(q) ||
+        formatFestivalParticipant(r.nomor_bib).toLowerCase().includes(q) ||
         String(r.nomor_bib || "").toLowerCase().includes(q)
       );
     });
   }, [registrations, filter, search]);
 
+  // Client-side pagination calculations (10 rows per page)
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / ITEMS_PER_PAGE));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (validCurrentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, filteredData.length);
+
+  const paginatedData = useMemo(() => {
+    return filteredData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredData, startIndex]);
+
   // Excel-safe CSV Export
   const handleExportCSV = () => {
     const headers = [
-      "Nomor BIB",
+      "Nomor Peserta",
       "Nama Lengkap",
       "Email",
       "WhatsApp",
-      "Rekening Pengirim",
       "Kategori",
       "Departemen",
       "NRP",
       "Status Pembayaran",
       "Nominal (IDR)",
       "Fase Tiket",
+      "Rekening Pengirim",
       "Tiket QR Code",
       "Jumlah Scan",
       "Group ID",
@@ -431,17 +491,17 @@ export default function FestivalDatabase() {
     ];
 
     const rows = filteredData.map(r => [
-      formatBIBCSV(r.nomor_bib),
+      formatFestivalParticipantCSV(r.nomor_bib),
       r.nama_lengkap || "-",
       r.email || "-",
       r.whatsapp || "-",
-      r.rekening_pengirim || "-",
       r.kategori_peserta || "-",
       r.departemen || "-",
       r.nrp || "-",
       r.payment_status || "-",
       r.amount_paid || 0,
       r.ticket_phase || "-",
+      r.rekening_pengirim || "-",
       r.ticket_qr_code || "-",
       r.scan_count || 0,
       r.group_id || "-",
@@ -453,9 +513,9 @@ export default function FestivalDatabase() {
   };
 
   return (
-    <section className="bg-surface/50 backdrop-blur-xl border border-white/20 rounded-2xl flex flex-col overflow-hidden relative shadow-2xl">
-      {/* Top Header Controls */}
-      <div className="p-6 border-b border-white/10 flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-surface/60">
+    <section className="bg-surface/50 backdrop-blur-xl border border-white/20 rounded-2xl flex flex-col h-[calc(100vh-220px)] min-h-[500px] overflow-hidden relative shadow-2xl">
+      {/* Header bar (Search, Filter, Export Actions) */}
+      <div className="flex-shrink-0 p-6 border-b border-white/10 flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-surface/60">
         <div>
           <h2 className="text-xl font-bold text-on-surface flex items-center gap-2.5">
             Festival Database &amp; Verification Center
@@ -488,7 +548,7 @@ export default function FestivalDatabase() {
             onClick={handleExportCSV}
             disabled={filteredData.length === 0}
             className="flex items-center gap-2 px-3 py-2 bg-secondary/15 hover:bg-secondary/25 border border-secondary/30 rounded-xl text-xs font-semibold text-secondary transition-all cursor-pointer disabled:opacity-50"
-            title="Download CSV / Excel (Preserves 4-digit BIB)"
+            title="Download CSV / Excel (Preserves Participant Code)"
           >
             <Download className="w-3.5 h-3.5 text-secondary" />
             <span className="hidden sm:inline">Export CSV</span>
@@ -498,7 +558,7 @@ export default function FestivalDatabase() {
             <Search className="w-4 h-4 text-on-surface-variant absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Cari nama, WhatsApp, email..."
+              placeholder="Cari nama, NRP, WhatsApp..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-9 pr-4 py-2 bg-surface border border-outline-variant rounded-xl text-xs text-on-surface focus:border-secondary outline-none transition-all w-full sm:w-64 font-poppins"
@@ -508,7 +568,7 @@ export default function FestivalDatabase() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="px-6 py-3 border-b border-white/10 bg-surface/30 flex items-center justify-between overflow-x-auto gap-4">
+      <div className="flex-shrink-0 px-6 py-3 border-b border-white/10 bg-surface/30 flex items-center justify-between overflow-x-auto gap-4">
         <div className="flex items-center gap-2">
           <Filter className="w-3.5 h-3.5 text-on-surface-variant mr-1" />
           {(["all", "pending", "verified", "rejected"] as const).map(tab => (
@@ -539,123 +599,152 @@ export default function FestivalDatabase() {
 
       {/* Error notification banner */}
       {errorMessage && (
-        <div className="m-4 p-3 bg-error-container/40 border border-error/50 rounded-xl text-error text-xs flex items-center gap-2">
+        <div className="flex-shrink-0 m-4 p-3 bg-error-container/40 border border-error/50 rounded-xl text-error text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{errorMessage}</span>
         </div>
       )}
 
-      {/* Table Container */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse whitespace-nowrap font-poppins">
-          <thead>
-            <tr className="bg-surface-container-low/60 text-on-surface-variant text-[11px] uppercase tracking-wider border-b border-white/10">
-              <th className="p-4 py-3 font-semibold">Nomor BIB</th>
-              <th className="p-4 py-3 font-semibold">Nama Lengkap &amp; Email</th>
-              <th className="p-4 py-3 font-semibold">Nomor WhatsApp</th>
-              <th className="p-4 py-3 font-semibold">Rekening Pengirim</th>
-              <th className="p-4 py-3 font-semibold">Nominal &amp; Fase</th>
-              <th className="p-4 py-3 font-semibold">Bukti Transfer</th>
-              <th className="p-4 py-3 font-semibold">Status</th>
-              <th className="p-4 py-3 font-semibold">Tiket QR Code</th>
-              <th className="p-4 py-3 font-semibold">Waktu Daftar</th>
-              <th className="p-4 py-3 font-semibold text-right sticky right-0 bg-surface-container-low/95 backdrop-blur-md">
+      {/* Table Container - Flex-1 Dual Scroll with Sticky Header */}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto custom-scrollbar relative border-b border-white/10">
+        <table className="w-full text-left border-collapse whitespace-nowrap font-poppins relative">
+          <thead className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md shadow-sm">
+            <tr className="text-on-surface-variant text-[11px] uppercase tracking-wider border-b border-white/10">
+              <th className="p-4 py-3 font-semibold">Peserta &amp; Kontak</th>
+              <th className="p-4 py-3 font-semibold">Kategori &amp; Identitas</th>
+              <th className="p-4 py-3 font-semibold">Nomor Peserta &amp; Tiket</th>
+              <th className="p-4 py-3 font-semibold">Nominal &amp; Paket</th>
+              <th className="p-4 py-3 font-semibold">Bukti Bayar</th>
+              <th className="p-4 py-3 font-semibold">Status &amp; Waktu</th>
+              <th className="p-4 py-3 font-semibold text-right sticky right-0 top-0 z-30 bg-slate-900/95 backdrop-blur-md border-l border-white/10">
                 Aksi
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5 text-sm">
+
+          <tbody className="text-sm divide-y divide-white/5">
             {loading && registrations.length === 0 ? (
               <tr>
-                <td colSpan={10} className="p-12 text-center text-on-surface-variant">
-                  <div className="flex flex-col items-center justify-center gap-3">
-                    <RotateCw className="w-6 h-6 text-secondary animate-spin" />
-                    <span className="text-xs">Memuat database festival...</span>
+                <td colSpan={7} className="p-12 text-center text-on-surface-variant">
+                  <div className="flex items-center justify-center gap-2">
+                    <RotateCw className="w-4 h-4 animate-spin text-secondary" />
+                    <span>Memuat data dari Supabase...</span>
                   </div>
                 </td>
               </tr>
             ) : filteredData.length === 0 ? (
               <tr>
-                <td colSpan={10} className="p-12 text-center text-on-surface-variant">
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <p className="text-sm font-medium text-white">Tidak ada data pendaftaran ditemukan</p>
-                    <p className="text-xs text-on-surface-variant/70">
-                      {search ? "Coba ubah kata kunci pencarian Anda." : "Belum ada pendaftaran di tabel festival_registrations."}
-                    </p>
-                  </div>
+                <td colSpan={7} className="p-12 text-center text-on-surface-variant">
+                  <p className="text-sm font-medium">Tidak ada data pendaftaran ditemukan.</p>
+                  <p className="text-xs text-on-surface-variant/70 mt-1">
+                    {search ? "Coba ubah kata kunci pencarian Anda." : "Belum ada pendaftaran di tabel festival_registrations."}
+                  </p>
                 </td>
               </tr>
             ) : (
-              filteredData.map(row => {
+              paginatedData.map(row => {
                 const s = (row.payment_status || "").toLowerCase();
                 const isPending = s === "pending";
                 const isVerified = s === "verified";
                 const isRejected = s === "rejected";
+                const isMahasiswa = (row.kategori_peserta || "").toLowerCase().includes("mahasiswa");
 
                 return (
                   <tr key={row.id} className="border-b border-white/5 hover:bg-surface-variant/30 transition-colors">
                     
-                    {/* 0. Nomor BIB (Global 4-digit zero padding) */}
+                    {/* 1. Peserta & Kontak (Plain text, no mailto / wa.me links) */}
                     <td className="p-4 py-3">
-                      <div className="flex flex-col gap-1">
-                        {row.nomor_bib != null ? (
-                          <span className="inline-flex items-center gap-1 font-mono font-bold text-xs text-secondary bg-secondary/10 border border-secondary/25 px-2.5 py-1 rounded w-fit">
-                            #{formatBIB(row.nomor_bib)}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 font-mono text-[11px] text-on-surface-variant/60 bg-white/5 border border-white/10 px-2 py-0.5 rounded w-fit">
-                            -
-                          </span>
-                        )}
-                        {row.is_primary === false && (
-                          <span className="text-[10px] font-sans font-medium text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.2 rounded w-fit">
-                            Anggota
-                          </span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* 1. Nama Lengkap & Email */}
-                    <td className="p-4 py-3 font-medium text-white">
-                      <div>
-                        <span className="block text-sm">{row.nama_lengkap || "-"}</span>
-                        <span className="block text-[11px] text-on-surface-variant/70 font-mono">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-semibold text-sm text-white">{row.nama_lengkap || "-"}</span>
+                        <span className="text-xs text-slate-400 font-mono select-all">
                           {row.email || "-"}
                         </span>
+                        <span className="text-xs text-slate-400 font-mono select-all">
+                          {row.whatsapp || "-"}
+                        </span>
                       </div>
                     </td>
 
-                    {/* 2. WhatsApp */}
-                    <td className="p-4 py-3 text-xs font-mono text-on-surface-variant">
-                      {row.whatsapp ? (
-                        <a
-                          href={`https://wa.me/${row.whatsapp.replace(/\D/g, "")}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="hover:text-secondary hover:underline transition-colors"
-                          title="Hubungi via WhatsApp"
-                        >
-                          {row.whatsapp}
-                        </a>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-
-                    {/* 3. Rekening Pengirim */}
-                    <td className="p-4 py-3 text-xs font-mono text-on-surface">
-                      {row.rekening_pengirim ? (
-                        <span className="truncate max-w-[180px] block" title={row.rekening_pengirim}>
-                          a.n {row.rekening_pengirim}
-                        </span>
-                      ) : (
-                        <span className="text-on-surface-variant/50">-</span>
-                      )}
-                    </td>
-
-                    {/* 3b. Nominal & Fase */}
+                    {/* 2. Kategori & Identitas (Kategori badge + NRP + KTM modal trigger) */}
                     <td className="p-4 py-3">
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1.5 items-start">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
+                          isMahasiswa
+                            ? "bg-primary/15 text-primary border-primary/30"
+                            : "bg-surface-container-highest text-on-surface border-white/10"
+                        }`}>
+                          {row.kategori_peserta || "Umum"}
+                        </span>
+                        <span className="text-xs text-slate-400 font-mono">
+                          {row.nrp ? `NRP: ${row.nrp}` : "NRP: -"}
+                        </span>
+                        {row.ktm_url && (
+                          <button
+                            type="button"
+                            onClick={() => setImagePreview({ url: row.ktm_url!, title: `Scan KTM - ${row.nama_lengkap}` })}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-sans font-semibold text-primary hover:text-primary-container bg-primary/10 border border-primary/25 hover:bg-primary/20 transition-all cursor-pointer"
+                            title="Buka Scan KTM"
+                          >
+                            <FileText className="w-3 h-3" />
+                            <span>Lihat KTM</span>
+                          </button>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* 3. Nomor Peserta & Tiket */}
+                    <td className="p-4 py-3">
+                      <div className="flex flex-col gap-1.5 items-start">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {row.nomor_bib != null ? (
+                            <span className="inline-flex items-center gap-1 font-mono font-bold text-xs text-secondary bg-secondary/15 border border-secondary/35 px-2.5 py-1 rounded shadow-sm">
+                              {formatFestivalParticipant(row.nomor_bib)}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 font-mono text-[11px] text-on-surface-variant/60 bg-white/5 border border-white/10 px-2 py-0.5 rounded">
+                              Pass Festival
+                            </span>
+                          )}
+                          {row.is_primary === false && (
+                            <span className="text-[10px] font-sans font-medium text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.2 rounded">
+                              Anggota
+                            </span>
+                          )}
+                        </div>
+
+                        {row.ticket_qr_code ? (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setQrModalRecord(row)}
+                              className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-secondary bg-secondary/10 hover:bg-secondary/25 border border-secondary/25 hover:border-secondary px-2.5 py-1 rounded transition-all cursor-pointer group"
+                              title="Klik untuk melihat Visual QR Code & Status Scan"
+                            >
+                              <QrCode className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                              <span>{row.ticket_qr_code}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyTicket(row.ticket_qr_code!, row.id)}
+                              className="p-1 text-on-surface-variant hover:text-white transition-colors cursor-pointer rounded"
+                              title="Salin Kode Tiket"
+                            >
+                              {copiedId === row.id ? (
+                                <Check className="w-3.5 h-3.5 text-tertiary" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-on-surface-variant/50 text-xs font-mono">-</span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* 4. Nominal & Paket */}
+                    <td className="p-4 py-3">
+                      <div className="flex flex-col gap-1 items-start">
                         <span className="font-mono text-xs font-semibold text-[#ffd700]">
                           {new Intl.NumberFormat("id-ID", {
                             style: "currency",
@@ -664,127 +753,129 @@ export default function FestivalDatabase() {
                           }).format(row.amount_paid || 0)}
                         </span>
                         {row.ticket_phase && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-secondary/15 text-secondary border border-secondary/30 w-fit">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-secondary/15 text-secondary border border-secondary/30">
                             {row.ticket_phase.replace(/\s*\[PROMO:.*\]/, "")}
                           </span>
                         )}
                       </div>
                     </td>
 
-                    {/* 4. Bukti Transfer */}
+                    {/* 5. Bukti Bayar (Image Preview Thumbnail stacked with rekening_pengirim) */}
                     <td className="p-4 py-3">
-                      {row.bukti_transfer_url ? (
-                        <a
-                          href={row.bukti_transfer_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-surface-container-highest/60 hover:bg-secondary/20 text-on-surface hover:text-secondary border border-white/10 hover:border-secondary/40 text-xs font-medium transition-all w-fit"
-                          title="Buka Bukti Transfer di Tab Baru"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          <span>Lihat Bukti</span>
-                        </a>
-                      ) : (
-                        <span className="text-on-surface-variant/50 text-xs">-</span>
-                      )}
+                      <div className="flex flex-col gap-1.5 items-start">
+                        {row.bukti_transfer_url ? (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setImagePreview({ url: row.bukti_transfer_url!, title: `Bukti Transfer - ${row.nama_lengkap}` })}
+                              className="group relative w-12 h-12 rounded-lg overflow-hidden border border-white/20 hover:border-secondary transition-all cursor-pointer bg-black/40 flex-shrink-0"
+                              title="Klik untuk memperbesar bukti bayar"
+                            >
+                              <img 
+                                src={row.bukti_transfer_url} 
+                                alt="Bukti Transfer"
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = "none";
+                                }}
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <Maximize2 className="w-3.5 h-3.5 text-white" />
+                              </div>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setImagePreview({ url: row.bukti_transfer_url!, title: `Bukti Transfer - ${row.nama_lengkap}` })}
+                              className="text-[11px] text-secondary hover:underline cursor-pointer flex items-center gap-1"
+                            >
+                              <Eye className="w-3 h-3" />
+                              <span>Lihat</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-on-surface-variant/50 text-xs">-</span>
+                        )}
+                        <span className="text-[11px] text-slate-400 font-mono truncate max-w-[140px]" title={row.rekening_pengirim || ""}>
+                          {row.rekening_pengirim ? `a.n ${row.rekening_pengirim}` : "a.n -"}
+                        </span>
+                      </div>
                     </td>
 
-                    {/* 5. Status */}
+                    {/* 6. Status & Waktu (payment_status badge + literal WIB time) */}
                     <td className="p-4 py-3">
-                      {isVerified && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-tertiary/15 text-tertiary border border-tertiary/30">
-                          <CheckCircle className="w-3.5 h-3.5" />
-                          <span>Verified</span>
-                        </span>
-                      )}
-                      {isPending && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                          <Clock className="w-3.5 h-3.5 animate-pulse" />
-                          <span>Pending</span>
-                        </span>
-                      )}
-                      {isRejected && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error/15 text-error border border-error/30">
-                          <XCircle className="w-3.5 h-3.5" />
-                          <span>Rejected</span>
-                        </span>
-                      )}
-                      {!isVerified && !isPending && !isRejected && (
-                        <span className="text-xs text-on-surface-variant font-mono">
-                          {row.payment_status || "-"}
-                        </span>
-                      )}
-                    </td>
-
-                    {/* 6. Tiket QR Code (if verified) */}
-                    <td className="p-4 py-3">
-                      {row.ticket_qr_code ? (
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setQrModalRecord(row)}
-                            className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-secondary bg-secondary/15 hover:bg-secondary/25 border border-secondary/30 hover:border-secondary px-2.5 py-1 rounded-md transition-all cursor-pointer group"
-                            title="Klik untuk melihat Visual QR Code & Status Scan"
-                          >
-                            <QrCode className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                            <span>{row.ticket_qr_code}</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyTicket(row.ticket_qr_code!, row.id)}
-                            className="p-1 text-on-surface-variant hover:text-white transition-colors cursor-pointer rounded"
-                            title="Salin Kode Tiket"
-                          >
-                            {copiedId === row.id ? (
-                              <Check className="w-3.5 h-3.5 text-tertiary" />
-                            ) : (
-                              <Copy className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-on-surface-variant/50 text-xs">-</span>
-                      )}
-                    </td>
-
-                    {/* 7. Waktu Daftar */}
-                    <td className="p-4 py-3 text-xs text-on-surface-variant font-mono">
-                      {formatDisplayWIB(row.created_at)}
-                    </td>
-
-                    {/* 8. Aksi (Verify / Reject for Pending) */}
-                    <td className="p-4 py-3 text-right sticky right-0 bg-surface/90 backdrop-blur-md border-l border-white/5">
-                      {isPending ? (
-                        <div className="flex items-center justify-end gap-2">
-                          {/* Approve (Verify) Button */}
-                          <button
-                            type="button"
-                            disabled={actionInProgress === row.id}
-                            onClick={() => handleVerify(row)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-tertiary/20 hover:bg-tertiary text-tertiary hover:text-tertiary-container text-xs font-semibold transition-all border border-tertiary/30 cursor-pointer disabled:opacity-50"
-                            title="Verifikasi Pembayaran & Terbitkan Tiket"
-                          >
+                      <div className="flex flex-col gap-1.5 items-start">
+                        {isVerified && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-tertiary/15 text-tertiary border border-tertiary/30">
                             <CheckCircle className="w-3.5 h-3.5" />
-                            <span>Verify</span>
-                          </button>
-
-                          {/* Reject Button */}
-                          <button
-                            type="button"
-                            disabled={actionInProgress === row.id}
-                            onClick={() => handleReject(row)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-error/15 hover:bg-error text-error hover:text-white text-xs font-semibold transition-all border border-error/30 cursor-pointer disabled:opacity-50"
-                            title="Tolak Pembayaran"
-                          >
+                            <span>Verified</span>
+                          </span>
+                        )}
+                        {isPending && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                            <Clock className="w-3.5 h-3.5 animate-pulse" />
+                            <span>Pending</span>
+                          </span>
+                        )}
+                        {isRejected && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-error/15 text-error border border-error/30">
                             <XCircle className="w-3.5 h-3.5" />
-                            <span>Reject</span>
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-on-surface-variant/40 font-mono">
-                          Tervalidasi
+                            <span>Rejected</span>
+                          </span>
+                        )}
+                        {!isVerified && !isPending && !isRejected && (
+                          <span className="text-xs text-on-surface-variant font-mono">
+                            {row.payment_status || "-"}
+                          </span>
+                        )}
+
+                        <span className="text-[11px] text-slate-400 font-mono">
+                          {formatDisplayWIB(row.created_at)}
                         </span>
-                      )}
+                      </div>
+                    </td>
+
+                    {/* 7. Aksi (Sticky Right) */}
+                    <td className="p-4 py-3 text-right sticky right-0 bg-surface/90 backdrop-blur-md border-l border-white/5">
+                      <div className="flex items-center justify-end gap-2">
+                        {isPending && (
+                          <>
+                            {/* Approve (Verify) Button */}
+                            <button
+                              type="button"
+                              disabled={actionInProgress === row.id}
+                              onClick={() => handleVerify(row)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-tertiary/20 hover:bg-tertiary text-tertiary hover:text-tertiary-container text-xs font-semibold transition-all border border-tertiary/30 cursor-pointer disabled:opacity-50"
+                              title="Verifikasi Pembayaran & Terbitkan Tiket"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              <span>Verify</span>
+                            </button>
+
+                            {/* Reject Button */}
+                            <button
+                              type="button"
+                              disabled={actionInProgress === row.id}
+                              onClick={() => handleReject(row)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-error/15 hover:bg-error text-error hover:text-white text-xs font-semibold transition-all border border-error/30 cursor-pointer disabled:opacity-50"
+                              title="Tolak Pembayaran"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              <span>Reject</span>
+                            </button>
+                          </>
+                        )}
+
+                        {/* 'Lihat Detail' Button */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDetailRecord(row)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white text-xs font-semibold transition-all border border-white/15 cursor-pointer shadow-sm"
+                          title="Buka Rincian Lengkap Pendaftar"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-secondary" />
+                          <span>Lihat Detail</span>
+                        </button>
+                      </div>
                     </td>
 
                   </tr>
@@ -793,6 +884,81 @@ export default function FestivalDatabase() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination Control Bar */}
+      <div className="flex-shrink-0 mt-auto p-4 bg-surface/60 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 select-none">
+        {/* Left Side: Range & Total text indicator */}
+        <div className="text-xs text-on-surface-variant font-poppins">
+          {filteredData.length === 0 ? (
+            <span>Menampilkan 0 peserta</span>
+          ) : (
+            <span>
+              Menampilkan{" "}
+              <strong className="text-white font-mono">{startIndex + 1}</strong>
+              {" - "}
+              <strong className="text-white font-mono">{endIndex}</strong>
+              {" dari "}
+              <strong className="text-white font-mono">
+                {new Intl.NumberFormat("id-ID").format(filteredData.length)}
+              </strong>{" "}
+              peserta
+            </span>
+          )}
+        </div>
+
+        {/* Right Side: Navigation controls */}
+        <div className="flex items-center gap-1.5">
+          {/* [<<] First Page */}
+          <button
+            type="button"
+            onClick={() => setCurrentPage(1)}
+            disabled={validCurrentPage <= 1}
+            className="p-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white disabled:opacity-25 disabled:cursor-not-allowed transition-all cursor-pointer"
+            title="Halaman Pertama"
+          >
+            <ChevronsLeft className="w-4 h-4" />
+          </button>
+
+          {/* [<] Prev Page */}
+          <button
+            type="button"
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            disabled={validCurrentPage <= 1}
+            className="p-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white disabled:opacity-25 disabled:cursor-not-allowed transition-all cursor-pointer"
+            title="Halaman Sebelumnya"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          {/* Page indicator */}
+          <div className="px-3.5 py-1 rounded-lg bg-black/40 border border-white/10 text-xs text-slate-300 font-mono">
+            Page <span className="text-white font-bold">{validCurrentPage}</span> of{" "}
+            <span className="text-white font-bold">{totalPages}</span>
+          </div>
+
+          {/* [>] Next Page */}
+          <button
+            type="button"
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            disabled={validCurrentPage >= totalPages}
+            className="p-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white disabled:opacity-25 disabled:cursor-not-allowed transition-all cursor-pointer"
+            title="Halaman Berikutnya"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+
+          {/* [>>] Last Page */}
+          <button
+            type="button"
+            onClick={() => setCurrentPage(totalPages)}
+            disabled={validCurrentPage >= totalPages}
+            className="p-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white disabled:opacity-25 disabled:cursor-not-allowed transition-all cursor-pointer"
+            title="Halaman Terakhir"
+          >
+            <ChevronsRight className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* ── ADMIN MODAL: VISUAL QR CODE & SCAN TRACKING ── */}
@@ -821,7 +987,7 @@ export default function FestivalDatabase() {
                 E-Tiket Festival VOITSFEST 2026
               </span>
               <span className="font-mono text-xs font-bold text-secondary bg-secondary/10 border border-secondary/30 px-2.5 py-0.5 rounded-full">
-                BIB: {qrModalRecord.nomor_bib != null ? `#${formatBIB(qrModalRecord.nomor_bib)}` : "Menunggu Verifikasi"}
+                Nomor Peserta: {qrModalRecord.nomor_bib != null ? formatFestivalParticipant(qrModalRecord.nomor_bib) : "Menunggu Verifikasi"}
               </span>
             </div>
             <h3 className="text-xl font-bold text-white mb-0.5">
@@ -898,6 +1064,448 @@ export default function FestivalDatabase() {
                   Terakhir: {formatDisplayWIB(qrModalRecord.last_scanned_at)}
                 </p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAILORED FESTIVAL DETAIL MODAL ('Lihat Detail') ── */}
+      {selectedDetailRecord && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto"
+          onClick={() => setSelectedDetailRecord(null)}
+        >
+          <div 
+            className="bg-[#0c1024] border border-white/20 rounded-2xl max-w-3xl w-full shadow-[0_0_60px_rgba(0,0,0,0.9)] relative flex flex-col my-auto max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 text-left font-poppins"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-6 border-b border-white/10 bg-surface/80 flex items-start justify-between gap-4 sticky top-0 z-20 backdrop-blur-md">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-secondary/15 text-secondary border border-secondary/30">
+                    Festival VOITSFEST 2026 • Detail Registrasi
+                  </span>
+                  {selectedDetailRecord.nomor_bib != null ? (
+                    <span className="font-mono text-xs font-bold text-secondary bg-secondary/10 border border-secondary/30 px-2.5 py-0.5 rounded-full">
+                      Nomor Peserta: {formatFestivalParticipant(selectedDetailRecord.nomor_bib)}
+                    </span>
+                  ) : (
+                    <span className="font-mono text-xs text-on-surface-variant/60 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
+                      Pass Festival
+                    </span>
+                  )}
+                  {selectedDetailRecord.payment_status === "verified" ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-tertiary/15 text-tertiary border border-tertiary/30">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>Verified</span>
+                    </span>
+                  ) : selectedDetailRecord.payment_status === "pending" ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                      <Clock className="w-3.5 h-3.5 animate-pulse" />
+                      <span>Pending</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error/15 text-error border border-error/30">
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Rejected</span>
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-xl font-bold text-white tracking-tight">
+                  {selectedDetailRecord.nama_lengkap}
+                </h3>
+                <p className="text-xs text-slate-400 font-mono">
+                  ID: {selectedDetailRecord.id} • Terdaftar: {formatDisplayWIB(selectedDetailRecord.created_at)}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {selectedDetailRecord.payment_status === "pending" && (
+                  <div className="flex items-center gap-1.5 mr-2">
+                    <button
+                      type="button"
+                      disabled={actionInProgress === selectedDetailRecord.id}
+                      onClick={() => handleVerify(selectedDetailRecord)}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-tertiary/20 hover:bg-tertiary text-tertiary hover:text-tertiary-container text-xs font-semibold transition-all border border-tertiary/30 cursor-pointer disabled:opacity-50"
+                      title="Verifikasi Pembayaran"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>Verify</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actionInProgress === selectedDetailRecord.id}
+                      onClick={() => handleReject(selectedDetailRecord)}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-error/15 hover:bg-error text-error hover:text-white text-xs font-semibold transition-all border border-error/30 cursor-pointer disabled:opacity-50"
+                      title="Tolak Pembayaran"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Reject</span>
+                    </button>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedDetailRecord(null)}
+                  className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Tutup Modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6 text-left">
+              
+              {/* 1. Data Identitas & Kontak Peserta */}
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4.5 space-y-3">
+                <div className="flex items-center gap-2 text-white font-semibold text-sm">
+                  <FileText className="w-4 h-4 text-secondary" />
+                  <span>Identitas &amp; Kontak Peserta</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <div className="space-y-1 bg-black/20 p-3 rounded-lg border border-white/5">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                      Email
+                    </span>
+                    <p className="text-xs font-mono text-white select-all">
+                      {selectedDetailRecord.email || "-"}
+                    </p>
+                  </div>
+                  <div className="space-y-1 bg-black/20 p-3 rounded-lg border border-white/5">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                      WhatsApp
+                    </span>
+                    <p className="text-xs font-mono text-white select-all">
+                      {selectedDetailRecord.whatsapp || "-"}
+                    </p>
+                  </div>
+                  <div className="space-y-1 bg-black/20 p-3 rounded-lg border border-white/5">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                      Kategori &amp; Identitas
+                    </span>
+                    <p className="text-xs font-medium text-white">
+                      {selectedDetailRecord.kategori_peserta || "Umum"} {selectedDetailRecord.nrp ? `• NRP: ${selectedDetailRecord.nrp}` : ""}
+                    </p>
+                    {selectedDetailRecord.departemen && (
+                      <p className="text-[11px] text-slate-400">
+                        Dept: {selectedDetailRecord.departemen}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* KTM preview link if exists */}
+                {selectedDetailRecord.ktm_url && (
+                  <div className="pt-2 flex items-center justify-between bg-primary/10 border border-primary/20 p-3 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-primary" />
+                      <span className="text-xs text-white font-medium">Scan Kartu Pelajar / KTM Mahasiswa ITS Terlampir</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setImagePreview({ url: selectedDetailRecord.ktm_url!, title: `Scan KTM - ${selectedDetailRecord.nama_lengkap}` })}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-primary text-primary-container text-xs font-semibold hover:bg-primary-container hover:text-primary transition-all cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Lihat Dokumen KTM</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Gate Check-in / Presence (Event Day Tracking) */}
+              <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-white font-semibold text-sm">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <span>Gate Check-in / Kehadiran (Event Day Tracking)</span>
+                  </div>
+                  {selectedDetailRecord.ticket_qr_code && (
+                    <button
+                      type="button"
+                      onClick={() => setQrModalRecord(selectedDetailRecord)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-secondary/15 hover:bg-secondary/25 border border-secondary/30 text-secondary text-xs font-semibold transition-all cursor-pointer"
+                    >
+                      <QrCode className="w-3.5 h-3.5" />
+                      <span>Buka Visual QR</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <div className="space-y-1 bg-black/20 p-3.5 rounded-lg border border-white/5">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                      Status Validasi Tiket
+                    </span>
+                    {selectedDetailRecord.payment_status === "verified" ? (
+                      <div className="inline-flex items-center gap-1 text-emerald-400 text-xs font-semibold">
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        <span>Tiket Aktif &amp; Sah</span>
+                      </div>
+                    ) : selectedDetailRecord.payment_status === "pending" ? (
+                      <div className="inline-flex items-center gap-1 text-amber-400 text-xs font-semibold">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Menunggu Verifikasi</span>
+                      </div>
+                    ) : (
+                      <div className="inline-flex items-center gap-1 text-rose-400 text-xs font-semibold">
+                        <XCircle className="w-3.5 h-3.5" />
+                        <span>Tiket Ditolak / Tidak Sah</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-1 bg-black/20 p-3.5 rounded-lg border border-white/5">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                      Jumlah Pemindaian Gate
+                    </span>
+                    {(selectedDetailRecord.scan_count ?? 0) === 0 ? (
+                      <span className="text-xs font-mono font-medium text-slate-300">
+                        0x (Belum Hadir di Gate)
+                      </span>
+                    ) : (
+                      <span className="text-xs font-mono font-bold text-amber-400">
+                        {selectedDetailRecord.scan_count}x (Telah Masuk Gate)
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-1 bg-black/20 p-3.5 rounded-lg border border-white/5">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                      Waktu Pemindaian Terakhir
+                    </span>
+                    <p className="text-xs font-mono text-white">
+                      {selectedDetailRecord.last_scanned_at 
+                        ? formatDisplayWIB(selectedDetailRecord.last_scanned_at) 
+                        : "Belum pernah dipindai"}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedDetailRecord.ticket_qr_code && (
+                  <div className="flex items-center justify-between bg-black/30 p-3 rounded-lg border border-white/10">
+                    <div className="flex items-center gap-2">
+                      <QrCode className="w-4 h-4 text-secondary" />
+                      <span className="text-xs text-slate-300">Kode Tiket:</span>
+                      <strong className="text-xs font-mono text-secondary tracking-wider">
+                        {selectedDetailRecord.ticket_qr_code}
+                      </strong>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyTicket(selectedDetailRecord.ticket_qr_code!, "modal-code")}
+                      className="p-1 text-slate-400 hover:text-white transition-colors cursor-pointer rounded"
+                      title="Salin Kode Tiket"
+                    >
+                      {copiedId === "modal-code" ? (
+                        <Check className="w-3.5 h-3.5 text-tertiary" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Payment & Identity Metadata */}
+              <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
+                <div className="flex items-center gap-2 text-white font-semibold text-sm">
+                  <CreditCard className="w-4 h-4 text-secondary" />
+                  <span>Metadata Transaksi &amp; Pembayaran</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+                  <div className="space-y-1 bg-black/20 p-3 rounded-lg border border-white/5">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                      Nominal Transfer
+                    </span>
+                    <p className="text-xs font-mono font-bold text-[#ffd700]">
+                      {new Intl.NumberFormat("id-ID", {
+                        style: "currency",
+                        currency: "IDR",
+                        minimumFractionDigits: 0,
+                      }).format(selectedDetailRecord.amount_paid || 0)}
+                    </p>
+                  </div>
+                  <div className="space-y-1 bg-black/20 p-3 rounded-lg border border-white/5">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                      Paket / Fase
+                    </span>
+                    <p className="text-xs font-semibold text-secondary truncate">
+                      {selectedDetailRecord.ticket_phase || "Reguler"}
+                    </p>
+                  </div>
+                  <div className="space-y-1 bg-black/20 p-3 rounded-lg border border-white/5">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                      Rekening Pengirim
+                    </span>
+                    <p className="text-xs font-mono text-white truncate" title={selectedDetailRecord.rekening_pengirim || ""}>
+                      {selectedDetailRecord.rekening_pengirim || "-"}
+                    </p>
+                  </div>
+                  <div className="space-y-1 bg-black/20 p-3 rounded-lg border border-white/5">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                      Waktu Registrasi (WIB)
+                    </span>
+                    <p className="text-xs font-mono text-white">
+                      {formatDisplayWIB(selectedDetailRecord.created_at)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Bukti Transfer Thumbnail */}
+                <div className="pt-2 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-300 block mb-0.5">
+                      Bukti Transfer Pembayaran:
+                    </span>
+                    <p className="text-[11px] text-slate-400">
+                      Pastikan nominal &amp; rekening pengirim sesuai dengan mutasi bank.
+                    </p>
+                  </div>
+                  {selectedDetailRecord.bukti_transfer_url ? (
+                    <button
+                      type="button"
+                      onClick={() => setImagePreview({ url: selectedDetailRecord.bukti_transfer_url!, title: `Bukti Transfer - ${selectedDetailRecord.nama_lengkap}` })}
+                      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-secondary/15 hover:bg-secondary/25 border border-secondary/30 text-secondary text-xs font-semibold transition-all cursor-pointer w-fit"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>Buka Bukti Transfer Penuh</span>
+                    </button>
+                  ) : (
+                    <span className="text-xs text-slate-400 italic">Tidak ada lampiran bukti transfer</span>
+                  )}
+                </div>
+
+                {selectedDetailRecord.bukti_transfer_url && (
+                  <div className="mt-2 rounded-xl overflow-hidden border border-white/15 bg-black/40 max-h-48 flex items-center justify-center p-2">
+                    <img
+                      src={selectedDetailRecord.bukti_transfer_url}
+                      alt="Bukti Transfer Thumbnail"
+                      className="max-h-44 object-contain rounded cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => setImagePreview({ url: selectedDetailRecord.bukti_transfer_url!, title: `Bukti Transfer - ${selectedDetailRecord.nama_lengkap}` })}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Group / Bundling Info (if applicable) */}
+              {selectedDetailRecord.group_id && (
+                <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-white font-semibold text-sm">
+                      <Users className="w-4 h-4 text-cyan-400" />
+                      <span>Informasi Grup &amp; Anggota Bundling ({groupMembers.length} Peserta)</span>
+                    </div>
+                    <span className="text-xs font-mono text-slate-400">
+                      Group ID: {selectedDetailRecord.group_id.slice(0, 8)}...
+                    </span>
+                  </div>
+
+                  {loadingGroupMembers ? (
+                    <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                      <RotateCw className="w-3.5 h-3.5 animate-spin text-secondary" />
+                      <span>Memuat data rombongan...</span>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-white/5 border border-white/10 rounded-lg overflow-hidden">
+                      {groupMembers.map((member, idx) => (
+                        <div key={member.id} className="p-3 bg-black/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-white">{idx + 1}. {member.nama_lengkap}</span>
+                              {member.is_primary ? (
+                                <span className="px-1.5 py-0.2 rounded text-[10px] bg-secondary/20 text-secondary border border-secondary/30 font-semibold">
+                                  Pendaftar Utama
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.2 rounded text-[10px] bg-cyan-500/15 text-cyan-400 border border-cyan-500/25">
+                                  Anggota Tambahan
+                                </span>
+                              )}
+                              <span className="text-[10px] text-slate-400 px-1.5 py-0.2 rounded bg-white/5 border border-white/10">
+                                {member.kategori_peserta || "Umum"}
+                              </span>
+                            </div>
+                            <p className="text-slate-400 font-mono text-[11px] mt-0.5">
+                              {member.whatsapp} • {member.email} {member.nrp ? `• NRP: ${member.nrp}` : ""}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {member.nomor_bib != null ? (
+                              <span className="font-mono text-xs font-bold text-secondary bg-secondary/15 border border-secondary/30 px-2 py-0.5 rounded">
+                                {formatFestivalParticipant(member.nomor_bib)}
+                              </span>
+                            ) : (
+                              <span className="font-mono text-[11px] text-slate-400 bg-white/5 px-2 py-0.5 rounded">
+                                Pass Festival
+                              </span>
+                            )}
+                            {member.ktm_url && (
+                              <button
+                                type="button"
+                                onClick={() => setImagePreview({ url: member.ktm_url!, title: `Scan KTM - ${member.nama_lengkap}` })}
+                                className="px-2 py-0.5 rounded text-[11px] bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30 cursor-pointer"
+                              >
+                                KTM
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── IMAGE PREVIEW MODAL ── */}
+      {imagePreview && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setImagePreview(null)}
+        >
+          <div 
+            className="bg-[#0c1024] border border-white/20 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-white/10 flex items-center justify-between bg-surface/60">
+              <h4 className="text-sm font-semibold text-white truncate max-w-[80%]">
+                {imagePreview.title}
+              </h4>
+              <div className="flex items-center gap-2">
+                <a
+                  href={imagePreview.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  title="Buka di tab baru"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setImagePreview(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Tutup"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 overflow-auto flex items-center justify-center bg-black/60 min-h-[300px]">
+              <img
+                src={imagePreview.url}
+                alt={imagePreview.title}
+                className="max-h-[70vh] max-w-full object-contain rounded-lg border border-white/10 shadow-lg"
+              />
             </div>
           </div>
         </div>
