@@ -10,6 +10,7 @@ import {
 } from "@/lib/pricing";
 import { getEventTimeStatus, parseWibDate } from "@/lib/timeUtils";
 import { Promo } from "@/types/database";
+import { isRegularRegistration } from "@/lib/quota";
 
 export interface CheckoutResult {
   success?: boolean;
@@ -160,13 +161,14 @@ export async function validatePreCheckoutGuard(
     if (eventKey === "festival") {
       const { data: rows } = await supabase
         .from("festival_registrations")
-        .select("payment_status, ticket_phase, created_at");
+        .select("payment_status, ticket_phase, created_at, promo_id");
 
-      (rows || []).forEach((r) => {
+      (rows || []).forEach((r: any) => {
         const s = normalizeStatus(r.payment_status);
         if (s !== "rejected" && s !== "") {
           totalEventUsed++;
-          if (isRecordInPhase(r, tierConfig.phase, tierConfig.start_date, tierConfig.end_date)) {
+          const isRegular = isRegularRegistration(r);
+          if (isRegular && isRecordInPhase(r, tierConfig.phase, tierConfig.start_date, tierConfig.end_date)) {
             phaseUsed++;
           }
         }
@@ -174,13 +176,14 @@ export async function validatePreCheckoutGuard(
     } else if (eventKey === "colorfun") {
       const { data: rows } = await supabase
         .from("colorfun_registrations")
-        .select("payment_status, ticket_phase, created_at");
+        .select("payment_status, ticket_phase, created_at, promo_id");
 
-      (rows || []).forEach((r) => {
+      (rows || []).forEach((r: any) => {
         const s = normalizeStatus(r.payment_status);
         if (s !== "rejected" && s !== "") {
           totalEventUsed++;
-          if (isRecordInPhase(r, tierConfig.phase, tierConfig.start_date, tierConfig.end_date)) {
+          const isRegular = isRegularRegistration(r);
+          if (isRegular && isRecordInPhase(r, tierConfig.phase, tierConfig.start_date, tierConfig.end_date)) {
             phaseUsed++;
           }
         }
@@ -195,15 +198,16 @@ export async function validatePreCheckoutGuard(
 
       const [regRes, txRes] = await Promise.all([
         supabase.from(table).select("id, status, created_at"),
-        supabase.from("transactions").select("source_id, status, sub_event_type, ticket_phase, created_at"),
+        supabase.from("transactions").select("source_id, status, sub_event_type, ticket_phase, created_at, promo_id"),
       ]);
 
-      const txMap = new Map<string, { status: string; ticketPhase?: string | null }>();
-      (txRes.data || []).forEach((t) => {
+      const txMap = new Map<string, { status: string; ticketPhase?: string | null; promoId?: string | null }>();
+      (txRes.data || []).forEach((t: any) => {
         if (t.source_id) {
           txMap.set(t.source_id, {
             status: normalizeStatus(t.status),
             ticketPhase: t.ticket_phase || null,
+            promoId: t.promo_id || null,
           });
         }
       });
@@ -213,7 +217,9 @@ export async function validatePreCheckoutGuard(
         const effectiveStatus = tx ? tx.status : normalizeStatus(r.status);
         if (effectiveStatus !== "rejected" && effectiveStatus !== "") {
           totalEventUsed++;
+          const isRegular = isRegularRegistration({ promo_id: tx?.promoId, ticket_phase: tx?.ticketPhase });
           if (
+            isRegular &&
             isRecordInPhase(
               { ticket_phase: tx?.ticketPhase, created_at: r.created_at },
               tierConfig.phase,
@@ -228,21 +234,27 @@ export async function validatePreCheckoutGuard(
     } else if (eventKey === "seminar") {
       const [regRes, txRes] = await Promise.all([
         supabase.from("seminar_registrations").select("id, created_at"),
-        supabase.from("transactions").select("source_id, status, sub_event_type, created_at"),
+        supabase.from("transactions").select("source_id, status, sub_event_type, created_at, ticket_phase, promo_id"),
       ]);
 
-      const txMap = new Map<string, string>();
+      const txMap = new Map<string, { status: string; ticketPhase?: string | null; promoId?: string | null }>();
       (txRes.data || [])
-        .filter((t) => (t.sub_event_type || "").toUpperCase() === "SEMINAR" && t.source_id)
-        .forEach((t) => {
-          txMap.set(t.source_id!, normalizeStatus(t.status));
+        .filter((t: any) => (t.sub_event_type || "").toUpperCase() === "SEMINAR" && t.source_id)
+        .forEach((t: any) => {
+          txMap.set(t.source_id!, {
+            status: normalizeStatus(t.status),
+            ticketPhase: t.ticket_phase || null,
+            promoId: t.promo_id || null,
+          });
         });
 
       (regRes.data || []).forEach((r: any) => {
-        const txStatus = txMap.get(r.id);
-        if (txStatus !== "rejected") {
+        const tx = txMap.get(r.id);
+        const effectiveStatus = tx ? tx.status : "pending";
+        if (effectiveStatus !== "rejected") {
           totalEventUsed++;
-          if (isRecordInPhase({ ticket_phase: null, created_at: r.created_at }, tierConfig.phase, tierConfig.start_date, tierConfig.end_date)) {
+          const isRegular = isRegularRegistration({ promo_id: tx?.promoId, ticket_phase: tx?.ticketPhase });
+          if (isRegular && isRecordInPhase({ ticket_phase: tx?.ticketPhase || null, created_at: r.created_at }, tierConfig.phase, tierConfig.start_date, tierConfig.end_date)) {
             phaseUsed++;
           }
         }
@@ -274,10 +286,12 @@ export async function validatePreCheckoutGuard(
     }
 
     // 5. Phase Quota Guard (phase_quota)
+    // NOTE: Registrations purchased via Bundling/Promo packages must NOT decrement or count against this phase quota limit.
+    // When checking bundle purchases, evaluate strictly against kuota_maksimal in public.promos and the overall event_quota.
     const isPhaseUnlimited = tierConfig.phase_quota === null;
     const phaseQuota = tierConfig.phase_quota;
 
-    if (!isPhaseUnlimited && phaseQuota !== null && phaseUsed + requestedQuantity > phaseQuota) {
+    if (!promoId && !isPhaseUnlimited && phaseQuota !== null && phaseUsed + requestedQuantity > phaseQuota) {
       return {
         valid: false,
         error: `Kuota Fase Penuh. Kuota pendaftaran untuk fase "${tierConfig.phase}" (${PRICING_EVENT_NAMES[eventKey]}) sudah habis terjual (${phaseQuota} slot).`,

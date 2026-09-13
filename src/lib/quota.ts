@@ -211,10 +211,20 @@ function buildSubEventQuota(
 }
 
 /**
+ * Helper to determine if a registration is strictly a regular ticket (non-promo / non-bundle).
+ * Registrations with promo_id set or ticket_phase containing [PROMO:...] are bundling/promo purchases.
+ */
+export function isRegularRegistration(record: { promo_id?: string | null; ticket_phase?: string | null }): boolean {
+  if (record.promo_id && String(record.promo_id).trim() !== "") return false;
+  if (record.ticket_phase && record.ticket_phase.includes("[PROMO:")) return false;
+  return true;
+}
+
+/**
  * Fetches real-time quota calculations for all 6 sub-events.
  * Strictly adheres to the two-tier quota hierarchy:
- * - Tier 1: Phase Quota (specific to active registration phase)
- * - Tier 2: Overall Venue/Sub-Event Capacity (cumulative across all phases)
+ * - Tier 1: Phase Quota: Counts strictly regular ticket registrations (promo_id IS NULL AND NOT a bundle).
+ * - Tier 2: Overall Venue/Sub-Event Capacity: Counts ALL participants across all phases, regular tickets, and bundling purchases.
  * - Used Quota: status IN ('pending', 'approved') (or status != 'rejected')
  */
 export async function fetchAllSubEventQuotas(): Promise<SubEventQuotaMap> {
@@ -223,17 +233,17 @@ export async function fetchAllSubEventQuotas(): Promise<SubEventQuotaMap> {
 
   try {
     const [festRes, cfrRes, bpcRes, bccRes, semRes, tenRes, txRes] = await Promise.all([
-      supabase.from("festival_registrations").select("id, payment_status, ticket_phase, created_at"),
-      supabase.from("colorfun_registrations").select("id, payment_status, ticket_phase, created_at"),
+      supabase.from("festival_registrations").select("id, payment_status, ticket_phase, created_at, promo_id"),
+      supabase.from("colorfun_registrations").select("id, payment_status, ticket_phase, created_at, promo_id"),
       supabase.from("bpc_registrations").select("id, status, created_at"),
       supabase.from("bcc_registrations").select("id, status, created_at"),
       supabase.from("seminar_registrations").select("id, created_at"),
       supabase.from("tenant_registrations").select("id, status, created_at"),
-      supabase.from("transactions").select("source_id, status, sub_event_type, created_at, ticket_phase"),
+      supabase.from("transactions").select("source_id, status, sub_event_type, created_at, ticket_phase, promo_id"),
     ]);
 
     // Map transactions by source_id for sub-events that track payments in transactions
-    const txMap = new Map<string, { status: string; subEvent: string; ticketPhase?: string | null; createdAt?: string | null }>();
+    const txMap = new Map<string, { status: string; subEvent: string; ticketPhase?: string | null; createdAt?: string | null; promoId?: string | null }>();
     (txRes.data || []).forEach((t: any) => {
       if (t.source_id) {
         const sub = (t.sub_event_type || t.source_type || "").toUpperCase();
@@ -242,6 +252,7 @@ export async function fetchAllSubEventQuotas(): Promise<SubEventQuotaMap> {
           subEvent: sub,
           ticketPhase: t.ticket_phase || null,
           createdAt: t.created_at || null,
+          promoId: t.promo_id || null,
         });
       }
     });
@@ -258,11 +269,13 @@ export async function fetchAllSubEventQuotas(): Promise<SubEventQuotaMap> {
       if (isPending) festPending++;
       else if (isApproved) festApproved++;
       if (isPending || isApproved) {
-        if (isRecordInPhase(r, festTier.phase, festTier.start_date, festTier.end_date)) {
+        // Phase Quota: strictly regular ticket registrations (promo_id IS NULL and NOT bundle)
+        if (isRegularRegistration(r) && isRecordInPhase(r, festTier.phase, festTier.start_date, festTier.end_date)) {
           festPhaseUsed++;
         }
       }
     }
+    // Overall Event Capacity: ALL participants (Regular + Bundling)
     const festTotalUsed = festPending + festApproved;
 
     // 2. ColorFun Run Quota
@@ -277,11 +290,13 @@ export async function fetchAllSubEventQuotas(): Promise<SubEventQuotaMap> {
       if (isPending) cfrPending++;
       else if (isApproved) cfrApproved++;
       if (isPending || isApproved) {
-        if (isRecordInPhase(r, cfrTier.phase, cfrTier.start_date, cfrTier.end_date)) {
+        // Phase Quota: strictly regular ticket registrations (promo_id IS NULL and NOT bundle)
+        if (isRegularRegistration(r) && isRecordInPhase(r, cfrTier.phase, cfrTier.start_date, cfrTier.end_date)) {
           cfrPhaseUsed++;
         }
       }
     }
+    // Overall Event Capacity: ALL participants (Regular + Bundling)
     const cfrTotalUsed = cfrPending + cfrApproved;
 
     // 3. BPC Quota
@@ -300,7 +315,8 @@ export async function fetchAllSubEventQuotas(): Promise<SubEventQuotaMap> {
       } else {
         bpcPending++;
       }
-      if (isRecordInPhase({ ticket_phase: txInfo?.ticketPhase, created_at: r.created_at }, bpcTier.phase, bpcTier.start_date, bpcTier.end_date)) {
+      const isRegular = isRegularRegistration({ promo_id: txInfo?.promoId, ticket_phase: txInfo?.ticketPhase });
+      if (isRegular && isRecordInPhase({ ticket_phase: txInfo?.ticketPhase, created_at: r.created_at }, bpcTier.phase, bpcTier.start_date, bpcTier.end_date)) {
         bpcPhaseUsed++;
       }
     }
@@ -322,7 +338,8 @@ export async function fetchAllSubEventQuotas(): Promise<SubEventQuotaMap> {
       } else {
         bccPending++;
       }
-      if (isRecordInPhase({ ticket_phase: txInfo?.ticketPhase, created_at: r.created_at }, bccTier.phase, bccTier.start_date, bccTier.end_date)) {
+      const isRegular = isRegularRegistration({ promo_id: txInfo?.promoId, ticket_phase: txInfo?.ticketPhase });
+      if (isRegular && isRecordInPhase({ ticket_phase: txInfo?.ticketPhase, created_at: r.created_at }, bccTier.phase, bccTier.start_date, bccTier.end_date)) {
         bccPhaseUsed++;
       }
     }
@@ -344,7 +361,8 @@ export async function fetchAllSubEventQuotas(): Promise<SubEventQuotaMap> {
       } else {
         tenPending++;
       }
-      if (isRecordInPhase({ ticket_phase: txInfo?.ticketPhase, created_at: r.created_at }, tenTier.phase, tenTier.start_date, tenTier.end_date)) {
+      const isRegular = isRegularRegistration({ promo_id: txInfo?.promoId, ticket_phase: txInfo?.ticketPhase });
+      if (isRegular && isRecordInPhase({ ticket_phase: txInfo?.ticketPhase, created_at: r.created_at }, tenTier.phase, tenTier.start_date, tenTier.end_date)) {
         tenPhaseUsed++;
       }
     }
@@ -353,26 +371,21 @@ export async function fetchAllSubEventQuotas(): Promise<SubEventQuotaMap> {
     // 6. Seminar Quota
     const semTier = pricingTiers.seminar;
     const semRows = semRes.data || [];
-    const semTxMap = new Map<string, string>();
-    (txRes.data || [])
-      .filter((t) => t.sub_event_type === "SEMINAR" && t.source_id)
-      .forEach((t) => {
-        semTxMap.set(t.source_id!, normalizeStatus(t.status));
-      });
-
     let semPending = 0;
     let semApproved = 0;
     let semPhaseUsed = 0;
     for (const r of semRows) {
-      const txStatus = semTxMap.get(r.id);
-      if (txStatus === "rejected") {
+      const txInfo = txMap.get(r.id);
+      const effectiveStatus = (txInfo && txInfo.subEvent.includes("SEMINAR")) ? txInfo.status : "pending";
+      if (effectiveStatus === "rejected") {
         continue; // Released
-      } else if (txStatus === "verified" || txStatus === "approved") {
+      } else if (isStatusApproved(effectiveStatus)) {
         semApproved++;
       } else {
         semPending++;
       }
-      if (isRecordInPhase({ ticket_phase: null, created_at: r.created_at }, semTier.phase, semTier.start_date, semTier.end_date)) {
+      const isRegular = isRegularRegistration({ promo_id: txInfo?.promoId, ticket_phase: txInfo?.ticketPhase });
+      if (isRegular && isRecordInPhase({ ticket_phase: txInfo?.ticketPhase || null, created_at: r.created_at }, semTier.phase, semTier.start_date, semTier.end_date)) {
         semPhaseUsed++;
       }
     }
@@ -564,7 +577,9 @@ export async function checkQuotaAvailability(
   }
 
   // Guard 1: Phase Limit (phase_quota: active phase quota limit)
+  // Evaluated ONLY for regular ticket bookings (!promoId). Bundling purchases do NOT decrement or check phase_quota.
   if (
+    !promoId &&
     !eventStatus.isPhaseUnlimited &&
     eventStatus.phaseQuota != null &&
     eventStatus.usedInPhase + requestedQuantity > eventStatus.phaseQuota

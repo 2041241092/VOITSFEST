@@ -187,7 +187,19 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
 
                     {/* Event Category Badge */}
                     <span className="px-3 py-1 bg-[#87CEEB]/20 text-[#87CEEB] font-label-md text-xs rounded-full border border-[#87CEEB]/30 font-medium">
-                      {ticket.event_type === "FESTIVAL" ? "Festival" : "ColorFun Run"}
+                      {(ticket.event_type as string) === "FESTIVAL"
+                        ? "Festival"
+                        : (ticket.event_type as string) === "CFR"
+                        ? "ColorFun Run"
+                        : (ticket.event_type as string) === "SEMINAR"
+                        ? "Seminar"
+                        : (ticket.event_type as string) === "BCC"
+                        ? "BCC"
+                        : (ticket.event_type as string) === "BPC"
+                        ? "BPC"
+                        : (ticket.event_type as string) === "TENANT"
+                        ? "Tenant"
+                        : (ticket.event_type || "Event")}
                     </span>
 
                     {/* Promo or Bundle Badge */}
@@ -215,13 +227,22 @@ export default function TicketSlider({ tickets }: TicketSliderProps) {
                   )}
 
                   <h4 className="font-headline-sm text-2xl font-bold mb-1">
-                    {ticket.event_type === "FESTIVAL" ? "VOITSFEST Main Festival" : "ColorFun Run (5K)"}
+                    {(ticket.event_type as string) === "FESTIVAL"
+                      ? "VOITSFEST Main Festival"
+                      : (ticket.event_type as string) === "CFR"
+                      ? "ColorFun Run (5K)"
+                      : (ticket.event_type as string) === "SEMINAR"
+                      ? "Cosmic Seminar Kewirausahaan"
+                      : (ticket.event_type as string) === "BCC"
+                      ? "Business Case Competition"
+                      : (ticket.event_type as string) === "BPC"
+                      ? "Business Plan Competition"
+                      : (ticket.event_type as string) === "TENANT"
+                      ? "Tenant & Expo Bazaar"
+                      : (ticket.event_type || "Tiket Resmi VOITSFEST")}
                   </h4>
-                  <p className="text-on-surface-variant font-body-md text-sm mb-1">
-                    {ticket.event_type === "FESTIVAL" ? "Sabtu, 24 Okt 2026 • 15:00 WIB" : "Minggu, 25 Okt 2026 • 06:00 WIB"}
-                  </p>
 
-                  {/* Registration timestamp formatted in WIB */}
+                  {/* Registration timestamp formatted in literal WIB */}
                   {ticket.created_at && (
                     <p className="text-xs text-slate-400 mb-3">
                       Terdaftar: <span className="font-mono text-slate-300">{formatDisplayWIB(ticket.created_at)}</span>

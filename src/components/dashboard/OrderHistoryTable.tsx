@@ -202,7 +202,19 @@ export default function OrderHistoryTable({ tickets }: OrderHistoryTableProps) {
                               ? "bg-secondary/15 text-secondary border-secondary/30"
                               : "bg-[#87CEEB]/15 text-[#87CEEB] border-[#87CEEB]/30"
                           }`}>
-                            {isFestival ? "Festival" : "ColorFun Run"}
+                            {(ticket.event_type as string) === "FESTIVAL"
+                              ? "Festival"
+                              : (ticket.event_type as string) === "CFR"
+                              ? "ColorFun Run"
+                              : (ticket.event_type as string) === "SEMINAR"
+                              ? "Seminar"
+                              : (ticket.event_type as string) === "BCC"
+                              ? "BCC"
+                              : (ticket.event_type as string) === "BPC"
+                              ? "BPC"
+                              : (ticket.event_type as string) === "TENANT"
+                              ? "Tenant"
+                              : (ticket.event_type || "Event")}
                           </span>
                           {ticket.is_primary === false && (
                             <span className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-cyan-500/15 text-cyan-300 border border-cyan-500/25">
@@ -214,7 +226,7 @@ export default function OrderHistoryTable({ tickets }: OrderHistoryTableProps) {
                           {ticket.nama_lengkap || (isFestival ? "VOITSFEST Main Festival" : "ColorFun Run 5K")}
                         </span>
                         <span className="text-[11px] text-slate-400 font-mono">
-                          ID: {ticket.id.slice(0, 8)}... • {isFestival ? "24 Okt 2026" : "25 Okt 2026"}
+                          ID: {ticket.id.slice(0, 8)}...
                         </span>
                       </div>
                     </td>

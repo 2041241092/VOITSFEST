@@ -271,9 +271,10 @@ export default function PromoSlider({ promos: initialPromos }: PromoSliderProps)
               }
             }
 
-            // Check sub-event quota (isEventFull or isPhaseFull)
+            // Check sub-event quota: bundling/promo cards respect overall venue capacity (isEventFull),
+            // and are not blocked when only phase_quota is full
             const quota = subEventQuotas?.[targetKey];
-            if (quota && (quota.isEventFull || quota.isPhaseFull)) {
+            if (quota && quota.isEventFull) {
               isSubEventBlocked = true;
               subEventBlockText = "Event Penuh";
             }

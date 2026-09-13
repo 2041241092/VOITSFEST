@@ -92,20 +92,29 @@ function GatewayGuardContent({ event, children }: GatewayGuardProps) {
           }
         }
 
-        // Check quota availability
-        const quota = allQuotas[pricingKey];
-        if (quota && (quota.isEventFull || quota.isPhaseFull)) {
-          setBlockedReason("Total kuota pendaftaran untuk sub-event ini telah mencapai kapasitas maksimal (Sold Out).");
-          setChecking(false);
-          return;
-        }
-
-        // 3. If a promo_id / coupon parameter is passed in the URL, verify promo validity
+        // 3. Check promo_id / coupon parameter passed in the URL
         const promoParam =
           searchParams?.get("promoId") ||
           searchParams?.get("promo_id") ||
           searchParams?.get("coupon") ||
           searchParams?.get("promo");
+
+        // Check quota availability:
+        // Bundling purchases strictly respect overall venue capacity (isEventFull).
+        // Regular registrations evaluate both isEventFull and active phase quota (isPhaseFull).
+        const quota = allQuotas[pricingKey];
+        if (quota) {
+          if (quota.isEventFull) {
+            setBlockedReason("Total kuota pendaftaran untuk sub-event ini telah mencapai kapasitas maksimal (Sold Out).");
+            setChecking(false);
+            return;
+          }
+          if (!promoParam && quota.isPhaseFull) {
+            setBlockedReason("Kuota pendaftaran untuk fase ini sudah habis terjual (Kuota Fase Penuh).");
+            setChecking(false);
+            return;
+          }
+        }
 
         if (promoParam) {
           // Look up promo record

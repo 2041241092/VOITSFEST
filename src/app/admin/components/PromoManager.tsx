@@ -670,11 +670,11 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                 <th className="py-3 px-4 font-semibold">Fase &amp; Harga</th>
                 <th className="py-3 px-4 font-semibold text-center">
                   <div>Total Kuota (Fase Pendaftaran)</div>
-                  <div className="text-[9px] font-normal text-on-surface-variant normal-case">Fase Aktif: [Terpakai / Kuota]</div>
+                  <div className="text-[9px] font-normal text-secondary normal-case">Hanya Tiket Reguler (Non-Promo)</div>
                 </th>
                 <th className="py-3 px-4 font-semibold text-center">
                   <div>Total Kuota (Slot Peserta)</div>
-                  <div className="text-[9px] font-normal text-on-surface-variant normal-case">Sub-Event: [Total Terdaftar / Kapasitas]</div>
+                  <div className="text-[9px] font-normal text-emerald-400 normal-case">Kumulatif Reguler + Bundling</div>
                 </th>
                 <th className="py-3 px-4 font-semibold text-center">Status Pendaftaran</th>
                 <th className="py-3 px-4 font-semibold text-right">Aksi</th>
@@ -690,12 +690,18 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                 const usedInPhase = q ? q.usedInPhase : 0;
                 const remainingPhase = q ? q.remainingPhaseQuota : item.phase_quota;
                 const isPhaseFull = q ? q.isPhaseFull : false;
+                const phasePercent = !isPhaseUnlimited && item.phase_quota && item.phase_quota > 0
+                  ? Math.min(100, Math.round((usedInPhase / item.phase_quota) * 100))
+                  : 0;
 
                 const effectiveEventQuota = item.event_quota !== undefined ? item.event_quota : (item.total_event_quota !== undefined ? item.total_event_quota : item.max_quota ?? null);
                 const isEventUnlimited = effectiveEventQuota === null;
                 const totalRegistered = q ? q.totalEventRegistered : 0;
                 const remainingEvent = q ? q.remainingEventQuota : effectiveEventQuota;
                 const isEventFull = q ? q.isEventFull : false;
+                const eventPercent = !isEventUnlimited && effectiveEventQuota && effectiveEventQuota > 0
+                  ? Math.min(100, Math.round((totalRegistered / effectiveEventQuota) * 100))
+                  : 0;
 
                 return (
                   <tr key={eventKey} className="hover:bg-white/[0.02] transition-colors">
@@ -711,14 +717,28 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                       <span className="block text-[11px] text-[#ffd700] font-mono">{formatRupiah(item.price)}</span>
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <div className="inline-flex flex-col items-center gap-1">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 font-bold text-white text-xs">
+                      <div className="inline-flex flex-col items-center gap-1 w-full max-w-[160px] mx-auto">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-white/5 border border-white/10 font-bold text-white text-xs">
                           <span>{usedInPhase}</span>
                           <span className="text-on-surface-variant font-normal">/</span>
                           <span className={isPhaseUnlimited ? "text-secondary font-normal" : "text-white"}>
                             {isPhaseUnlimited ? "Unlimited" : item.phase_quota}
                           </span>
                         </span>
+                        {!isPhaseUnlimited && (
+                          <div className="w-full bg-surface-container-highest/80 rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                isPhaseFull
+                                  ? "bg-rose-500"
+                                  : phasePercent >= 80
+                                  ? "bg-amber-400"
+                                  : "bg-[#87CEEB]"
+                              }`}
+                              style={{ width: `${phasePercent}%` }}
+                            />
+                          </div>
+                        )}
                         <span className={`text-[10px] font-sans font-medium ${
                           isPhaseFull
                             ? "text-error"
@@ -726,23 +746,37 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                             ? "text-amber-300"
                             : "text-slate-400"
                         }`}>
-                          {isPhaseFull ? "Kuota Fase Habis" : remainingPhase !== null ? `Sisa: ${remainingPhase} Slot` : "Tanpa Batas"}
+                          {isPhaseFull ? "Kuota Fase Habis" : remainingPhase !== null ? `Sisa: ${remainingPhase} Slot (${phasePercent}%)` : "Tanpa Batas"}
                         </span>
                       </div>
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <div className="inline-flex flex-col items-center gap-1">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 font-bold text-white text-xs">
+                      <div className="inline-flex flex-col items-center gap-1 w-full max-w-[160px] mx-auto">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-white/5 border border-white/10 font-bold text-white text-xs">
                           <span>{totalRegistered}</span>
                           <span className="text-on-surface-variant font-normal">/</span>
                           <span className={isEventUnlimited ? "text-secondary font-normal" : "text-white"}>
                             {isEventUnlimited ? "Unlimited" : effectiveEventQuota}
                           </span>
                         </span>
+                        {!isEventUnlimited && (
+                          <div className="w-full bg-surface-container-highest/80 rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                isEventFull
+                                  ? "bg-rose-500"
+                                  : eventPercent >= 80
+                                  ? "bg-amber-400"
+                                  : "bg-emerald-400"
+                              }`}
+                              style={{ width: `${eventPercent}%` }}
+                            />
+                          </div>
+                        )}
                         <span className="text-[10px] font-sans text-on-surface-variant">
                           ({q?.pendingCount || 0} P / {q?.approvedCount || 0} A) &bull;{" "}
                           <span className={isEventFull ? "text-error font-medium" : "text-slate-400"}>
-                            {isEventFull ? "Penuh" : remainingEvent !== null ? `Sisa: ${remainingEvent} Slot` : "Tanpa Batas"}
+                            {isEventFull ? "Penuh" : remainingEvent !== null ? `Sisa: ${remainingEvent} (${eventPercent}%)` : "Tanpa Batas"}
                           </span>
                         </span>
                       </div>
@@ -1181,12 +1215,18 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
             const usedInPhase = q ? q.usedInPhase : 0;
             const remainingPhase = q ? q.remainingPhaseQuota : item.phase_quota;
             const isPhaseFull = q ? q.isPhaseFull : false;
+            const phasePercent = !isPhaseUnlimited && item.phase_quota && item.phase_quota > 0
+              ? Math.min(100, Math.round((usedInPhase / item.phase_quota) * 100))
+              : 0;
 
             const effectiveEventQuota = item.event_quota !== undefined ? item.event_quota : (item.total_event_quota !== undefined ? item.total_event_quota : item.max_quota ?? null);
             const isEventUnlimited = effectiveEventQuota === null;
             const totalRegistered = q ? q.totalEventRegistered : 0;
             const remainingEvent = q ? q.remainingEventQuota : effectiveEventQuota;
             const isEventFull = q ? q.isEventFull : false;
+            const eventPercent = !isEventUnlimited && effectiveEventQuota && effectiveEventQuota > 0
+              ? Math.min(100, Math.round((totalRegistered / effectiveEventQuota) * 100))
+              : 0;
 
             return (
               <div
@@ -1256,37 +1296,81 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                     </div>
 
                     {/* Tier 1: Total Kuota (Fase Pendaftaran) */}
-                    <div className="p-3 rounded-xl bg-surface-container-high/40 border border-white/5 space-y-1 text-xs">
+                    <div className="p-3 rounded-xl bg-surface-container-high/40 border border-white/5 space-y-1.5 text-xs">
                       <div className="flex justify-between items-center">
-                        <span className="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider">
-                          Total Kuota (Fase Pendaftaran)
-                        </span>
+                        <div>
+                          <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider block">
+                            Total Kuota (Fase Pendaftaran)
+                          </span>
+                          <span className="text-[9.5px] text-secondary font-medium block">
+                            Hanya Tiket Reguler (Non-Promo)
+                          </span>
+                        </div>
                         <span className="font-mono font-bold text-white">
                           {usedInPhase} / {isPhaseUnlimited ? <span className="text-secondary font-normal">Unlimited</span> : item.phase_quota}
                         </span>
                       </div>
+
+                      {/* Phase Quota Progress Bar */}
+                      {!isPhaseUnlimited && (
+                        <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden my-1">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              isPhaseFull
+                                ? "bg-rose-500"
+                                : phasePercent >= 80
+                                ? "bg-amber-400"
+                                : "bg-[#87CEEB]"
+                            }`}
+                            style={{ width: `${phasePercent}%` }}
+                          />
+                        </div>
+                      )}
+
                       <div className="flex justify-between items-center text-[11px]">
                         <span className="text-on-surface-variant">Sisa Kuota Fase:</span>
                         <span className={`font-bold font-mono ${isPhaseFull ? "text-error" : "text-emerald-400"}`}>
-                          {isPhaseFull ? "Kuota Fase Habis" : remainingPhase !== null ? `${remainingPhase} Slot` : "Tanpa Batas"}
+                          {isPhaseFull ? "Kuota Fase Habis" : remainingPhase !== null ? `${remainingPhase} Slot (${phasePercent}%)` : "Tanpa Batas"}
                         </span>
                       </div>
                     </div>
 
                     {/* Tier 2: Total Kuota (Slot Peserta Sub-Event) */}
-                    <div className="p-3 rounded-xl bg-surface-container-high/40 border border-white/5 space-y-1 text-xs">
+                    <div className="p-3 rounded-xl bg-surface-container-high/40 border border-white/5 space-y-1.5 text-xs">
                       <div className="flex justify-between items-center">
-                        <span className="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider">
-                          Total Kuota (Slot Peserta)
-                        </span>
+                        <div>
+                          <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider block">
+                            Total Kuota (Slot Peserta)
+                          </span>
+                          <span className="text-[9.5px] text-emerald-400 font-medium block">
+                            Kumulatif Reguler + Bundling
+                          </span>
+                        </div>
                         <span className="font-mono font-bold text-white">
                           {totalRegistered} / {isEventUnlimited ? <span className="text-secondary font-normal">Unlimited</span> : effectiveEventQuota}
                         </span>
                       </div>
+
+                      {/* Event Capacity Progress Bar */}
+                      {!isEventUnlimited && (
+                        <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden my-1">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              isEventFull
+                                ? "bg-rose-500"
+                                : eventPercent >= 80
+                                ? "bg-amber-400"
+                                : "bg-emerald-400"
+                            }`}
+                            style={{ width: `${eventPercent}%` }}
+                          />
+                        </div>
+                      )}
+
                       <div className="flex justify-between items-center text-[11px]">
                         <span className="text-on-surface-variant">Sisa Kapasitas Total:</span>
                         <span className={`font-bold font-mono ${isEventFull ? "text-error" : "text-slate-300"}`}>
-                          {isEventFull ? "Kapasitas Penuh" : remainingEvent !== null ? `${remainingEvent} Slot` : "Tanpa Batas"}
+                          {isEventFull ? "Kapasitas Penuh" : remainingEvent !== null ? `${remainingEvent} Slot (${eventPercent}%)` : "Tanpa Batas"}
                         </span>
                       </div>
                       <div className="text-[10px] text-right text-on-surface-variant font-mono">
@@ -1944,11 +2028,11 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   </label>
                 </div>
                 <p className="text-[11px] text-on-surface-variant">
-                  Alokasi batas maksimal tiket khusus untuk fase pendaftaran aktif ini. Terpakai saat ini di fase:{" "}
+                  Alokasi batas maksimal tiket khusus untuk fase pendaftaran aktif ini. Dihitung strictly dari tiket reguler (tanpa bundling/promo). Terpakai saat ini di fase:{" "}
                   <span className="text-white font-bold font-mono">
                     {subEventQuotas?.[editingEventKey]?.usedInPhase ?? 0}
                   </span>{" "}
-                  peserta.
+                  peserta reguler.
                 </p>
 
                 <input
@@ -1979,7 +2063,7 @@ export default function PromoManager({ onToast }: PromoManagerProps) {
                   </label>
                 </div>
                 <p className="text-[11px] text-on-surface-variant">
-                  Batas kapasitas maksimal peserta sub-event di seluruh fase gabungan (event_quota). Total terdaftar saat ini:{" "}
+                  Batas kapasitas fisik maksimal peserta sub-event di seluruh fase gabungan (event_quota), mencakup seluruh pendaftar reguler dan paket bundling. Total terdaftar saat ini:{" "}
                   <span className="text-white font-bold font-mono">
                     {subEventQuotas?.[editingEventKey]?.totalEventRegistered ?? 0}
                   </span>{" "}
